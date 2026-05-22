@@ -270,16 +270,16 @@ describe('APPLY_GEMINI_BLOCKS', () => {
     { type: 'action_button', id: 'g1', label: 'Test Action', icon: '🚀' },
   ];
 
-  it('appends new blocks to canvas without removing existing ones', () => {
+  it('replaces welcome-hero with AI blocks, keeping total = AI block count', () => {
     const result = setupChatState();
-    const before = result.current.state.appConfig.blocks.length;
     act(() => {
       result.current.dispatch({
         type: 'APPLY_GEMINI_BLOCKS',
         payload: { blocks: FAKE_BLOCKS, replyText: 'Done!' },
       });
     });
-    expect(result.current.state.appConfig.blocks.length).toBe(before + FAKE_BLOCKS.length);
+    // welcome-hero is stripped; only the AI blocks remain
+    expect(result.current.state.appConfig.blocks.length).toBe(FAKE_BLOCKS.length);
     expect(result.current.state.appConfig.blocks.at(-1)?.id).toBe('g1');
   });
 
@@ -313,28 +313,28 @@ describe('APPLY_GEMINI_BLOCKS', () => {
 describe('GEMINI_ERROR fallback engine', () => {
   it('appends an interactive_list block for list-intent text', () => {
     const result = setupChatState();
-    const before = result.current.state.appConfig.blocks.length;
     act(() => {
       result.current.dispatch({
         type: 'GEMINI_ERROR',
         payload: { text: 'build a packing list: passport, charger, clothes', errorMsg: 'Network timeout' },
       });
     });
-    expect(result.current.state.appConfig.blocks.length).toBe(before + 1);
+    // welcome-hero is stripped; only the fallback block remains
+    expect(result.current.state.appConfig.blocks.length).toBe(1);
     const newBlock = result.current.state.appConfig.blocks.at(-1)!;
     expect(newBlock.type).toBe('interactive_list');
   });
 
   it('appends a metrics_row block for metrics-intent text', () => {
     const result = setupChatState();
-    const before = result.current.state.appConfig.blocks.length;
     act(() => {
       result.current.dispatch({
         type: 'GEMINI_ERROR',
         payload: { text: 'show me a finance metrics dashboard', errorMsg: 'timeout' },
       });
     });
-    expect(result.current.state.appConfig.blocks.length).toBe(before + 1);
+    // welcome-hero is stripped; only the fallback block remains
+    expect(result.current.state.appConfig.blocks.length).toBe(1);
     expect(result.current.state.appConfig.blocks.at(-1)!.type).toBe('metrics_row');
   });
 

@@ -433,6 +433,11 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
       // Suppress unused variable warning
       void tokens;
 
+      // Strip the welcome placeholder the moment a real content prompt is submitted
+      if (!syncReply) {
+        newBlocks = newBlocks.filter((b) => b.id !== 'welcome-hero');
+      }
+
       const messages = syncReply
         ? [...state.companion.messages, userMsg,
             { id: `${Date.now()}-c`, role: 'companion' as const, text: syncReply }]
@@ -455,7 +460,7 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
       const firstId = blocks[0]?.id ?? 'canvas-root';
       return {
         ...state,
-        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks, ...blocks] },
+        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks.filter(b => b.id !== 'welcome-hero'), ...blocks] },
         companion: { ...state.companion, messages: [...state.companion.messages, aiMsg] },
         shimmeringBlockId: firstId,
       };
@@ -520,7 +525,7 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
       return {
         ...state,
-        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks, ...fallbackBlocks] },
+        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks.filter(b => b.id !== 'welcome-hero'), ...fallbackBlocks] },
         companion: { ...state.companion, messages: [...state.companion.messages, aiMsg] },
         shimmeringBlockId: firstId,
       };

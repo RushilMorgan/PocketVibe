@@ -9,7 +9,7 @@ export interface AIArchetype {
   accentColor: string;
 }
 
-export type BlockType = 'hero_banner' | 'interactive_list' | 'action_button' | 'metrics_row';
+export type BlockType = 'hero_banner' | 'interactive_list' | 'action_button' | 'metrics_row' | 'interactive_form';
 
 export interface BaseBlock {
   id: string;
@@ -47,7 +47,22 @@ export interface MetricsRowBlock extends BaseBlock {
   metrics: { label: string; value: string }[];
 }
 
-export type VisualBlock = HeroBannerBlock | InteractiveListBlock | ActionButtonBlock | MetricsRowBlock;
+export interface FormField {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'slider';
+  placeholder?: string;
+  value: string;
+}
+
+export interface InteractiveFormBlock extends BaseBlock {
+  type: 'interactive_form';
+  title: string;
+  submitLabel: string;
+  fields: FormField[];
+}
+
+export type VisualBlock = HeroBannerBlock | InteractiveListBlock | ActionButtonBlock | MetricsRowBlock | InteractiveFormBlock;
 
 export interface AppConfig {
   blocks: VisualBlock[];

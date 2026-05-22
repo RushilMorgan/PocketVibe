@@ -15,15 +15,28 @@ export default function PocketVibeCanvas({
   onInteract,
 }: PocketVibeCanvasProps) {
   const isMinimal = appConfig.styleSlider > 60;
+  const isPlayful = appConfig.styleSlider < 40;
+  
+  const cardRadius = Math.round(28 - (appConfig.styleSlider / 100) * 24);
+  const accent = appConfig.accentColor;
+
+  const dynamicStyles = {
+    '--theme-accent': accent,
+    '--theme-bg': isMinimal ? '#f9fafb' : '#ffffff',
+    '--theme-surface': isMinimal ? '#ffffff' : `${accent}08`,
+    '--theme-surface-hover': isMinimal ? '#f3f4f6' : `${accent}15`,
+    '--theme-text': isMinimal ? '#111827' : '#1f2937',
+    '--theme-text-muted': isMinimal ? '#9ca3af' : '#6b7280',
+    '--theme-radius': `${cardRadius}px`,
+    '--theme-border': isMinimal ? '1px solid #e5e7eb' : '1px solid transparent',
+    '--theme-shadow': isMinimal ? '0 1px 3px rgba(0,0,0,0.05)' : `0 4px 12px ${accent}15`,
+    '--theme-font-header': isPlayful ? '"Nunito", sans-serif' : 'system-ui, sans-serif',
+  } as React.CSSProperties;
   
   return (
     <div 
-      className="canvas-scroll relative"
-      style={{ 
-        flex: '63', overflowY: 'auto', padding: '16px', 
-        backgroundColor: isMinimal ? '#f9fafb' : '#ffffff',
-        transition: 'background-color 0.4s ease'
-      }}
+      className="canvas-scroll relative overflow-y-auto p-4 bg-theme-bg transition-colors duration-400"
+      style={{ ...dynamicStyles, flex: '63' }}
     >
       {shimmeringBlockId === 'canvas-root' && (
         <div

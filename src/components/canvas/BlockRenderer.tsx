@@ -7,26 +7,22 @@ interface BlockRendererProps {
 }
 
 export default function BlockRenderer({ block, appConfig, onInteract }: BlockRendererProps) {
-  const isMinimal = appConfig.styleSlider > 60;
   const isPlayful = appConfig.styleSlider < 40;
-  
-  const cardRadius = Math.round(28 - (appConfig.styleSlider / 100) * 24);
-  const accent = appConfig.accentColor;
 
   switch (block.type) {
     case 'hero_banner':
       return (
-        <div style={{ backgroundColor: isMinimal ? '#ffffff' : `${accent}12`, borderRadius: cardRadius, padding: '24px', textAlign: 'center', marginBottom: '16px', border: isMinimal ? '1px solid #e5e7eb' : 'none', boxShadow: isMinimal ? 'none' : '0 10px 30px rgba(0,0,0,0.03)' }}>
-          <h2 style={{ fontSize: isPlayful ? '28px' : '24px', fontWeight: 900, color: isMinimal ? '#111827' : accent, marginBottom: '8px', letterSpacing: isMinimal ? '-0.5px' : '0' }}>
+        <div className="bg-theme-surface rounded-theme p-6 text-center mb-4 transition-all duration-300" style={{ border: 'var(--theme-border)', boxShadow: 'var(--theme-shadow)' }}>
+          <h2 className="text-theme-text font-black mb-2 transition-all duration-300" style={{ fontSize: isPlayful ? '28px' : '24px', fontFamily: 'var(--theme-font-header)' }}>
             {block.title}
           </h2>
-          <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px', fontWeight: 600 }}>
+          <p className="text-theme-text-muted text-[13px] font-semibold mb-5">
             {block.subtitle}
           </p>
           <button 
             onClick={() => onInteract(block.id)}
-            className="active:scale-[0.95] transition-transform"
-            style={{ backgroundColor: accent, color: '#fff', borderRadius: '100px', padding: '10px 24px', fontSize: '14px', fontWeight: 800, border: 'none', boxShadow: `0 4px 14px ${accent}40`, cursor: 'pointer' }}
+            className="active:scale-95 transition-transform rounded-full px-6 py-2.5 text-sm font-extrabold text-white border-none cursor-pointer"
+            style={{ backgroundColor: 'var(--theme-accent)', boxShadow: '0 4px 14px color-mix(in srgb, var(--theme-accent) 40%, transparent)' }}
           >
             {block.ctaLabel}
           </button>
@@ -35,35 +31,28 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
       
     case 'interactive_list':
       return (
-        <div style={{ marginBottom: '20px' }}>
+        <div className="mb-5">
           {block.title && (
-            <h3 style={{ fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', color: isMinimal ? '#9ca3af' : accent }}>
+            <h3 className="text-[13px] font-black uppercase tracking-widest mb-3" style={{ color: 'var(--theme-accent)' }}>
               {block.title}
             </h3>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="flex flex-col gap-2.5">
             {block.items.map(item => (
               <button 
                 key={item.id} 
                 onClick={() => onInteract(block.id, item.id)}
-                className="active:scale-[0.98] transition-transform w-[100%] text-left"
-                style={{ 
-                  display: 'flex', alignItems: 'center', padding: '16px', 
-                  backgroundColor: isMinimal ? '#fff' : `${accent}06`, 
-                  border: isMinimal ? '1px solid #e5e7eb' : 'none',
-                  borderRadius: Math.max(12, cardRadius - 4),
-                  boxShadow: isMinimal ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
-                  cursor: 'pointer'
-                }}
+                className="active:scale-[0.98] transition-transform w-full text-left flex items-center p-4 bg-theme-surface rounded-theme cursor-pointer"
+                style={{ border: 'var(--theme-border)', boxShadow: 'var(--theme-shadow)' }}
               >
-                <div style={{ fontSize: isPlayful ? '26px' : '20px', marginRight: '16px', filter: isMinimal ? 'grayscale(1)' : 'none' }}>
+                <div className="mr-4 transition-all duration-300" style={{ fontSize: isPlayful ? '26px' : '20px' }}>
                   {item.icon}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, color: '#1f2937', fontSize: '15px' }}>{item.label}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, marginTop: '2px' }}>Interactive item</div>
+                <div className="flex-1">
+                  <div className="font-extrabold text-theme-text text-[15px]">{item.label}</div>
+                  <div className="text-[11px] text-theme-text-muted font-semibold mt-0.5">Interactive item</div>
                 </div>
-                <div style={{ fontSize: '11px', fontWeight: 800, padding: '4px 12px', borderRadius: '100px', backgroundColor: isMinimal ? '#f3f4f6' : `${accent}15`, color: isMinimal ? '#4b5563' : accent }}>
+                <div className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-theme-surface-hover transition-colors duration-300" style={{ color: 'var(--theme-accent)' }}>
                   {item.state}
                 </div>
               </button>
@@ -76,23 +65,23 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
       return (
         <button 
           onClick={() => onInteract(block.id)}
-          className="active:scale-[0.95] transition-transform"
-          style={{ width: '100%', padding: isPlayful ? '20px' : '16px', borderRadius: cardRadius, backgroundColor: accent, color: '#fff', fontSize: '16px', fontWeight: 900, border: 'none', boxShadow: `0 8px 24px ${accent}40`, marginBottom: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+          className="active:scale-[0.95] transition-transform w-full rounded-theme text-white text-[16px] font-black border-none mb-4 flex justify-center items-center gap-3 cursor-pointer"
+          style={{ padding: isPlayful ? '20px' : '16px', backgroundColor: 'var(--theme-accent)', boxShadow: '0 8px 24px color-mix(in srgb, var(--theme-accent) 40%, transparent)' }}
         >
-          {block.icon && <span style={{ fontSize: '20px' }}>{block.icon}</span>}
+          {block.icon && <span className="text-[20px]">{block.icon}</span>}
           {block.label}
         </button>
       );
       
     case 'metrics_row':
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div className="grid grid-cols-2 gap-3 mb-4">
           {block.metrics.map((m, i) => (
-            <div key={i} style={{ backgroundColor: isMinimal ? '#ffffff' : `${accent}0A`, padding: '20px 16px', borderRadius: cardRadius, border: isMinimal ? '1px solid #e5e7eb' : 'none', textAlign: 'center', boxShadow: isMinimal ? '0 1px 4px rgba(0,0,0,0.04)' : 'none' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#9ca3af', fontWeight: 800, marginBottom: '6px' }}>
+            <div key={i} className="bg-theme-surface p-5 rounded-theme text-center transition-all duration-300" style={{ border: 'var(--theme-border)', boxShadow: 'var(--theme-shadow)' }}>
+              <div className="text-[11px] uppercase tracking-[1.5px] text-theme-text-muted font-extrabold mb-1.5">
                 {m.label}
               </div>
-              <div style={{ fontSize: '26px', fontWeight: 900, color: isMinimal ? '#111827' : accent, letterSpacing: '-0.5px' }}>
+              <div className="font-black text-theme-text tracking-tight transition-all duration-300" style={{ fontSize: isPlayful ? '28px' : '24px', color: isPlayful ? 'var(--theme-accent)' : 'var(--theme-text)', fontFamily: 'var(--theme-font-header)' }}>
                 {m.value}
               </div>
             </div>

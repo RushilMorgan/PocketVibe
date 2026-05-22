@@ -2,6 +2,16 @@
 
 @theme {
   --font-nunito: 'Nunito', sans-serif;
+  --color-theme-accent: var(--theme-accent, #7c3aed);
+  --color-theme-bg: var(--theme-bg, #ffffff);
+  --color-theme-surface: var(--theme-surface, #ffffff);
+  --color-theme-surface-hover: var(--theme-surface-hover, #f3f4f6);
+  --color-theme-text: var(--theme-text, #111827);
+  --color-theme-text-muted: var(--theme-text-muted, #6b7280);
+  --radius-theme: var(--theme-radius, 1rem);
+  --border-theme: var(--theme-border, 1px solid transparent);
+  --shadow-theme: var(--theme-shadow, none);
+  --font-theme-header: var(--theme-font-header, system-ui, sans-serif);
 }
 
 * {

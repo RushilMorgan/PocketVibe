@@ -59,7 +59,7 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange, onFocus
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="relative h-full flex flex-col justify-between overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ borderBottom: '1px solid #f0f0f5' }}>
         <span className="text-lg leading-none">{arc.emoji}</span>
         <div>
@@ -68,15 +68,18 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange, onFocus
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0">
+      <div
+        className="flex-1 w-full overflow-y-auto px-4 py-2 flex flex-col gap-2 scrollbar-none"
+        style={{ scrollbarWidth: 'none' }}
+      >
         {companion.messages.map((msg: any) => (
-          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={msg.id} className={`flex mb-1 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <span className="text-[11px] leading-snug px-2.5 py-1.5 rounded-2xl max-w-[80%]" style={{ backgroundColor: msg.role === 'user' ? arc.accentColor : '#f3f4f6', color: msg.role === 'user' ? '#fff' : '#374151', borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px' }}>
               {msg.text}
             </span>
           </div>
         ))}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-2 shrink-0" />
       </div>
 
       <div className="px-3 pb-3 pt-1.5 flex flex-col gap-1.5 shrink-0" style={{ borderTop: '1px solid #f0f0f5' }}>
@@ -120,15 +123,16 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange, onFocus
 export default function CompanionSheet({ companion, appConfig, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
   const [expanded, setExpanded] = useState(false);
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
-  const flexValue = expanded && companion.phase === 'chat' ? '50' : '30';
+  const isChat = companion.phase === 'chat';
+  const sheetHeight = expanded && isChat ? '58dvh' : '32dvh';
   return (
     <div
-      className="flex flex-col overflow-hidden bg-white"
+      className="shrink-0 flex flex-col overflow-hidden bg-white"
       style={{
-        flex: flexValue,
+        height: sheetHeight,
         borderTop: `2px solid ${accentColor}30`,
         boxShadow: '0 -4px 20px rgba(0,0,0,0.06)',
-        transition: 'flex 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'height 350ms ease-in-out',
       }}
     >
       <div className="flex justify-center pt-2 pb-0 shrink-0"><div className="w-8 h-1 rounded-full bg-gray-200" /></div>

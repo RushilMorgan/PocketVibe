@@ -150,14 +150,16 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange, onFocus
 export default function CompanionSheet({ companion, appConfig, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
   const [expanded, setExpanded] = useState(false);
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
-  const isChat = companion.phase === 'chat';
-  const heightClass = !isChat
-    ? 'h-auto pb-8 pt-2'
-    : expanded ? 'h-[50dvh]' : 'h-[28dvh]';
   return (
     <div
-      className={`absolute bottom-4 left-4 right-4 z-10 max-h-[85dvh] ${heightClass} flex flex-col overflow-hidden bg-white/40 backdrop-blur-xl border border-white/30 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] transition-all duration-500`}
-      style={{ transition: 'height 500ms cubic-bezier(0.25, 1, 0.5, 1)' }}
+      className="absolute bottom-4 left-4 right-4 z-10 bg-white/30 backdrop-blur-xl border border-white/20 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden"
+      style={{
+        height: companion.phase === 'onboarding'
+          ? 'auto'
+          : expanded ? '46dvh' : '26dvh',
+        transition: 'height 500ms cubic-bezier(0.25, 1, 0.3, 1)',
+        paddingBottom: companion.phase === 'onboarding' ? '16px' : '0px'
+      }}
     >
       <div className="flex justify-center pt-3 pb-1 shrink-0">
         <div className="w-10 h-1 rounded-full" style={{ backgroundColor: `${accentColor}50` }} />

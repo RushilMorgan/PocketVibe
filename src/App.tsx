@@ -5,23 +5,15 @@ import CompanionSheet from './components/thumbzone/CompanionSheet';
 import { usePocketVibe } from './hooks/usePocketVibe';
 
 export default function App() {
-  const {
-    state,
-    dispatch,
-    shufflePaletteWithShimmer,
-    makePunchierWithShimmer,
-    addSectionWithShimmer,
-    spinChores,
-    sendMessageWithEffect,
-  } = usePocketVibe();
+  const { state, dispatch } = usePocketVibe();
 
   return (
     <AppShell>
       <PVHeader
         simulatePartner={state.simulatePartner}
-        currentBlueprint={state.appConfig.blueprint}
+        currentColor={state.appConfig.accentColor}
         onToggleSimulate={() => dispatch({ type: 'TOGGLE_SIMULATE_PARTNER' })}
-        onSwapBlueprint={(id) => dispatch({ type: 'SWAP_BLUEPRINT', payload: id })}
+        onLoadPreset={(preset) => dispatch({ type: 'LOAD_PRESET', payload: preset })}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
@@ -29,20 +21,16 @@ export default function App() {
           appConfig={state.appConfig}
           simulatePartner={state.simulatePartner}
           shimmeringBlockId={state.shimmeringBlockId}
-          onCycleGroceryStatus={(id) => dispatch({ type: 'CYCLE_GROCERY_STATUS', payload: id })}
-          onSpinChores={spinChores}
+          onInteract={(blockId, itemId) => dispatch({ type: 'INTERACT_BLOCK', payload: { blockId, itemId } })}
         />
         <CompanionSheet
           companion={state.companion}
           appConfig={state.appConfig}
-          onSelectArchetype={(a) => dispatch({ type: 'SELECT_ARCHETYPE', payload: a })}
-          onSetCustomName={(n) => dispatch({ type: 'SET_CUSTOM_NAME', payload: n })}
+          onSelectArchetype={(a: any) => dispatch({ type: 'SELECT_ARCHETYPE', payload: a })}
+          onSetCustomName={(n: string) => dispatch({ type: 'SET_CUSTOM_NAME', payload: n })}
           onConfirm={() => dispatch({ type: 'CONFIRM_COMPANION' })}
-          onSendMessage={sendMessageWithEffect}
-          onSliderChange={(v) => dispatch({ type: 'SET_STYLE_SLIDER', payload: v })}
-          onShufflePalette={shufflePaletteWithShimmer}
-          onMakePunchier={makePunchierWithShimmer}
-          onAddSection={addSectionWithShimmer}
+          onPrompt={(text: string) => dispatch({ type: 'PROCESS_LLM_PROMPT', payload: text })}
+          onSliderChange={(v: number) => dispatch({ type: 'SET_STYLE_SLIDER', payload: v })}
         />
       </div>
     </AppShell>

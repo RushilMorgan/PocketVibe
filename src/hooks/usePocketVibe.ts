@@ -2,47 +2,30 @@ import { useReducer, useCallback, useRef, useEffect } from 'react';
 import type {
   PocketVibeState,
   AppConfig,
-  GroceryStatus,
-  BlueprintId,
   AIArchetype,
   ChatMessage,
-  ChoreItem,
-  GroceryItem,
+  VisualBlock,
   CompanionState,
 } from '../types';
 
-// ── Static data ───────────────────────────────────────────────────────────────
+const PALETTES = ['#7c3aed', '#f43f5e', '#16a34a', '#0ea5e9', '#f97316', '#8b5cf6', '#ec4899', '#14b8a6'];
 
-const PALETTES = [
-  '#7c3aed', '#f43f5e', '#16a34a', '#0ea5e9',
-  '#f97316', '#8b5cf6', '#ec4899', '#14b8a6',
-];
+const BLANK_PRESET: VisualBlock[] = [];
 
-const HOUSEMATES = ['Alex', 'Jordan', 'Sam', 'Riley', 'Casey'];
-
-const DEFAULT_GROCERY: GroceryItem[] = [
-  { id: 'g1', name: 'Oat Milk', emoji: '🥛', status: 'stocked' },
-  { id: 'g2', name: 'Sourdough', emoji: '🍞', status: 'low' },
-  { id: 'g3', name: 'Avocados', emoji: '🥑', status: 'out' },
-  { id: 'g4', name: 'Eggs', emoji: '🥚', status: 'stocked' },
-  { id: 'g5', name: 'Pasta', emoji: '🍝', status: 'low' },
-  { id: 'g6', name: 'Olive Oil', emoji: '🫙', status: 'stocked' },
-];
-
-const DEFAULT_CHORES: ChoreItem[] = [
-  { id: 'c1', name: 'Do the dishes', emoji: '🍽️', assignee: null },
-  { id: 'c2', name: 'Vacuum living room', emoji: '🧹', assignee: null },
-  { id: 'c3', name: 'Take out trash', emoji: '🗑️', assignee: null },
-  { id: 'c4', name: 'Clean bathroom', emoji: '🧼', assignee: null },
+const GROCERY_PRESET: VisualBlock[] = [
+  { type: 'hero_banner', id: 'hero-1', title: 'Inventory Tracker', subtitle: 'Universal list syncing algorithm.', ctaLabel: 'Checkout List' },
+  { type: 'interactive_list', id: 'list-1', title: 'Groceries', items: [
+    { id: 'i1', label: 'Oat Milk', icon: '🥛', state: 'Stocked' },
+    { id: 'i2', label: 'Avocados', icon: '🥑', state: 'Out' },
+    { id: 'i3', label: 'Coffee Beans', icon: '☕', state: 'Low' }
+  ]}
 ];
 
 const INITIAL_STATE: PocketVibeState = {
   appConfig: {
-    blueprint: 'grocery',
+    blocks: GROCERY_PRESET,
     accentColor: '#7c3aed',
     styleSlider: 30,
-    groceryItems: DEFAULT_GROCERY,
-    choreItems: DEFAULT_CHORES,
   },
   companion: {
     archetype: null,
@@ -54,77 +37,16 @@ const INITIAL_STATE: PocketVibeState = {
   shimmeringBlockId: null,
 };
 
-// ── Reducer actions ───────────────────────────────────────────────────────────
-
 type PVAction =
   | { type: 'SELECT_ARCHETYPE'; payload: AIArchetype }
   | { type: 'SET_CUSTOM_NAME'; payload: string }
   | { type: 'CONFIRM_COMPANION' }
-  | { type: 'SEND_MESSAGE'; payload: string }
   | { type: 'TOGGLE_SIMULATE_PARTNER' }
-  | { type: 'SWAP_BLUEPRINT'; payload: BlueprintId }
-  | { type: 'CYCLE_GROCERY_STATUS'; payload: string }
-  | { type: 'SPIN_CHORES' }
+  | { type: 'LOAD_PRESET'; payload: 'grocery' | 'blank' }
   | { type: 'SET_STYLE_SLIDER'; payload: number }
-  | { type: 'SHUFFLE_PALETTE'; payload: string }
-  | { type: 'MAKE_PUNCHIER' }
-  | { type: 'ADD_SECTION' }
-  | { type: 'SET_SHIMMER'; payload: string | null };
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function nextStatus(s: GroceryStatus): GroceryStatus {
-  return s === 'stocked' ? 'low' : s === 'low' ? 'out' : 'stocked';
-}
-
-function generateGreeting(archetype: AIArchetype, customName: string): string {
-  const name = customName.trim() || archetype.name;
-  switch (archetype.id) {
-    case 'lex':
-      return `Hey. I'm ${name}. Tell me what to build, and I'll keep it sharp.`;
-    case 'ziggy':
-      return `Yo!! I'm ${name}!! 🎉 Let's make this thing INCREDIBLE!! What vibe are we going for?! 🚀🔥`;
-    case 'nova':
-      return `Hello. I'm ${name}. I've analyzed your current config. Ready to optimize? What's the priority?`;
-  }
-}
-
-function generateReply(companion: CompanionState, text: string): string {
-  const arc = companion.archetype;
-  const lower = text.toLowerCase();
-  const name = companion.customName.trim() || arc?.name || 'AI';
-
-  if (lower.includes('green') || lower.includes('background') || lower.includes('color') || lower.includes('palette')) {
-    if (arc?.id === 'ziggy') return `GREEN!! Yes!! 🌿🎨 Shuffling the palette to something fresh!!`;
-    if (arc?.id === 'lex') return `Palette updated.`;
-    return `Initiating palette shuffle. Color change applied.`;
-  }
-  if (lower.includes('punchier') || lower.includes('bold') || lower.includes('louder')) {
-    if (arc?.id === 'ziggy') return `PUNCHIER?! I LIVE FOR THIS!! 💥🔥 Making it hit HARDER!!`;
-    if (arc?.id === 'lex') return `Style adjusted. Less noise, more impact.`;
-    return `Applying a punchier style modifier. Style score updated.`;
-  }
-  if (lower.includes('add') || lower.includes('section') || lower.includes('more')) {
-    if (arc?.id === 'ziggy') return `MORE STUFF?! 🤩 Adding a brand new section RIGHT NOW!! ✨`;
-    if (arc?.id === 'lex') return `Section injected.`;
-    return `Injecting a new visual section into the active layout.`;
-  }
-  if (lower.includes('help') || lower.includes('what can')) {
-    if (arc?.id === 'lex') return `Try: "change the color", "make it punchier", "add a section".`;
-    if (arc?.id === 'ziggy') return `ANYTHING!! 🎊 Try: "shuffle palette", "make it punchier", "add a section" — LET'S GO!!`;
-    return `Available commands: "shuffle the palette", "make it punchier", "add a visual section".`;
-  }
-
-  const defaults: Record<string, string[]> = {
-    lex: [`Noted.`, `Got it.`, `Working on it.`, `Done.`],
-    ziggy: [`OMG YES!! 🎉`, `ON IT!! 🚀`, `This is gonna be EPIC!! 💥`, `YAS!! ✨`],
-    nova: [`Processing.`, `Analyzing... applied.`, `Optimization in progress.`, `Request logged.`],
-  };
-  const pool = defaults[arc?.id ?? 'nova'];
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-// ── Reducer ───────────────────────────────────────────────────────────────────
+  | { type: 'INTERACT_BLOCK'; payload: { blockId: string; itemId?: string } }
+  | { type: 'SET_SHIMMER'; payload: string | null }
+  | { type: 'PROCESS_LLM_PROMPT'; payload: string };
 
 function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
   switch (action.type) {
@@ -136,93 +58,111 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
     case 'CONFIRM_COMPANION': {
       const { archetype, customName } = state.companion;
-      if (!archetype) return state;
       const greeting: ChatMessage = {
         id: `${Date.now()}-greet`,
         role: 'companion',
-        text: generateGreeting(archetype, customName),
+        text: `Hey. I'm ${customName.trim() || archetype?.name}. Tell me what app elements to generate.`,
       };
-      return {
-        ...state,
-        companion: { ...state.companion, phase: 'chat', messages: [greeting] },
-      };
-    }
-
-    case 'SEND_MESSAGE': {
-      const userMsg: ChatMessage = { id: `${Date.now()}-u`, role: 'user', text: action.payload };
-      const replyText = generateReply(state.companion, action.payload);
-      const replyMsg: ChatMessage = { id: `${Date.now()}-c`, role: 'companion', text: replyText };
-      return {
-        ...state,
-        companion: { ...state.companion, messages: [...state.companion.messages, userMsg, replyMsg] },
-      };
+      return { ...state, companion: { ...state.companion, phase: 'chat', messages: [greeting] } };
     }
 
     case 'TOGGLE_SIMULATE_PARTNER':
       return { ...state, simulatePartner: !state.simulatePartner };
 
-    case 'SWAP_BLUEPRINT':
-      return { ...state, appConfig: { ...state.appConfig, blueprint: action.payload } };
-
-    case 'CYCLE_GROCERY_STATUS':
-      return {
-        ...state,
-        appConfig: {
-          ...state.appConfig,
-          groceryItems: state.appConfig.groceryItems.map((item) =>
-            item.id === action.payload ? { ...item, status: nextStatus(item.status) } : item
-          ),
-        },
-      };
-
-    case 'SPIN_CHORES':
-      return {
-        ...state,
-        appConfig: {
-          ...state.appConfig,
-          choreItems: state.appConfig.choreItems.map((item) => ({
-            ...item,
-            assignee: HOUSEMATES[Math.floor(Math.random() * HOUSEMATES.length)],
-          })),
-        },
-      };
+    case 'LOAD_PRESET':
+      return { ...state, appConfig: { ...state.appConfig, blocks: action.payload === 'grocery' ? GROCERY_PRESET : BLANK_PRESET } };
 
     case 'SET_STYLE_SLIDER':
       return { ...state, appConfig: { ...state.appConfig, styleSlider: action.payload } };
 
-    case 'SHUFFLE_PALETTE':
-      return { ...state, appConfig: { ...state.appConfig, accentColor: action.payload } };
-
-    case 'MAKE_PUNCHIER':
+    case 'INTERACT_BLOCK': {
+      const { blockId, itemId } = action.payload;
       return {
         ...state,
-        appConfig: { ...state.appConfig, styleSlider: Math.max(0, state.appConfig.styleSlider - 20) },
+        shimmeringBlockId: blockId,
+        appConfig: {
+          ...state.appConfig,
+          blocks: state.appConfig.blocks.map(b => {
+            if (b.id !== blockId) return b;
+            if (b.type === 'interactive_list' && itemId) {
+              return {
+                ...b,
+                items: b.items.map(i => {
+                  if (i.id !== itemId) return i;
+                  const nextState = i.state === 'Stocked' ? 'Low' : i.state === 'Low' ? 'Out' : i.state === 'Out' ? 'Stocked' : i.state === 'Done' ? 'Pending' : 'Done';
+                  return { ...i, state: nextState };
+                })
+              };
+            }
+            return b;
+          })
+        }
       };
+    }
 
-    case 'ADD_SECTION': {
-      if (state.appConfig.blueprint === 'grocery') {
-        const options: GroceryItem[] = [
-          { id: `g-x-${Date.now()}`, name: 'Chocolate', emoji: '🍫', status: 'out' },
-          { id: `g-x-${Date.now() + 1}`, name: 'Ice Cream', emoji: '🍦', status: 'stocked' },
-          { id: `g-x-${Date.now() + 2}`, name: 'Pizza', emoji: '🍕', status: 'low' },
-        ];
-        const pick = options[Math.floor(Math.random() * options.length)];
-        return {
-          ...state,
-          appConfig: { ...state.appConfig, groceryItems: [...state.appConfig.groceryItems, pick] },
-        };
-      } else {
-        const options: ChoreItem[] = [
-          { id: `c-x-${Date.now()}`, name: 'Water plants', emoji: '🪴', assignee: null },
-          { id: `c-x-${Date.now() + 1}`, name: 'Feed the fish', emoji: '🐟', assignee: null },
-          { id: `c-x-${Date.now() + 2}`, name: 'Fold laundry', emoji: '👕', assignee: null },
-        ];
-        const pick = options[Math.floor(Math.random() * options.length)];
-        return {
-          ...state,
-          appConfig: { ...state.appConfig, choreItems: [...state.appConfig.choreItems, pick] },
-        };
+    case 'PROCESS_LLM_PROMPT': {
+      const text = action.payload;
+      const lower = text.toLowerCase();
+      const userMsg: ChatMessage = { id: `${Date.now()}-u`, role: 'user', text };
+      
+      let replyText = "I processed your request, but couldn't attach any specific generative UI blocks to that prompt. Try asking for 'fitness log' or 'metrics'.";
+      let targetShimmer: string | null = null;
+      let newBlocks = [...state.appConfig.blocks];
+      let newColor = state.appConfig.accentColor;
+      let newSlider = state.appConfig.styleSlider;
+
+      if (lower.includes('fitness') || lower.includes('workout')) {
+        const genBlock: VisualBlock = { type: 'interactive_list', id: `gen-${Date.now()}`, title: 'Generated: Fitness Tracker', items: [ { id: 'f1', label: 'Morning 5k', icon: '🏃', state: 'Pending' }, { id: 'f2', label: 'Core Routine', icon: '💪', state: 'Pending' } ] };
+        newBlocks.push(genBlock);
+        replyText = "Generated a tactile fitness tracker dynamically.";
+        targetShimmer = genBlock.id;
       }
+      else if (lower.includes('metric') || lower.includes('stats')) {
+        const genBlock: VisualBlock = { type: 'metrics_row', id: `gen-${Date.now()}`, metrics: [ { label: 'Streak', value: '12 Days' }, { label: 'Score', value: '4,200' } ] };
+        newBlocks.push(genBlock);
+        replyText = "Injected purely generative analytics metrics into the active layout.";
+        targetShimmer = genBlock.id;
+      }
+      else if (lower.includes('button') || lower.includes('action')) {
+        const genBlock: VisualBlock = { type: 'action_button', id: `gen-${Date.now()}`, label: '✨ Do Something Awesome', icon: '🚀' };
+        newBlocks.push(genBlock);
+        replyText = "Added a heavy action button to the bottom layout layer.";
+        targetShimmer = genBlock.id;
+      }
+      else if (lower.includes('hero') || lower.includes('header')) {
+        const genBlock: VisualBlock = { type: 'hero_banner', id: `gen-${Date.now()}`, title: 'Generative Canvas', subtitle: 'Built from pure intent JSONs.', ctaLabel: 'Get Started' };
+        newBlocks.push(genBlock);
+        replyText = "Appended a new Hero Banner format to the canvas structure.";
+        targetShimmer = genBlock.id;
+      }
+      else if (lower.includes('list')) {
+        const genBlock: VisualBlock = { type: 'interactive_list', id: `gen-${Date.now()}`, title: 'Generated List', items: [ { id: 'l1', label: 'Item A', icon: '📦', state: 'Pending' }, { id: 'l2', label: 'Item B', icon: '📦', state: 'Pending' } ] };
+        newBlocks.push(genBlock);
+        replyText = "Appended a new scalable generic list.";
+        targetShimmer = genBlock.id;
+      }
+      
+      if (lower.includes('color') || lower.includes('palette') || lower.includes('shuffle')) {
+        const curIdx = PALETTES.indexOf(state.appConfig.accentColor) || 0;
+        newColor = PALETTES[(curIdx + 1) % PALETTES.length];
+        replyText = targetShimmer ? replyText + " (Also shuffled the root palette!)" : "Universal layout colors completely mutated!";
+        if (!targetShimmer) targetShimmer = 'canvas-root';
+      }
+
+      if (lower.includes('punchier') || lower.includes('bold')) {
+        newSlider = Math.max(0, newSlider - 30);
+        replyText = targetShimmer ? replyText + " (Applied punchy style tokens!)" : "Style tokens modified to be punchier. Round borders, heavier font weights applied.";
+        if (!targetShimmer) targetShimmer = 'canvas-root';
+      }
+      
+      const aiReply: ChatMessage = { id: `${Date.now()}-c`, role: 'companion', text: replyText };
+
+      return {
+        ...state,
+        appConfig: { ...state.appConfig, blocks: newBlocks, accentColor: newColor, styleSlider: newSlider },
+        companion: { ...state.companion, messages: [...state.companion.messages, userMsg, aiReply] },
+        shimmeringBlockId: targetShimmer
+      };
     }
 
     case 'SET_SHIMMER':
@@ -233,69 +173,18 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
   }
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function usePocketVibe() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const shimmerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    return () => {
+    if (state.shimmeringBlockId) {
       if (shimmerTimerRef.current) clearTimeout(shimmerTimerRef.current);
-    };
-  }, []);
+      shimmerTimerRef.current = setTimeout(() => {
+        dispatch({ type: 'SET_SHIMMER', payload: null });
+      }, 1000);
+    }
+  }, [state.shimmeringBlockId]);
 
-  const shimmerThen = useCallback((blockId: string, mutate: () => void) => {
-    if (shimmerTimerRef.current) clearTimeout(shimmerTimerRef.current);
-    dispatch({ type: 'SET_SHIMMER', payload: blockId });
-    shimmerTimerRef.current = setTimeout(() => {
-      dispatch({ type: 'SET_SHIMMER', payload: null });
-      mutate();
-    }, 1000);
-  }, []);
-
-  const shufflePaletteWithShimmer = useCallback((blueprint: BlueprintId, currentColor: string) => {
-    const blockId = blueprint === 'grocery' ? 'grocery-grid' : 'chore-spin';
-    const idx = (PALETTES.indexOf(currentColor) + 1) % PALETTES.length;
-    shimmerThen(blockId, () => dispatch({ type: 'SHUFFLE_PALETTE', payload: PALETTES[idx] }));
-  }, [shimmerThen]);
-
-  const makePunchierWithShimmer = useCallback((blueprint: BlueprintId) => {
-    const blockId = blueprint === 'grocery' ? 'grocery-grid' : 'chore-spin';
-    shimmerThen(blockId, () => dispatch({ type: 'MAKE_PUNCHIER' }));
-  }, [shimmerThen]);
-
-  const addSectionWithShimmer = useCallback((blueprint: BlueprintId) => {
-    const blockId = blueprint === 'grocery' ? 'grocery-grid' : 'chore-spin';
-    shimmerThen(blockId, () => dispatch({ type: 'ADD_SECTION' }));
-  }, [shimmerThen]);
-
-  const spinChores = useCallback(() => {
-    shimmerThen('chore-spin', () => dispatch({ type: 'SPIN_CHORES' }));
-  }, [shimmerThen]);
-
-  const sendMessageWithEffect = useCallback(
-    (text: string, blueprint: BlueprintId, accentColor: string) => {
-      dispatch({ type: 'SEND_MESSAGE', payload: text });
-      const lower = text.toLowerCase();
-      if (lower.includes('green') || lower.includes('background') || lower.includes('color') || lower.includes('palette')) {
-        shufflePaletteWithShimmer(blueprint, accentColor);
-      } else if (lower.includes('punchier') || lower.includes('bold') || lower.includes('louder')) {
-        makePunchierWithShimmer(blueprint);
-      } else if (lower.includes('add') || lower.includes('section') || lower.includes('more')) {
-        addSectionWithShimmer(blueprint);
-      }
-    },
-    [shufflePaletteWithShimmer, makePunchierWithShimmer, addSectionWithShimmer]
-  );
-
-  return {
-    state,
-    dispatch,
-    shufflePaletteWithShimmer,
-    makePunchierWithShimmer,
-    addSectionWithShimmer,
-    spinChores,
-    sendMessageWithEffect,
-  };
+  return { state, dispatch };
 }

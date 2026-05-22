@@ -1,56 +1,43 @@
-import type { BlueprintId } from '../types';
-
 interface PVHeaderProps {
   simulatePartner: boolean;
-  currentBlueprint: BlueprintId;
+  currentColor: string;
   onToggleSimulate: () => void;
-  onSwapBlueprint: (id: BlueprintId) => void;
+  onLoadPreset: (preset: 'grocery' | 'blank') => void;
 }
 
 export default function PVHeader({
   simulatePartner,
-  currentBlueprint,
+  currentColor,
   onToggleSimulate,
-  onSwapBlueprint,
+  onLoadPreset,
 }: PVHeaderProps) {
   return (
     <div
       className="flex items-center justify-between px-3 shrink-0"
       style={{ flex: '0 0 7%', borderBottom: '1px solid #f0f0f5' }}
     >
-      {/* Wordmark */}
       <span
         className="text-sm font-black tracking-tight"
-        style={{ background: 'linear-gradient(135deg, #7c3aed, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+        style={{ color: currentColor, transition: 'color 0.3s' }}
       >
-        PocketVibe
+        PocketVibe AI
       </span>
 
-      {/* Blueprint switcher */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
         <button
-          onClick={() => onSwapBlueprint('grocery')}
-          className="text-[10px] font-bold px-2.5 py-1 rounded-md transition-all"
-          style={{
-            backgroundColor: currentBlueprint === 'grocery' ? '#7c3aed' : 'transparent',
-            color: currentBlueprint === 'grocery' ? '#fff' : '#6b7280',
-          }}
+          onClick={() => onLoadPreset('grocery')}
+          className="text-[10px] font-bold px-2 py-1 rounded-md transition-all text-gray-600 hover:bg-white"
         >
-          🛒 Grocery
+          Preset: Grocery
         </button>
         <button
-          onClick={() => onSwapBlueprint('chore')}
-          className="text-[10px] font-bold px-2.5 py-1 rounded-md transition-all"
-          style={{
-            backgroundColor: currentBlueprint === 'chore' ? '#7c3aed' : 'transparent',
-            color: currentBlueprint === 'chore' ? '#fff' : '#6b7280',
-          }}
+          onClick={() => onLoadPreset('blank')}
+          className="text-[10px] font-bold px-2 py-1 rounded-md transition-all text-gray-600 hover:bg-white"
         >
-          🎰 Chores
+          Preset: Blank
         </button>
       </div>
 
-      {/* Simulate toggle */}
       <button
         onClick={onToggleSimulate}
         className="text-[10px] font-bold px-2 py-1 rounded-lg transition-all active:scale-95"

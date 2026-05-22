@@ -35,6 +35,15 @@ function ArchetypeOnboarding({ companion, onSelectArchetype, onSetCustomName, on
   );
 }
 
+const INTENT_PILLS: { label: string; prompt: string }[] = [
+  { label: '🚀 Packing list',      prompt: 'Construct a packing list: passport, charger, clothes, camera' },
+  { label: '📈 Finance counter',   prompt: 'Generate a finance metrics counter with budget analytics'     },
+  { label: '🌙 Cyberpunk theme',   prompt: 'Cycle to a dark cyberpunk layout'                            },
+  { label: '🏋️ Gym tracker',       prompt: 'Build a gym tracker: morning run, core circuit, yoga session' },
+  { label: '✅ Task checklist',     prompt: 'Create a task checklist: review PR, write docs, ship feature' },
+  { label: '🎨 Shuffle palette',   prompt: 'Shuffle to the next palette color'                           },
+];
+
 function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,9 +90,14 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
           <span className="text-[9px] text-gray-400 font-medium shrink-0">Minimal</span>
         </div>
 
-        <div className="flex gap-1.5">
-          {['🎨 Shuffle Palette', '✨ Make Punchier', '➕ Add Metrics'].map((label) => (
-            <button key={label} onClick={() => onPrompt(label)} className="flex-1 text-[10px] font-semibold py-1.5 rounded-lg transition-all active:scale-95 truncate px-1" style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}>
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+          {INTENT_PILLS.map(({ label, prompt }) => (
+            <button
+              key={label}
+              onClick={() => onPrompt(prompt)}
+              className="shrink-0 text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition-all active:scale-95 whitespace-nowrap"
+              style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}
+            >
               {label}
             </button>
           ))}

@@ -5,7 +5,7 @@ import CompanionSheet from './components/thumbzone/CompanionSheet';
 import { usePocketVibe } from './hooks/usePocketVibe';
 
 export default function App() {
-  const { state, dispatch } = usePocketVibe();
+  const { state, dispatch, processPrompt } = usePocketVibe();
 
   return (
     <AppShell>
@@ -29,7 +29,7 @@ export default function App() {
           onSelectArchetype={(a: any) => dispatch({ type: 'SELECT_ARCHETYPE', payload: a })}
           onSetCustomName={(n: string) => dispatch({ type: 'SET_CUSTOM_NAME', payload: n })}
           onConfirm={() => dispatch({ type: 'CONFIRM_COMPANION' })}
-          onPrompt={(text: string) => dispatch({ type: 'PROCESS_LLM_PROMPT', payload: text })}
+          onPrompt={(text: string) => processPrompt(text)}
           onSliderChange={(v: number) => dispatch({ type: 'SET_STYLE_SLIDER', payload: v })}
         />
       </div>

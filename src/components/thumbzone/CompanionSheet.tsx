@@ -44,7 +44,7 @@ const INTENT_PILLS: { label: string; prompt: string }[] = [
   { label: '🎨 Shuffle palette',   prompt: 'Shuffle to the next palette color'                           },
 ];
 
-function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) {
+function CompanionChat({ companion, appConfig, onPrompt, onSliderChange, onFocusChange }: any) {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const arc = companion.archetype!;
@@ -55,6 +55,7 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
     if (!inputText.trim()) return;
     onPrompt(inputText.trim());
     setInputText('');
+    onFocusChange?.(false);
   }
 
   return (
@@ -67,7 +68,7 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0" style={{ maxHeight: '80px' }}>
+      <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0">
         {companion.messages.map((msg: any) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <span className="text-[11px] leading-snug px-2.5 py-1.5 rounded-2xl max-w-[80%]" style={{ backgroundColor: msg.role === 'user' ? arc.accentColor : '#f3f4f6', color: msg.role === 'user' ? '#fff' : '#374151', borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px' }}>
@@ -80,7 +81,16 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
 
       <div className="px-3 pb-3 pt-1.5 flex flex-col gap-1.5 shrink-0" style={{ borderTop: '1px solid #f0f0f5' }}>
         <div className="flex gap-1.5">
-          <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="E.g. Generate a fitness log..." className="flex-1 text-[11px] px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-violet-300 text-gray-800" />
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onFocus={() => onFocusChange?.(true)}
+            onBlur={() => !inputText && onFocusChange?.(false)}
+            placeholder="E.g. Generate a fitness log..."
+            className="flex-1 text-[11px] px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-violet-300 text-gray-800"
+          />
           <button onClick={handleSend} className="px-3 py-2 rounded-xl text-white text-[11px] font-bold active:scale-95 transition-transform" style={{ backgroundColor: arc.accentColor }}>↑</button>
         </div>
 
@@ -108,14 +118,24 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
 }
 
 export default function CompanionSheet({ companion, appConfig, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
+  const [expanded, setExpanded] = useState(false);
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
+  const flexValue = expanded && companion.phase === 'chat' ? '50' : '30';
   return (
-    <div className="flex flex-col overflow-hidden bg-white" style={{ flex: '30', borderTop: `2px solid ${accentColor}30`, boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
+    <div
+      className="flex flex-col overflow-hidden bg-white"
+      style={{
+        flex: flexValue,
+        borderTop: `2px solid ${accentColor}30`,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.06)',
+        transition: 'flex 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
       <div className="flex justify-center pt-2 pb-0 shrink-0"><div className="w-8 h-1 rounded-full bg-gray-200" /></div>
       {companion.phase === 'onboarding' ? (
         <ArchetypeOnboarding companion={companion} onSelectArchetype={onSelectArchetype} onSetCustomName={onSetCustomName} onConfirm={onConfirm} />
       ) : (
-        <CompanionChat companion={companion} appConfig={appConfig} onPrompt={onPrompt} onSliderChange={onSliderChange} />
+        <CompanionChat companion={companion} appConfig={appConfig} onPrompt={onPrompt} onSliderChange={onSliderChange} onFocusChange={setExpanded} />
       )}
     </div>
   );

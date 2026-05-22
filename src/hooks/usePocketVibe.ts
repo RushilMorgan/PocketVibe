@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect } from 'react';
+import { useReducer, useRef, useEffect, useCallback } from 'react';
 import type {
   PocketVibeState,
   AIArchetype,
@@ -7,6 +7,7 @@ import type {
   InteractiveListItem,
   AppConfig,
 } from '../types';
+import { generateBlocks, GeminiConfigError } from '../services/aiService';
 
 // Unused import kept to satisfy type re-export
 void (null as unknown as AppConfig);
@@ -327,7 +328,12 @@ type PVAction =
   | { type: 'SET_STYLE_SLIDER'; payload: number }
   | { type: 'INTERACT_BLOCK'; payload: { blockId: string; itemId?: string } }
   | { type: 'SET_SHIMMER'; payload: string | null }
-  | { type: 'PROCESS_LLM_PROMPT'; payload: string };
+  /** Immediate: adds user message, handles style/clear synchronously, sets shimmer for loading */
+  | { type: 'PROCESS_LLM_PROMPT'; payload: string }
+  /** Async result: Gemini returned blocks — append to canvas */
+  | { type: 'APPLY_GEMINI_BLOCKS'; payload: { blocks: VisualBlock[]; replyText: string } }
+  /** Async error: Gemini failed — keyword fallback or error message */
+  | { type: 'GEMINI_ERROR'; payload: { text: string; errorMsg: string } };
 
 function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
   switch (action.type) {
@@ -384,130 +390,139 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
     case 'PROCESS_LLM_PROMPT': {
       const text = action.payload;
       const lower = text.toLowerCase();
-      // Tokenize: split on whitespace + punctuation, filter short noise words
       const tokens = lower.split(/[\s,;:!?.\-–]+/).filter(t => t.length > 1);
 
       const userMsg: ChatMessage = { id: `${Date.now()}-u`, role: 'user', text };
       let newBlocks = [...state.appConfig.blocks];
       let newColor = state.appConfig.accentColor;
       let newSlider = state.appConfig.styleSlider;
-      let targetShimmer: string | null = null;
-      let replyIntent: string | null = null;
-      let replyDetail = '';
+      let targetShimmer: string | null = 'canvas-root'; // default: show loading shimmer
+      let syncReply: string | null = null; // set only when no Gemini call is needed
 
-      // ── Step 1: Canvas control commands ──────────────────────────────────────
+      // ── Canvas clear commands (synchronous, no Gemini needed) ─────────────
       if (/\bclear\b|\breset canvas\b|\bstart over\b|\bempty canvas\b/.test(lower)) {
         newBlocks = WELCOME_BLOCKS;
-        targetShimmer = 'canvas-root';
-        replyIntent = 'clear';
-        replyDetail = '';
+        syncReply = generateReply(state.companion.archetype, 'clear', '');
       }
 
-      // ── Step 2: Style token mutations ─────────────────────────────────────────
+      // ── Style token mutations (synchronous, no Gemini needed) ─────────────
       const styleMatch = STYLE_TOKENS.find(s => s.words.some(w => lower.includes(w)));
       if (styleMatch) {
         newColor = styleMatch.color;
         newSlider = styleMatch.slider;
-        targetShimmer = 'canvas-root';
-        replyIntent = 'style';
-        replyDetail = `${styleMatch.label} visual theme activated across all design tokens.`;
+        syncReply = generateReply(state.companion.archetype, 'style',
+          `${styleMatch.label} visual theme activated across all design tokens.`);
       }
-
-      // Palette cycle (explicit shuffle/cycle request)
       if (/shuffle|cycle.*palette|palette.*cycle|next.*color/.test(lower)) {
         const curIdx = PALETTES.indexOf(state.appConfig.accentColor);
         newColor = PALETTES[(curIdx + 1) % PALETTES.length];
-        targetShimmer = 'canvas-root';
-        replyIntent = 'style';
-        replyDetail = 'Accent palette cycled to the next spectrum color.';
+        syncReply = generateReply(state.companion.archetype, 'style',
+          'Accent palette cycled to the next spectrum color.');
       }
-
-      // Playfulness modifiers
       if (/punchier|make.*punchy|more.*bold|bolder/.test(lower)) {
         newSlider = Math.max(0, newSlider - 25);
-        if (!targetShimmer) targetShimmer = 'canvas-root';
-        replyIntent = 'style';
-        replyDetail = 'Style tokens shifted more playful — bolder radii, expressive weights.';
+        syncReply = generateReply(state.companion.archetype, 'style',
+          'Style tokens shifted more playful — bolder radii, expressive weights.');
       }
       if (/\bminimal\b|\bminimalist\b|\bcleaner\b|\bsimpler\b/.test(lower)) {
         newSlider = Math.min(100, newSlider + 25);
-        if (!targetShimmer) targetShimmer = 'canvas-root';
-        replyIntent = 'style';
-        replyDetail = 'Style tokens shifted minimalist — reduced decoration and tighter spacing.';
+        syncReply = generateReply(state.companion.archetype, 'style',
+          'Style tokens shifted minimalist — reduced decoration and tighter spacing.');
       }
 
-      // ── Step 3: Score intent for layout block generation ──────────────────────
-      if (replyIntent !== 'clear') {
-        const scores = { list: 0, metrics: 0, action_button: 0, hero: 0 };
-        for (const token of tokens) {
-          if (LIST_KW.has(token))   scores.list++;
-          if (METRICS_KW.has(token)) scores.metrics++;
-          if (BUTTON_KW.has(token)) scores.action_button++;
-          if (HERO_KW.has(token))   scores.hero++;
-        }
+      // Suppress unused variable warning
+      void tokens;
 
-        // Detect implicit comma list (3+ comma-separated items without explicit intent)
-        const commaParts = text.split(',').map(s => s.trim()).filter(s => s.length > 1 && s.length < 50);
-        if (commaParts.length >= 3 && scores.list === 0 && scores.metrics === 0) {
-          scores.list += 5; // implicit list detected
-        }
+      const messages = syncReply
+        ? [...state.companion.messages, userMsg,
+            { id: `${Date.now()}-c`, role: 'companion' as const, text: syncReply }]
+        : [...state.companion.messages, userMsg];
 
-        const topEntry = (Object.entries(scores) as [string, number][]).sort((a, b) => b[1] - a[1])[0];
-        const topIntent = topEntry[0];
-        const hasIntent = topEntry[1] > 0;
-
-        if (hasIntent) {
-          const id = `gen-${Date.now()}`;
-          const title = extractTitle(text);
-
-          if (topIntent === 'list') {
-            const extracted = extractItems(text);
-            const items = extracted.length >= 2 ? extracted : getContextualDefaults(lower);
-            const block: VisualBlock = { type: 'interactive_list', id, title, items };
-            newBlocks.push(block);
-            targetShimmer = id;
-            replyIntent = 'interactive_list';
-            replyDetail = title;
-          }
-          else if (topIntent === 'metrics') {
-            const metrics = getContextualMetrics(lower);
-            const block: VisualBlock = { type: 'metrics_row', id, metrics };
-            newBlocks.push(block);
-            targetShimmer = id;
-            replyIntent = 'metrics_row';
-            replyDetail = title;
-          }
-          else if (topIntent === 'action_button') {
-            const label = title !== 'New Block' ? title : '✨ Execute Action';
-            const block: VisualBlock = { type: 'action_button', id, label, icon: '🚀' };
-            newBlocks.push(block);
-            targetShimmer = id;
-            replyIntent = 'action_button';
-            replyDetail = label;
-          }
-          else if (topIntent === 'hero') {
-            const block: VisualBlock = {
-              type: 'hero_banner', id,
-              title: title !== 'New Block' ? title : 'New Layout Frame',
-              subtitle: 'Auto-generated from your input prompt.',
-              ctaLabel: 'Explore →',
-            };
-            newBlocks.push(block);
-            targetShimmer = id;
-            replyIntent = 'hero_banner';
-            replyDetail = block.title;
-          }
-        }
-      }
-
-      const replyText = generateReply(state.companion.archetype, replyIntent, replyDetail);
-      const aiReply: ChatMessage = { id: `${Date.now()}-c`, role: 'companion', text: replyText };
+      // If it was a sync-only command, clear shimmer immediately
+      if (syncReply) targetShimmer = 'canvas-root';
 
       return {
         ...state,
         appConfig: { ...state.appConfig, blocks: newBlocks, accentColor: newColor, styleSlider: newSlider },
-        companion: { ...state.companion, messages: [...state.companion.messages, userMsg, aiReply] },
+        companion: { ...state.companion, messages },
         shimmeringBlockId: targetShimmer,
+      };
+    }
+
+    case 'APPLY_GEMINI_BLOCKS': {
+      const { blocks, replyText } = action.payload;
+      const aiMsg: ChatMessage = { id: `${Date.now()}-c`, role: 'companion', text: replyText };
+      const firstId = blocks[0]?.id ?? 'canvas-root';
+      return {
+        ...state,
+        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks, ...blocks] },
+        companion: { ...state.companion, messages: [...state.companion.messages, aiMsg] },
+        shimmeringBlockId: firstId,
+      };
+    }
+
+    case 'GEMINI_ERROR': {
+      // Run offline keyword engine as fallback
+      const { text, errorMsg } = action.payload;
+      const lower = text.toLowerCase();
+      const tokens = lower.split(/[\s,;:!?.\-–]+/).filter(t => t.length > 1);
+
+      let fallbackBlocks: VisualBlock[] = [];
+      let replyIntent: string | null = null;
+      let replyDetail = '';
+
+      const scores = { list: 0, metrics: 0, action_button: 0, hero: 0 };
+      for (const token of tokens) {
+        if (LIST_KW.has(token))    scores.list++;
+        if (METRICS_KW.has(token)) scores.metrics++;
+        if (BUTTON_KW.has(token))  scores.action_button++;
+        if (HERO_KW.has(token))    scores.hero++;
+      }
+      const commaParts = text.split(',').map(s => s.trim()).filter(s => s.length > 1 && s.length < 50);
+      if (commaParts.length >= 3 && scores.list === 0 && scores.metrics === 0) scores.list += 5;
+
+      const topEntry = (Object.entries(scores) as [string, number][]).sort((a, b) => b[1] - a[1])[0];
+      const topIntent = topEntry[0];
+      const hasIntent = topEntry[1] > 0;
+
+      if (hasIntent) {
+        const id = `fb-${Date.now()}`;
+        const title = extractTitle(text);
+        if (topIntent === 'list') {
+          const extracted = extractItems(text);
+          const items = extracted.length >= 2 ? extracted : getContextualDefaults(lower);
+          fallbackBlocks = [{ type: 'interactive_list', id, title, items }];
+          replyIntent = 'interactive_list'; replyDetail = title;
+        } else if (topIntent === 'metrics') {
+          fallbackBlocks = [{ type: 'metrics_row', id, metrics: getContextualMetrics(lower) }];
+          replyIntent = 'metrics_row'; replyDetail = title;
+        } else if (topIntent === 'action_button') {
+          const label = title !== 'New Block' ? title : '✨ Execute Action';
+          fallbackBlocks = [{ type: 'action_button', id, label, icon: '🚀' }];
+          replyIntent = 'action_button'; replyDetail = label;
+        } else if (topIntent === 'hero') {
+          const t = title !== 'New Block' ? title : 'New Layout Frame';
+          fallbackBlocks = [{ type: 'hero_banner', id, title: t, subtitle: 'Auto-generated offline.', ctaLabel: 'Explore →' }];
+          replyIntent = 'hero_banner'; replyDetail = t;
+        }
+      }
+
+      const isConfigError = errorMsg.includes('VITE_GEMINI_API_KEY');
+      const prefix = isConfigError
+        ? `⚠️ AI key not configured. Add VITE_GEMINI_API_KEY to .env.local to enable live generation. Using offline engine. `
+        : `⚠️ Gemini unreachable (${errorMsg.slice(0, 60)}). Using offline engine. `;
+      const fallbackReply = prefix + (replyIntent
+        ? generateReply(state.companion.archetype, replyIntent, replyDetail)
+        : generateReply(state.companion.archetype, 'fallback', ''));
+
+      const aiMsg: ChatMessage = { id: `${Date.now()}-c`, role: 'companion', text: fallbackReply };
+      const firstId = fallbackBlocks[0]?.id ?? 'canvas-root';
+
+      return {
+        ...state,
+        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks, ...fallbackBlocks] },
+        companion: { ...state.companion, messages: [...state.companion.messages, aiMsg] },
+        shimmeringBlockId: firstId,
       };
     }
 
@@ -521,6 +536,9 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
 export function usePocketVibe() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const shimmerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -528,9 +546,61 @@ export function usePocketVibe() {
       if (shimmerTimerRef.current) clearTimeout(shimmerTimerRef.current);
       shimmerTimerRef.current = setTimeout(() => {
         dispatch({ type: 'SET_SHIMMER', payload: null });
-      }, 1000);
+      }, 1200);
     }
   }, [state.shimmeringBlockId]);
 
-  return { state, dispatch };
+  /** Determines if a prompt is purely style/clear (no Gemini call needed) */
+  function isSyncCommand(lower: string): boolean {
+    if (/\bclear\b|\breset canvas\b|\bstart over\b|\bempty canvas\b/.test(lower)) return true;
+    if (STYLE_TOKENS.some(s => s.words.some(w => lower.includes(w)))) return true;
+    if (/shuffle|cycle.*palette|palette.*cycle|next.*color/.test(lower)) return true;
+    if (/punchier|make.*punchy|more.*bold|bolder/.test(lower)) return true;
+    if (/\bminimal\b|\bminimalist\b|\bcleaner\b|\bsimpler\b/.test(lower)) return true;
+    return false;
+  }
+
+  /** Helper: infer block detail string for reply generation */
+  function getBlockDetail(block: VisualBlock): string {
+    if (block.type === 'hero_banner')      return block.title;
+    if (block.type === 'interactive_list') return block.title ?? 'List';
+    if (block.type === 'action_button')    return block.label;
+    if (block.type === 'metrics_row')      return `${block.metrics.length} metrics`;
+    return '';
+  }
+
+  /**
+   * Primary prompt handler. Dispatches synchronous state immediately,
+   * then fires the Gemini API asynchronously and dispatches the result.
+   * Falls back to the offline keyword engine on any API error.
+   */
+  const processPrompt = useCallback(async (text: string) => {
+    // 1. Immediate: user message + shimmer + style/clear mutations
+    dispatch({ type: 'PROCESS_LLM_PROMPT', payload: text });
+
+    // 2. Style/clear commands are fully handled synchronously — skip Gemini
+    if (isSyncCommand(text.toLowerCase())) return;
+
+    // 3. Fire Gemini asynchronously
+    try {
+      const blocks = await generateBlocks(text);
+      if (blocks.length === 0) {
+        dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg: 'Model returned empty array.' } });
+        return;
+      }
+      const firstBlock = blocks[0];
+      const replyText = generateReply(
+        stateRef.current.companion.archetype,
+        firstBlock.type,
+        getBlockDetail(firstBlock),
+      );
+      dispatch({ type: 'APPLY_GEMINI_BLOCKS', payload: { blocks, replyText } });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown Gemini error';
+      dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg } });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return { state, dispatch, processPrompt };
 }

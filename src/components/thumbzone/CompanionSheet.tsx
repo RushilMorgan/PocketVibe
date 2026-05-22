@@ -9,7 +9,7 @@ const ARCHETYPES: AIArchetype[] = [
 
 function ArchetypeOnboarding({ companion, onSelectArchetype, onSetCustomName, onConfirm }: any) {
   return (
-    <div className="flex flex-col h-full px-4 pt-1 pb-4 gap-2.5">
+    <div className="flex flex-col px-4 pt-1 gap-2">
       <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">Choose Builder AI</p>
       <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5" style={{ scrollbarWidth: 'none' }}>
         {ARCHETYPES.map((a) => {
@@ -17,12 +17,12 @@ function ArchetypeOnboarding({ companion, onSelectArchetype, onSetCustomName, on
           return (
             <button
               key={a.id} onClick={() => onSelectArchetype(a)}
-              className="shrink-0 flex flex-col items-center text-center p-2.5 rounded-2xl transition-all active:scale-95"
-              style={{ width: '100px', backgroundColor: selected ? `${a.accentColor}18` : 'rgba(0,0,0,0.04)', border: selected ? `2px solid ${a.accentColor}` : '2px solid transparent', outline: 'none' }}
+              className="shrink-0 flex flex-col items-center text-center p-2 rounded-2xl transition-all active:scale-95"
+              style={{ width: '105px', backgroundColor: selected ? `${a.accentColor}18` : 'rgba(0,0,0,0.04)', border: selected ? `2px solid ${a.accentColor}` : '2px solid transparent', outline: 'none' }}
             >
-              <span className="text-2xl leading-none mb-1">{a.emoji}</span>
+              <span className="text-xl leading-none mb-1">{a.emoji}</span>
               <span className="text-xs font-black text-gray-800 leading-tight">{a.name}</span>
-              <span className="text-[9px] font-bold mt-0.5 leading-tight" style={{ color: a.accentColor }}>{a.tagline}</span>
+              <span className="text-[8px] font-bold mt-0.5 leading-tight" style={{ color: a.accentColor }}>{a.tagline}</span>
             </button>
           );
         })}
@@ -151,7 +151,9 @@ export default function CompanionSheet({ companion, appConfig, onSelectArchetype
   const [expanded, setExpanded] = useState(false);
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
   const isChat = companion.phase === 'chat';
-  const heightClass = expanded && isChat ? 'h-[50dvh]' : 'h-[28dvh]';
+  const heightClass = !isChat
+    ? 'h-auto pb-8 pt-2'
+    : expanded ? 'h-[50dvh]' : 'h-[28dvh]';
   return (
     <div
       className={`absolute bottom-4 left-4 right-4 z-10 max-h-[85dvh] ${heightClass} flex flex-col overflow-hidden bg-white/40 backdrop-blur-xl border border-white/30 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] transition-all duration-500`}

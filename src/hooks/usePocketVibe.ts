@@ -6,11 +6,47 @@ import type {
   VisualBlock,
   InteractiveListItem,
   AppConfig,
+  FormField,
 } from '../types';
 import { generateBlocks, GeminiConfigError } from '../services/aiService';
 
 // Unused import kept to satisfy type re-export
 void (null as unknown as AppConfig);
+
+// ── Formula evaluator ────────────────────────────────────────────────────────
+
+/**
+ * Evaluates a formula string against a set of form fields.
+ * Variable tokens are prefixed with '$' and matched to field ids.
+ * Unknown or empty fields default to 0. Returns the numeric result
+ * as a locale-formatted string, or '0' on any evaluation error.
+ */
+function evaluateBlockFormula(formula: string, fields: FormField[]): string {
+  // Build a lookup map: fieldId -> numeric value
+  const valueMap: Record<string, number> = {};
+  for (const field of fields) {
+    const num = parseFloat(field.value);
+    valueMap[field.id] = isNaN(num) ? 0 : num;
+  }
+
+  // Replace every $token with its numeric value (default 0)
+  const expression = formula.replace(/\$([a-zA-Z_][a-zA-Z0-9_]*)/g, (_match, id: string) => {
+    return String(valueMap[id] ?? 0);
+  });
+
+  // Safely evaluate the resulting numeric expression
+  try {
+    // Only allow digits, operators, whitespace, parens, and dots
+    if (!/^[\d+\-*/().\s]+$/.test(expression)) return '0';
+    // eslint-disable-next-line no-new-func
+    const result = new Function(`"use strict"; return (${expression});`)() as number;
+    if (!isFinite(result) || isNaN(result)) return '0';
+    // Format with explicit en-US locale for consistent comma separators
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(parseFloat(result.toFixed(2)));
+  } catch {
+    return '0';
+  }
+}
 
 // ── Palette cycle ─────────────────────────────────────────────────────────────
 
@@ -374,9 +410,15 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
             if (b.type === 'interactive_form' && itemId && itemId.includes(':')) {
               const [fieldId, ...valueParts] = itemId.split(':');
               const newValue = valueParts.join(':');
+              const updatedFields = b.fields.map(f => f.id === fieldId ? { ...f, value: newValue } : f);
+              const updatedMetrics = b.computedMetrics?.map(m => ({
+                ...m,
+                value: evaluateBlockFormula(m.formula, updatedFields),
+              }));
               return {
                 ...b,
-                fields: b.fields.map(f => f.id === fieldId ? { ...f, value: newValue } : f),
+                fields: updatedFields,
+                ...(updatedMetrics ? { computedMetrics: updatedMetrics } : {}),
               };
             }
             if (b.type === 'interactive_list' && itemId) {

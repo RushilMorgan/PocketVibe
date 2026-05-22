@@ -124,9 +124,19 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
               )}
             </div>
           ))}
+          {block.computedMetrics && block.computedMetrics.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-black/5">
+              {block.computedMetrics.map((metric, i) => (
+                <div key={i} className="bg-black/5 p-4 rounded-2xl text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-theme-text-muted font-bold mb-1">{metric.label}</div>
+                  <div className="text-xl font-black text-theme-text">{metric.value || '0'}</div>
+                </div>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => onInteract(block.id)}
-            className="w-full mt-1 rounded-theme text-white text-sm font-extrabold py-3 active:scale-[0.97] transition-transform border-none cursor-pointer"
+            className="w-full mt-4 rounded-theme text-white text-sm font-extrabold py-3 active:scale-[0.97] transition-transform border-none cursor-pointer"
             style={{ backgroundColor: 'var(--theme-accent)', boxShadow: '0 4px 14px color-mix(in srgb, var(--theme-accent) 40%, transparent)' }}
           >
             {block.submitLabel}

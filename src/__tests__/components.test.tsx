@@ -271,6 +271,33 @@ describe('BlockRenderer — interactive_form', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Calculate' }));
     expect(interact).toHaveBeenCalledWith('form-1');
   });
+
+  it('renders computedMetrics result tiles when provided', () => {
+    const formWithMetrics = {
+      ...FORM_BLOCK,
+      computedMetrics: [
+        { label: 'Tax Owed', formula: '($f1 * $f2) / 100', value: '16,000' },
+        { label: 'Net Take Home', formula: '$f1 - (($f1 * $f2) / 100)', value: '64,000' },
+      ],
+    };
+    render(<BlockRenderer block={formWithMetrics} appConfig={BASE_CONFIG} onInteract={noop} />);
+    expect(screen.getByText('Tax Owed')).toBeInTheDocument();
+    expect(screen.getByText('16,000')).toBeInTheDocument();
+    expect(screen.getByText('Net Take Home')).toBeInTheDocument();
+    expect(screen.getByText('64,000')).toBeInTheDocument();
+  });
+
+  it('shows fallback "0" for computedMetric with no value', () => {
+    const formWithMetrics = {
+      ...FORM_BLOCK,
+      computedMetrics: [
+        { label: 'Pending Result', formula: '($f1 * $f2) / 100' },
+      ],
+    };
+    render(<BlockRenderer block={formWithMetrics} appConfig={BASE_CONFIG} onInteract={noop} />);
+    expect(screen.getByText('Pending Result')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
 });
 
 // ── PocketVibeCanvas ───────────────────────────────────────────────────────────

@@ -20,7 +20,7 @@ metrics_row:
   { "type": "metrics_row", "id": "<unique string>", "metrics": [{ "label": "<string>", "value": "<string>" }] }
 
 interactive_form:
-  { "type": "interactive_form", "id": "<unique string>", "title": "<string>", "submitLabel": "<string>", "fields": [{ "id": "<string>", "label": "<string>", "type": "text" | "number" | "slider", "placeholder": "<string>", "value": "<string>" }] }
+  { "type": "interactive_form", "id": "<unique string>", "title": "<string>", "submitLabel": "<string>", "fields": [{ "id": "<string>", "label": "<string>", "type": "text" | "number" | "slider", "placeholder": "<string>", "value": "<string>" }], "computedMetrics": [{ "label": "<string>", "formula": "<string>" }] }
 
 Rules:
 - Return 1–3 blocks. Never more.
@@ -28,7 +28,8 @@ Rules:
 - interactive_list items must use a single relevant emoji for the icon field.
 - metrics_row values should be realistic numeric strings (e.g. "$4,200", "87%", "12 days").
 - interactive_form: use type "number" for numeric inputs, "slider" for 0–100 range values, "text" for everything else. Pre-populate "value" with a sensible default (e.g. "0", "50", "").
-- Use interactive_form when the user asks for a calculator, estimator, form, survey, or any prompt that requires typed input to produce a result.
+- Use interactive_form when the user asks for a calculator, estimator, tracker, budget, game, or any prompt that requires typed input to produce a result.
+- For every interactive_form used as a calculator, estimator, tracker, budget, or interactive game, you MUST include a "computedMetrics" array with at least one entry. Each entry has a "label" string and a "formula" string. Example: { "label": "Tax Owed", "formula": "($gross_income * $tax_rate) / 100" }. Never hardcode numeric literals inside formulas as substitutes for field values — always reference field ids by prepending them with the '$' symbol token (e.g. $field_id). Plain numeric constants used in the math itself (like 100 for a percentage) are allowed.
 - Do NOT include any commentary, explanation, or text outside the JSON array.
 - If the user's prompt is ambiguous, default to an interactive_list block.`;
 

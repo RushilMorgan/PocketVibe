@@ -245,6 +245,70 @@ describe('INTERACT_BLOCK', () => {
     if (!updated || updated.type !== 'interactive_form') throw new Error('block not found');
     expect(updated.fields[0].value).toBe('14:30');
   });
+
+  it('recomputes computedMetrics values on field change', () => {
+    const { result } = renderHook(() => usePocketVibe());
+    const formBlock: VisualBlock = {
+      type: 'interactive_form',
+      id: 'form-3',
+      title: 'Tax Calculator',
+      submitLabel: 'Calculate',
+      fields: [
+        { id: 'gross_income', label: 'Gross Income', type: 'number', placeholder: '0', value: '100000' },
+        { id: 'tax_rate', label: 'Tax Rate', type: 'slider', value: '25' },
+      ],
+      computedMetrics: [
+        { label: 'Tax Owed', formula: '($gross_income * $tax_rate) / 100' },
+        { label: 'Net Take Home', formula: '$gross_income - (($gross_income * $tax_rate) / 100)' },
+      ],
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [formBlock], replyText: 'Tax form ready.' },
+      });
+    });
+    // Adjust tax_rate slider to 30
+    act(() => {
+      result.current.dispatch({ type: 'INTERACT_BLOCK', payload: { blockId: 'form-3', itemId: 'tax_rate:30' } });
+    });
+    const updated = result.current.state.appConfig.blocks.find(b => b.id === 'form-3');
+    if (!updated || updated.type !== 'interactive_form') throw new Error('block not found');
+    // (100000 * 30) / 100 = 30000
+    expect(updated.computedMetrics![0].value).toBe('30,000');
+    // 100000 - 30000 = 70000
+    expect(updated.computedMetrics![1].value).toBe('70,000');
+  });
+
+  it('defaults unknown field tokens to 0 in formula evaluation', () => {
+    const { result } = renderHook(() => usePocketVibe());
+    const formBlock: VisualBlock = {
+      type: 'interactive_form',
+      id: 'form-4',
+      title: 'Simple Calc',
+      submitLabel: 'Go',
+      fields: [
+        { id: 'amount', label: 'Amount', type: 'number', placeholder: '0', value: '0' },
+      ],
+      computedMetrics: [
+        // $missing_field does not exist — should default to 0
+        { label: 'Result', formula: '$amount + $missing_field' },
+      ],
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [formBlock], replyText: 'ok' },
+      });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'INTERACT_BLOCK', payload: { blockId: 'form-4', itemId: 'amount:500' } });
+    });
+    const updated = result.current.state.appConfig.blocks.find(b => b.id === 'form-4');
+    if (!updated || updated.type !== 'interactive_form') throw new Error('block not found');
+    // 500 + 0 = 500
+    expect(updated.computedMetrics![0].value).toBe('500');
+  });
 });
 
 // ── PROCESS_LLM_PROMPT — synchronous commands ─────────────────────────────────

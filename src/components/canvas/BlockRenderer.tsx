@@ -88,7 +88,52 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
           ))}
         </div>
       );
-      
+
+    case 'interactive_form':
+      return (
+        <div className="bg-theme-surface rounded-theme p-5 mb-4 border border-black/5" style={{ boxShadow: 'var(--theme-shadow)' }}>
+          <h3 className="text-[13px] font-black uppercase tracking-widest mb-4" style={{ color: 'var(--theme-accent)' }}>
+            {block.title}
+          </h3>
+          {block.fields.map(field => (
+            <div key={field.id}>
+              {field.type === 'slider' ? (
+                <div className="mb-3">
+                  <label className="text-[11px] font-bold text-theme-text-muted">{field.label}: {field.value}</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={field.value}
+                    onChange={(e) => onInteract(block.id, `${field.id}:${e.target.value}`)}
+                    className="w-full appearance-none h-1 rounded-full bg-gray-200 mt-1"
+                    style={{ accentColor: 'var(--theme-accent)' }}
+                  />
+                </div>
+              ) : (
+                <div className="mb-3">
+                  <label className="text-[11px] font-bold text-theme-text-muted block mb-1">{field.label}</label>
+                  <input
+                    type={field.type}
+                    value={field.value}
+                    onChange={(e) => onInteract(block.id, `${field.id}:${e.target.value}`)}
+                    className="w-full px-4 py-2.5 bg-black/5 rounded-xl font-bold text-sm focus:outline-none text-theme-text"
+                    placeholder={field.placeholder}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => onInteract(block.id)}
+            className="w-full mt-1 rounded-theme text-white text-sm font-extrabold py-3 active:scale-[0.97] transition-transform border-none cursor-pointer"
+            style={{ backgroundColor: 'var(--theme-accent)', boxShadow: '0 4px 14px color-mix(in srgb, var(--theme-accent) 40%, transparent)' }}
+          >
+            {block.submitLabel}
+          </button>
+        </div>
+      );
+
     default:
       return null;
   }

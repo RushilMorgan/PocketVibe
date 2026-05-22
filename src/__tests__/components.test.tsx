@@ -221,6 +221,58 @@ describe('BlockRenderer — metrics_row', () => {
   });
 });
 
+describe('BlockRenderer — interactive_form', () => {
+  const FORM_BLOCK = {
+    type: 'interactive_form' as const,
+    id: 'form-1',
+    title: 'Tax Calculator',
+    submitLabel: 'Calculate',
+    fields: [
+      { id: 'f1', label: 'Annual Income', type: 'number' as const, placeholder: '50000', value: '' },
+      { id: 'f2', label: 'Tax Rate', type: 'slider' as const, value: '20' },
+    ],
+  };
+
+  it('renders the form title and submit label', () => {
+    render(<BlockRenderer block={FORM_BLOCK} appConfig={BASE_CONFIG} onInteract={noop} />);
+    expect(screen.getByText('Tax Calculator')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Calculate' })).toBeInTheDocument();
+  });
+
+  it('renders a number input for number-type fields', () => {
+    render(<BlockRenderer block={FORM_BLOCK} appConfig={BASE_CONFIG} onInteract={noop} />);
+    expect(screen.getByPlaceholderText('50000')).toBeInTheDocument();
+  });
+
+  it('renders a range input for slider-type fields', () => {
+    render(<BlockRenderer block={FORM_BLOCK} appConfig={BASE_CONFIG} onInteract={noop} />);
+    const sliders = document.querySelectorAll('input[type="range"]');
+    expect(sliders).toHaveLength(1);
+  });
+
+  it('calls onInteract with fieldId:value when a text/number input changes', () => {
+    const interact = vi.fn();
+    render(<BlockRenderer block={FORM_BLOCK} appConfig={BASE_CONFIG} onInteract={interact} />);
+    fireEvent.change(screen.getByPlaceholderText('50000'), { target: { value: '80000' } });
+    expect(interact).toHaveBeenCalledWith('form-1', 'f1:80000');
+  });
+
+  it('calls onInteract with fieldId:value when a slider changes', () => {
+    const interact = vi.fn();
+    render(<BlockRenderer block={FORM_BLOCK} appConfig={BASE_CONFIG} onInteract={interact} />);
+    const slider = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '45' } });
+    expect(interact).toHaveBeenCalledWith('form-1', 'f2:45');
+  });
+
+  it('calls onInteract with only blockId when submit button is clicked', () => {
+    const interact = vi.fn();
+    render(<BlockRenderer block={FORM_BLOCK} appConfig={BASE_CONFIG} onInteract={interact} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Calculate' }));
+    expect(interact).toHaveBeenCalledWith('form-1');
+  });
+});
+
 // ── PocketVibeCanvas ───────────────────────────────────────────────────────────
 
 describe('PocketVibeCanvas', () => {

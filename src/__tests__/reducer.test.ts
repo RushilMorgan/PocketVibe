@@ -196,6 +196,55 @@ describe('INTERACT_BLOCK', () => {
     });
     expect(result.current.state.shimmeringBlockId).toBe(listBlock.id);
   });
+
+  it('updates a form field value when itemId contains fieldId:value', () => {
+    const { result } = renderHook(() => usePocketVibe());
+    // Seed an interactive_form block directly via APPLY_GEMINI_BLOCKS
+    const formBlock: VisualBlock = {
+      type: 'interactive_form',
+      id: 'form-1',
+      title: 'Tax Calc',
+      submitLabel: 'Calculate',
+      fields: [
+        { id: 'f1', label: 'Income', type: 'number', placeholder: '0', value: '0' },
+      ],
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [formBlock], replyText: 'Form ready.' },
+      });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'INTERACT_BLOCK', payload: { blockId: 'form-1', itemId: 'f1:85000' } });
+    });
+    const updated = result.current.state.appConfig.blocks.find(b => b.id === 'form-1');
+    if (!updated || updated.type !== 'interactive_form') throw new Error('block not found');
+    expect(updated.fields[0].value).toBe('85000');
+  });
+
+  it('handles colon-containing values correctly (e.g. time string)', () => {
+    const { result } = renderHook(() => usePocketVibe());
+    const formBlock: VisualBlock = {
+      type: 'interactive_form',
+      id: 'form-2',
+      title: 'Schedule',
+      submitLabel: 'Set',
+      fields: [{ id: 'ft', label: 'Time', type: 'text', value: '' }],
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [formBlock], replyText: 'ok' },
+      });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'INTERACT_BLOCK', payload: { blockId: 'form-2', itemId: 'ft:14:30' } });
+    });
+    const updated = result.current.state.appConfig.blocks.find(b => b.id === 'form-2');
+    if (!updated || updated.type !== 'interactive_form') throw new Error('block not found');
+    expect(updated.fields[0].value).toBe('14:30');
+  });
 });
 
 // ── PROCESS_LLM_PROMPT — synchronous commands ─────────────────────────────────

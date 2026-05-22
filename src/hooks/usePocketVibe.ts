@@ -371,6 +371,14 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
           ...state.appConfig,
           blocks: state.appConfig.blocks.map(b => {
             if (b.id !== blockId) return b;
+            if (b.type === 'interactive_form' && itemId && itemId.includes(':')) {
+              const [fieldId, ...valueParts] = itemId.split(':');
+              const newValue = valueParts.join(':');
+              return {
+                ...b,
+                fields: b.fields.map(f => f.id === fieldId ? { ...f, value: newValue } : f),
+              };
+            }
             if (b.type === 'interactive_list' && itemId) {
               return {
                 ...b,

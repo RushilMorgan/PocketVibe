@@ -151,15 +151,11 @@ export default function CompanionSheet({ companion, appConfig, onSelectArchetype
   const [expanded, setExpanded] = useState(false);
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
   const isChat = companion.phase === 'chat';
-  const sheetHeight = expanded && isChat ? '58dvh' : '32dvh';
+  const heightClass = expanded && isChat ? 'h-[50dvh]' : 'h-[28dvh]';
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-10 rounded-t-[2.5rem] flex flex-col overflow-hidden bg-white/70 backdrop-blur-xl border-t border-white/40"
-      style={{
-        height: sheetHeight,
-        boxShadow: '0 -10px 40px rgba(0,0,0,0.04)',
-        transition: 'height 500ms cubic-bezier(0.25, 1, 0.5, 1)',
-      }}
+      className={`absolute bottom-4 left-4 right-4 z-10 max-h-[85dvh] ${heightClass} flex flex-col overflow-hidden bg-white/40 backdrop-blur-xl border border-white/30 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] transition-all duration-500`}
+      style={{ transition: 'height 500ms cubic-bezier(0.25, 1, 0.5, 1)' }}
     >
       <div className="flex justify-center pt-3 pb-1 shrink-0">
         <div className="w-10 h-1 rounded-full" style={{ backgroundColor: `${accentColor}50` }} />

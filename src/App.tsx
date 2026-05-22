@@ -16,7 +16,7 @@ export default function App() {
         onLoadPreset={(preset) => dispatch({ type: 'LOAD_PRESET', payload: preset })}
       />
 
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <div className="relative w-full h-full flex flex-col overflow-hidden bg-gray-900" style={{ flex: 1 }}>
         <PocketVibeCanvas
           appConfig={state.appConfig}
           simulatePartner={state.simulatePartner}

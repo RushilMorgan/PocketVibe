@@ -35,8 +35,8 @@ export default function PocketVibeCanvas({
   
   return (
     <div 
-      className="canvas-scroll absolute inset-0 overflow-y-auto p-4 bg-theme-bg transition-colors duration-400"
-      style={{ ...dynamicStyles, paddingBottom: '64dvh' }}
+      className="canvas-scroll absolute inset-0 overflow-y-auto p-4 pb-[32dvh] bg-theme-bg transition-colors duration-400"
+      style={{ ...dynamicStyles }}
     >
       {shimmeringBlockId === 'canvas-root' && (
         <div

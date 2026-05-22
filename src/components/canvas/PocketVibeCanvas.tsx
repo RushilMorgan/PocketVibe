@@ -35,8 +35,8 @@ export default function PocketVibeCanvas({
   
   return (
     <div 
-      className="canvas-scroll relative overflow-y-auto p-4 bg-theme-bg transition-colors duration-400"
-      style={{ ...dynamicStyles, flex: '63' }}
+      className="canvas-scroll absolute inset-0 overflow-y-auto p-4 bg-theme-bg transition-colors duration-400"
+      style={{ ...dynamicStyles, paddingBottom: '64dvh' }}
     >
       {shimmeringBlockId === 'canvas-root' && (
         <div
@@ -57,7 +57,11 @@ export default function PocketVibeCanvas({
       )}
 
       {appConfig.blocks.map((block, index) => (
-        <div key={block.id} className="relative">
+        <div
+          key={block.id}
+          className="relative mb-3"
+          style={{ filter: `drop-shadow(0 8px 28px ${accent}1a) drop-shadow(0 2px 8px rgba(0,0,0,0.05))` }}
+        >
           {shimmeringBlockId === block.id && (
             <div
               className="absolute inset-0 z-10 pointer-events-none rounded-xl"

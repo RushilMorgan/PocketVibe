@@ -55,11 +55,20 @@ export interface FormField {
   value: string;
 }
 
+export interface ComputedMetric {
+  label: string;
+  /** Formula string referencing field ids prefixed with $. E.g. "($gross_income * $tax_rate) / 100" */
+  formula: string;
+  /** Live calculated result string, populated at runtime */
+  value?: string;
+}
+
 export interface InteractiveFormBlock extends BaseBlock {
   type: 'interactive_form';
   title: string;
   submitLabel: string;
   fields: FormField[];
+  computedMetrics?: ComputedMetric[];
 }
 
 export type VisualBlock = HeroBannerBlock | InteractiveListBlock | ActionButtonBlock | MetricsRowBlock | InteractiveFormBlock;

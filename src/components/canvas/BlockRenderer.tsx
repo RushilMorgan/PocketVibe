@@ -125,8 +125,8 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
                 <div className="mr-4 transition-all duration-300" style={{ fontSize: isPlayful ? '26px' : '20px' }}>
                   {item.icon}
                 </div>
-                <div className="flex-1">
-                  <div className="font-extrabold text-theme-text text-[15px]">{item.label}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-theme-text text-[15px] truncate">{item.label}</div>
                   <div className="text-[11px] text-theme-text-muted font-semibold mt-0.5">Interactive item</div>
                 </div>
                 <div className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-theme-surface-hover transition-colors duration-300" style={{ color: 'var(--theme-accent)' }}>
@@ -156,7 +156,7 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
         <div className="grid grid-cols-2 gap-3 mb-4">
           {block.metrics.map((m, i) => (
             <div key={i} className="bg-theme-surface p-5 rounded-theme text-center transition-all duration-300" style={{ border: 'var(--theme-border)', boxShadow: 'var(--theme-shadow)' }}>
-              <div className="text-[11px] uppercase tracking-[1.5px] text-theme-text-muted font-extrabold mb-1.5">
+              <div className="text-[11px] uppercase tracking-[1.5px] text-theme-text-muted font-extrabold mb-1.5 truncate">
                 {m.label}
               </div>
               <div className="font-black text-theme-text tracking-tight transition-all duration-300" style={{ fontSize: isPlayful ? '28px' : '24px', color: isPlayful ? 'var(--theme-accent)' : 'var(--theme-text)', fontFamily: 'var(--theme-font-header)' }}>
@@ -170,7 +170,7 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
     case 'interactive_form':
       return (
         <div className="bg-theme-surface rounded-theme p-5 mb-4 border border-black/5" style={{ boxShadow: 'var(--theme-shadow)' }}>
-          <h3 className="text-[13px] font-black uppercase tracking-widest mb-4" style={{ color: 'var(--theme-accent)' }}>
+          <h3 className="text-[13px] font-black uppercase tracking-widest mb-4 truncate" style={{ color: 'var(--theme-accent)' }}>
             {block.title}
           </h3>
           {block.fields.map(field => (
@@ -206,7 +206,7 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
             <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-black/5">
               {block.computedMetrics.map((metric, i) => (
                 <div key={i} className="bg-black/5 p-4 rounded-2xl text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-theme-text-muted font-bold mb-1">{metric.label}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-theme-text-muted font-bold mb-1 truncate">{metric.label}</div>
                   <div className="text-xl font-black text-theme-text">{metric.value || '0'}</div>
                 </div>
               ))}

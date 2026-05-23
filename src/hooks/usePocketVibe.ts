@@ -13,7 +13,21 @@ import { generateBlocks, GeminiConfigError } from '../services/aiService';
 // Unused import kept to satisfy type re-export
 void (null as unknown as AppConfig);
 
-// ── Formula evaluator ────────────────────────────────────────────────────────
+// ── Emoji inference for form-submit items ──────────────────────────────────
+function inferEmoji(text: string): string {
+  const t = text.toLowerCase();
+  if (/\brun\b|\bwalk\b|\bcardio\b|\bjog\b/.test(t)) return '🏃';
+  if (/\blift\b|\bgym\b|\bsquat\b|\bbench\b|\bdeadlift\b|\bpress\b|\bweight/.test(t)) return '🏋️';
+  if (/\bbuy\b|\bmoney\b|\bexpense\b|\bpay\b|\bcost\b|\bspend/.test(t)) return '💰';
+  if (/\bread\b|\bbook\b|\bstudy\b|\bnote/.test(t)) return '📚';
+  if (/\beat\b|\bfood\b|\bmeal\b|\blunch\b|\bdinner\b|\bbreakfast/.test(t)) return '🍽️';
+  if (/\bsleep\b|\brest\b|\bnap\b/.test(t)) return '😴';
+  if (/\bswim\b|\bpool\b/.test(t)) return '🏊';
+  if (/\bbike\b|\bcycl/.test(t)) return '🚴';
+  return '✅';
+}
+
+
 
 /**
  * Evaluates a formula string against a set of form fields.
@@ -410,6 +424,49 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
     case 'INTERACT_BLOCK': {
       const { blockId, itemId } = action.payload;
+
+      // ── Form submission (no itemId): inject item into sibling list ──────────
+      if (!itemId) {
+        const formBlock = state.appConfig.blocks.find(
+          b => b.id === blockId && b.type === 'interactive_form'
+        );
+        if (formBlock && formBlock.type === 'interactive_form') {
+          const labelValue = formBlock.fields
+            .map(f => f.value?.trim())
+            .filter((v): v is string => Boolean(v))
+            .join(' – ');
+          if (!labelValue) return state; // nothing entered — no-op
+
+          const newItem: InteractiveListItem = {
+            id: `item-${Date.now()}`,
+            label: labelValue,
+            icon: inferEmoji(labelValue),
+            state: 'Pending',
+          };
+          // Find the nearest interactive_list sibling on the canvas
+          const siblingList = state.appConfig.blocks.find(
+            b => b.type === 'interactive_list'
+          );
+          const updatedBlocks = state.appConfig.blocks.map(b => {
+            if (b.id === blockId && b.type === 'interactive_form') {
+              return { ...b, fields: b.fields.map(f => ({ ...f, value: '' })) };
+            }
+            if (siblingList && b.id === siblingList.id && b.type === 'interactive_list') {
+              return { ...b, items: [...b.items, newItem] };
+            }
+            return b;
+          });
+          return {
+            ...state,
+            shimmeringBlockId: siblingList?.id ?? blockId,
+            appConfig: { ...state.appConfig, blocks: updatedBlocks },
+          };
+        }
+        // no form found — fall through to standard shimmer handling
+      }
+      // Non-form block with no itemId: fall through to set shimmeringBlockId
+
+      // ── Standard item interaction (has itemId) ─────────────────────────────
       return {
         ...state,
         shimmeringBlockId: blockId,

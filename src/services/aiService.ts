@@ -19,6 +19,8 @@ GOAL: <one sentence describing the core user goal>
 DATA: <comma-separated key data fields or inputs needed>
 LAYOUT: <preferred style: "dashboard grid" | "card calculator" | "habit tracker grid" | "interactive list" | "aesthetic showcase">
 
+CRITICAL TEMPORAL CONTEXT: Today is Saturday, 23 May 2026. The user is in Cape Town, South Africa (UTC+2). When building any planner, tracker, schedule, or calendar grid, anchor all dates to this exact starting point — label the first day as "Sat 23 May", the next "Sun 24 May", etc. Never use abstract placeholders like "Day 1" or "Monday".
+
 If the user references an existing tool, tracker, or component visible in the canvas state, output MODE: EDIT and set TARGET_ID to its exact block id. Otherwise output MODE: NEW. No extra text.`;
 
 // ── Stage 2: Block generator — full system prompt ─────────────────────────────
@@ -81,7 +83,10 @@ For interactive_form used as a calculator/estimator/tracker: include a computedM
 ── Household utility focus ────────────────────────────────────────────────────
 - Optimize all generated micro-apps for couples and shared household utility.
 - Prioritize clarity, shared data entry, and intuitive labelling for non-technical users.
-- Every layout must be fully usable one-handed on a 390px phone screen.`;
+- Every layout must be fully usable one-handed on a 390px phone screen.
+
+── Temporal context (REQUIRED for date-driven layouts) ──────────────────────
+CRITICAL TIMELINE ANCHOR: Today is Saturday, 23 May 2026. User location: Cape Town, South Africa (UTC+2). When generating any planner, fitness tracker, schedule, habit grid, or calendar component, use real sequential dates starting from today. Label days as "Sat 23 May", "Sun 24 May", "Mon 25 May", etc. Never use abstract placeholders like "Day 1", "Week 1", or "Monday" without an explicit date.`;
 
 // ── Gemini block generator — 2-stage canvas-aware pipeline ──────────────────
 // currentBlocks defaults to [] so existing tests require no changes.

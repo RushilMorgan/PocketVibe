@@ -447,18 +447,39 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
           const siblingList = state.appConfig.blocks.find(
             b => b.type === 'interactive_list'
           );
+
+          if (!siblingList) {
+            // No list exists yet — create one on the fly so submitted items are never lost
+            const autoList: VisualBlock = {
+              type: 'interactive_list',
+              id: `list-${Date.now()}`,
+              title: formBlock.title.replace(/form|add|entry/gi, '').trim() || 'Log',
+              items: [newItem],
+            };
+            const updatedBlocks = state.appConfig.blocks.map(b =>
+              b.id === blockId && b.type === 'interactive_form'
+                ? { ...b, fields: b.fields.map(f => ({ ...f, value: '' })) }
+                : b
+            );
+            return {
+              ...state,
+              shimmeringBlockId: autoList.id,
+              appConfig: { ...state.appConfig, blocks: [...updatedBlocks, autoList] },
+            };
+          }
+
           const updatedBlocks = state.appConfig.blocks.map(b => {
             if (b.id === blockId && b.type === 'interactive_form') {
               return { ...b, fields: b.fields.map(f => ({ ...f, value: '' })) };
             }
-            if (siblingList && b.id === siblingList.id && b.type === 'interactive_list') {
+            if (b.id === siblingList.id && b.type === 'interactive_list') {
               return { ...b, items: [...b.items, newItem] };
             }
             return b;
           });
           return {
             ...state,
-            shimmeringBlockId: siblingList?.id ?? blockId,
+            shimmeringBlockId: siblingList.id,
             appConfig: { ...state.appConfig, blocks: updatedBlocks },
           };
         }

@@ -21,7 +21,9 @@ LAYOUT: <preferred style: "dashboard grid" | "card calculator" | "habit tracker 
 
 CRITICAL TEMPORAL CONTEXT: Today is Saturday, 23 May 2026. The user is in Cape Town, South Africa (UTC+2). When building any planner, tracker, schedule, or calendar grid, anchor all dates to this exact starting point — label the first day as "Sat 23 May", the next "Sun 24 May", etc. Never use abstract placeholders like "Day 1" or "Monday".
 
-If the user references an existing tool, tracker, or component visible in the canvas state, output MODE: EDIT and set TARGET_ID to its exact block id. Otherwise output MODE: NEW. No extra text.`;
+If the user references an existing tool, tracker, or component visible in the canvas state, output MODE: EDIT and set TARGET_ID to its exact block id. Otherwise output MODE: NEW.
+
+If the user wants to add/log/enter items via a form, set LAYOUT to "interactive list + form" — this signals Stage 2 to generate BOTH an interactive_list AND an interactive_form as a pair. No extra text.`;
 
 // ── Stage 2: Block generator — full system prompt ─────────────────────────────
 // Incorporates: business utility focus, mobile viewport guardrails (390px),
@@ -35,14 +37,22 @@ You have access to two rendering tiers:
 generative_html:
   { "type": "generative_html", "id": "<unique string>", "tailwindMarkup": "<single-line HTML string>" }
 
-Use generative_html for: specialized tools, calculators, habit grids, dashboards, trackers, budget planners, games, quizzes, aesthetic showcase layouts, or any prompt requesting a premium or visually rich experience.
+Use generative_html for: read-only dashboards, data visualizations, aesthetic showcase layouts, stat displays, progress charts, and any DISPLAY-ONLY component where no user input submission is needed.
 
-Design guidelines for generative_html:
+⚠️  CRITICAL — generative_html is DISPLAY-ONLY. It renders inside a sandboxed iframe.
+    Its <input> and <button> elements are COMPLETELY DISCONNECTED from the app's state.
+    NEVER use generative_html when the user wants to:
+      • Enter text/numbers and submit them (add a workout, log an entry, add a task)
+      • Append items to a list, tracker, planner, or board
+      • Fill in a form that affects any other block on the canvas
+    For ALL data-entry / submission needs → use interactive_form + interactive_list (TIER 2).
+
+Design guidelines for generative_html (display-only):
 - Compose valid semantic HTML in a SINGLE unbroken string (no newlines, no markdown, no comments).
 - Style entirely with Tailwind CSS utility classes (gradients, glassmorphism panels, grid/flex layouts, ring shadows, rounded-xl/2xl, font-black, tracking-tight, etc.).
 - Use rich aesthetics: bg-gradient-to-br, backdrop-blur-xl, bg-white/10, border border-white/20, shadow-2xl, text-white/80.
 - Lay out data in structured grids: grid grid-cols-2 gap-4, grid grid-cols-3 gap-3, etc.
-- For calculators or input-heavy tools: use <input> and <button> elements styled inline. Do NOT rely on JavaScript event handlers — static/display-only UIs are fine; use pre-populated values.
+- Pre-populate all values. No <input> or <button> elements — use static <div> and <span> only.
 - Keep the markup focused and concise — one coherent layout card or dashboard section per block.
 
 ── MOBILE VIEWPORT GUARDRAILS (strict — 390px screen) ────────────────────────
@@ -76,7 +86,8 @@ For interactive_form used as a calculator/estimator/tracker: include a computedM
 - If the spec says MODE: NEW: create a fresh block with a new unique id.
 - Return 1–3 blocks total. Never more.
 - Every block must have a unique id (short alphanumeric: "b1", "b2").
-- Prefer generative_html for any prompt that would benefit from visual richness.
+- Use generative_html ONLY for display/read-only visualizations. NEVER for forms that accept user input.
+- When the user asks to LOG, ADD, TRACK, or ENTER items → return an interactive_form AND an interactive_list (both in the array). The form collects the input; the list holds the submitted entries.
 - Do NOT include commentary, explanations, or text outside the JSON array.
 - If the prompt is ambiguous, default to interactive_list.
 

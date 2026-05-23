@@ -646,7 +646,7 @@ export function usePocketVibe() {
    * then fires the Gemini API asynchronously and dispatches the result.
    * Falls back to the offline keyword engine on any API error.
    */
-  const processPrompt = useCallback(async (text: string) => {
+  const processPrompt = useCallback(async (text: string, onComplete?: (replyText: string) => void) => {
     // 1. Immediate: user message + shimmer + style/clear mutations
     dispatch({ type: 'PROCESS_LLM_PROMPT', payload: text });
 
@@ -658,6 +658,7 @@ export function usePocketVibe() {
       const blocks = await generateBlocks(text);
       if (blocks.length === 0) {
         dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg: 'Model returned empty array.' } });
+        onComplete?.(generateReply(stateRef.current.companion.archetype, 'fallback', ''));
         return;
       }
       const firstBlock = blocks[0];
@@ -667,9 +668,11 @@ export function usePocketVibe() {
         getBlockDetail(firstBlock),
       );
       dispatch({ type: 'APPLY_GEMINI_BLOCKS', payload: { blocks, replyText } });
+      onComplete?.(replyText);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown Gemini error';
       dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg } });
+      onComplete?.(generateReply(stateRef.current.companion.archetype, 'fallback', ''));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

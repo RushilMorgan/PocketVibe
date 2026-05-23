@@ -145,8 +145,7 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
   );
 }
 
-export default function CompanionSheet({ companion, appConfig, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function CompanionSheet({ companion, appConfig, isOpen, onOpenChange, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
   const displayEmoji = companion.archetype?.emoji ?? '✨';
   const displayName = companion.customName?.trim() || (companion.archetype?.name ?? 'AI');
@@ -155,7 +154,7 @@ export default function CompanionSheet({ companion, appConfig, onSelectArchetype
     <>
       {/* ── Floating action bubble — always on top of the canvas ─── */}
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => onOpenChange(true)}
         className="absolute bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl z-50 cursor-pointer active:scale-90 transition-transform animate-bounce"
         style={{ backgroundColor: accentColor }}
         aria-label="Open companion chat"
@@ -183,7 +182,7 @@ export default function CompanionSheet({ companion, appConfig, onSelectArchetype
             </div>
             {/* Close button */}
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={() => onOpenChange(false)}
               className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all active:scale-90 bg-black/10 text-gray-600"
               aria-label="Close"
             >

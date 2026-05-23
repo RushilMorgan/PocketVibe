@@ -520,12 +520,22 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
       const firstId = blocks[0]?.id ?? 'canvas-root';
       // generative_html blocks own the full canvas — replace all existing blocks
       const hasGenerativeHtml = blocks.some(b => b.type === 'generative_html');
-      const existingBlocks = hasGenerativeHtml
-        ? []
-        : state.appConfig.blocks.filter(b => b.id !== 'welcome-hero');
+      let updatedBlocks: VisualBlock[];
+      if (hasGenerativeHtml) {
+        updatedBlocks = blocks;
+      } else {
+        const base = state.appConfig.blocks.filter(b => b.id !== 'welcome-hero');
+        // EDIT mode: replace any block whose id matches an incoming block (preserves position)
+        const incomingById = new Map(blocks.map(b => [b.id, b]));
+        const merged = base.map(b => incomingById.get(b.id) ?? b);
+        // NEW mode: append blocks whose ids don't already exist in the canvas
+        const existingIds = new Set(base.map(b => b.id));
+        const brandNew = blocks.filter(b => !existingIds.has(b.id));
+        updatedBlocks = [...merged, ...brandNew];
+      }
       return {
         ...state,
-        appConfig: { ...state.appConfig, blocks: [...existingBlocks, ...blocks] },
+        appConfig: { ...state.appConfig, blocks: updatedBlocks },
         companion: { ...state.companion, messages: [...state.companion.messages, aiMsg] },
         shimmeringBlockId: firstId,
       };
@@ -656,7 +666,7 @@ export function usePocketVibe() {
 
     // 3. Fire 2-stage Gemini pipeline
     try {
-      const blocks = await generateBlocks(text, setProcessingStatus);
+      const blocks = await generateBlocks(text, stateRef.current.appConfig.blocks, setProcessingStatus);
       setProcessingStatus(null);
       if (blocks.length === 0) {
         dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg: 'Model returned empty array.' } });

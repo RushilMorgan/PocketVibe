@@ -464,6 +464,42 @@ describe('APPLY_GEMINI_BLOCKS', () => {
     });
     expect(result.current.state.appConfig.blocks).toHaveLength(2);
   });
+
+  it('replaces a block in-place when incoming block shares an existing id (EDIT mode)', () => {
+    const result = setupChatState();
+    const original: VisualBlock = {
+      type: 'interactive_list', id: 'edit-me', title: 'Original',
+      items: [{ id: 'i0', label: 'Initial item', icon: '📌', state: 'Pending' }],
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [original], replyText: 'created' },
+      });
+    });
+    expect(result.current.state.appConfig.blocks).toHaveLength(1);
+
+    // EDIT: same id, new item appended
+    const updated: VisualBlock = {
+      type: 'interactive_list', id: 'edit-me', title: 'Updated',
+      items: [
+        { id: 'i0', label: 'Initial item', icon: '📌', state: 'Pending' },
+        { id: 'i1', label: 'New item', icon: '✅', state: 'Pending' },
+      ],
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [updated], replyText: 'edited' },
+      });
+    });
+    // No duplicate created — still 1 block
+    expect(result.current.state.appConfig.blocks).toHaveLength(1);
+    // Block updated in-place
+    const block = result.current.state.appConfig.blocks[0] as any;
+    expect(block.title).toBe('Updated');
+    expect(block.items).toHaveLength(2);
+  });
 });
 
 // ── GEMINI_ERROR — offline fallback engine ────────────────────────────────────

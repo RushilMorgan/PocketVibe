@@ -149,7 +149,7 @@ export default function CompanionSheet({ companion, appConfig, onSelectArchetype
   const [isOpen, setIsOpen] = useState(false);
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
   const displayEmoji = companion.archetype?.emoji ?? '✨';
-  const displayName = companion.customName?.trim() || companion.archetype?.name ?? 'AI';
+  const displayName = companion.customName?.trim() || (companion.archetype?.name ?? 'AI');
 
   return (
     <>

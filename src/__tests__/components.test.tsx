@@ -303,26 +303,56 @@ describe('BlockRenderer — interactive_form', () => {
 // ── BlockRenderer — generative_html ──────────────────────────────────────────────────
 
 describe('BlockRenderer — generative_html', () => {
-  it('renders injected HTML content', () => {
+  it('renders a sandboxed iframe for the generative block', () => {
     const block = {
       type: 'generative_html' as const,
       id: 'gh1',
-      tailwindMarkup: '<div data-testid="inner">Generated Layout</div>',
+      tailwindMarkup: '<div class="p-4 text-white bg-purple-600">Hello World</div>',
     };
     render(<BlockRenderer block={block} appConfig={BASE_CONFIG} onInteract={noop} />);
-    expect(screen.getByTestId('inner')).toBeInTheDocument();
-    expect(screen.getByText('Generated Layout')).toBeInTheDocument();
+    const iframe = document.querySelector('iframe');
+    expect(iframe).toBeInTheDocument();
+    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts');
   });
 
-  it('strips dangerous script tags via DOMPurify', () => {
+  it('injects sanitized markup into the iframe srcdoc', () => {
     const block = {
       type: 'generative_html' as const,
       id: 'gh2',
-      tailwindMarkup: '<p data-testid="safe">Safe</p><script>alert(1)</script>',
+      tailwindMarkup: '<p>Safe content</p>',
     };
     render(<BlockRenderer block={block} appConfig={BASE_CONFIG} onInteract={noop} />);
-    expect(screen.getByTestId('safe')).toBeInTheDocument();
-    expect(document.querySelector('script')).toBeNull();
+    const iframe = document.querySelector('iframe');
+    expect(iframe?.getAttribute('srcdoc')).toContain('Safe content');
+  });
+
+  it('includes the Tailwind CDN in the srcdoc', () => {
+    const block = {
+      type: 'generative_html' as const,
+      id: 'gh3',
+      tailwindMarkup: '<div>CDN test</div>',
+    };
+    render(<BlockRenderer block={block} appConfig={BASE_CONFIG} onInteract={noop} />);
+    const iframe = document.querySelector('iframe');
+    expect(iframe?.getAttribute('srcdoc')).toContain('cdn.tailwindcss.com');
+  });
+
+  it('strips dangerous script tags from the injected markup via DOMPurify', () => {
+    const block = {
+      type: 'generative_html' as const,
+      id: 'gh4',
+      tailwindMarkup: '<p>Safe</p><script>alert(1)<\/script>',
+    };
+    render(<BlockRenderer block={block} appConfig={BASE_CONFIG} onInteract={noop} />);
+    const iframe = document.querySelector('iframe');
+    const srcdoc = iframe?.getAttribute('srcdoc') ?? '';
+    // The safe paragraph should be present
+    expect(srcdoc).toContain('<p>Safe</p>');
+    // The injected alert payload must NOT appear anywhere in the srcdoc
+    expect(srcdoc).not.toContain('alert(1)');
+    // Only our 2 controlled scripts (CDN + postMessage reporter) should be present
+    const scriptCount = (srcdoc.match(/<script/g) ?? []).length;
+    expect(scriptCount).toBe(2);
   });
 });
 

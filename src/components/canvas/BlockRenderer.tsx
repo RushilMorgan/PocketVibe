@@ -1,5 +1,66 @@
+import { useState, useEffect, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import type { VisualBlock, AppConfig } from '../../types';
+
+// ── Sandboxed iframe renderer for generative_html blocks ──────────────────────
+// Tailwind v4 is build-time only — classes in runtime strings produce no CSS.
+// We solve this by wrapping the AI markup in a complete HTML document (srcdoc)
+// that loads the Tailwind Play CDN so ALL utility classes resolve at runtime.
+
+function GenerativeHtmlFrame({ markup }: { markup: string }) {
+  const [height, setHeight] = useState(300);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const sanitized = DOMPurify.sanitize(markup, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['object', 'embed', 'base'],
+    FORBID_ATTR: ['onerror', 'onload', 'onmouseover', 'onfocus', 'onblur'],
+  });
+
+  // Tiny inline script reports rendered body height back via postMessage
+  const srcdoc = [
+    '<!DOCTYPE html><html><head>',
+    '<meta charset="UTF-8">',
+    '<meta name="viewport" content="width=device-width,initial-scale=1">',
+    '<script src="https://cdn.tailwindcss.com"><\/script>',
+    '<style>*{box-sizing:border-box}html,body{margin:0;padding:0;background:transparent;overflow-x:hidden}</style>',
+    '</head><body>',
+    sanitized,
+    '<script>',
+    'function reportH(){var h=document.documentElement.scrollHeight;window.parent.postMessage({pvHeight:h},"*");}',
+    'if(document.readyState==="complete"){setTimeout(reportH,150);}',
+    'window.addEventListener("load",function(){setTimeout(reportH,300);});',
+    '<\/script>',
+    '</body></html>',
+  ].join('');
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      // Accept only messages from our specific iframe
+      if (
+        iframeRef.current &&
+        e.source === iframeRef.current.contentWindow &&
+        typeof e.data?.pvHeight === 'number' &&
+        e.data.pvHeight > 0
+      ) {
+        setHeight(e.data.pvHeight + 16);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={srcdoc}
+      sandbox="allow-scripts"
+      title="Generative UI"
+      className="w-full rounded-2xl border-0 block transition-all duration-500"
+      style={{ height: `${height}px`, minHeight: '200px' }}
+    />
+  );
+}
 
 interface BlockRendererProps {
   block: VisualBlock;
@@ -146,18 +207,7 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
       );
 
     case 'generative_html':
-      return (
-        <div
-          className="w-full transition-all duration-500"
-          dangerouslySetInnerHTML={{
-            __html: DOMPurify.sanitize(block.tailwindMarkup, {
-              USE_PROFILES: { html: true },
-              FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'base'],
-              FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
-            }),
-          }}
-        />
-      );
+      return <GenerativeHtmlFrame markup={block.tailwindMarkup} />;
 
     default:
       return null;

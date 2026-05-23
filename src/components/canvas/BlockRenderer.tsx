@@ -91,13 +91,28 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
         </div>
       );
       
-    case 'interactive_list':
+    case 'interactive_list': {
+      const doneCount = block.items.filter(i => i.state === 'Done' || i.state === 'Stocked').length;
+      const totalCount = block.items.length;
       return (
         <div className="mb-5">
           {block.title && (
-            <h3 className="text-[13px] font-black uppercase tracking-widest mb-3" style={{ color: 'var(--theme-accent)' }}>
-              {block.title}
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[13px] font-black uppercase tracking-widest" style={{ color: 'var(--theme-accent)' }}>
+                {block.title}
+              </h3>
+              {totalCount > 0 && (
+                <span
+                  className="text-[11px] font-extrabold px-2.5 py-1 rounded-full"
+                  style={{
+                    backgroundColor: doneCount === totalCount ? 'var(--theme-accent)' : 'var(--theme-surface-hover)',
+                    color: doneCount === totalCount ? '#fff' : 'var(--theme-text-muted)',
+                  }}
+                >
+                  {doneCount} / {totalCount} done
+                </span>
+              )}
+            </div>
           )}
           <div className="flex flex-col gap-2.5">
             {block.items.map(item => (
@@ -122,6 +137,7 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
           </div>
         </div>
       );
+    }
       
     case 'action_button':
       return (

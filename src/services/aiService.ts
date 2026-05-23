@@ -1,7 +1,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { VisualBlock } from '../types';
 
-// ── Structural agent-engineer system prompt ───────────────────────────────────
+// ── Stage 1: Intent parser — fast spec extraction ─────────────────────────────
+// Produces a terse structured brief that grounds Stage 2 generation.
+// Deliberately short output to keep latency low (~2-3 s on Flash).
+
+const STAGE1_SYSTEM = `You are an intent parsing agent. Given a user's natural-language request, output a concise structured brief (≤ 120 words) with these three lines:
+GOAL: <one sentence describing the core user goal>
+DATA: <comma-separated list of key data fields or inputs needed>
+LAYOUT: <preferred layout style, e.g. "dashboard grid", "single card calculator", "habit tracker grid", "quiz flow", "aesthetic showcase">
+
+Do not add any other text. Do not output JSON. Plain text brief only.`;
+
+// ── Stage 2: Block generator — full system prompt ─────────────────────────────
 
 const SYSTEM_PROMPT = `You are a master UI/UX layout design engineer and the user's custom companion application designer. You MUST interpret the user's sentence and return EXCLUSIVELY a valid JSON array. Do not wrap the JSON in Markdown block ticks or add any commentary outside the array.
 
@@ -46,9 +57,12 @@ For interactive_form used as a calculator/estimator/tracker: include a computedM
 - Do NOT include commentary, explanations, or text outside the JSON array.
 - If the prompt is ambiguous, default to interactive_list.`;
 
-// ── Gemini block generator ────────────────────────────────────────────────────
+// ── Gemini block generator — 2-stage pipeline ────────────────────────────────
 
-export async function generateBlocks(prompt: string): Promise<VisualBlock[]> {
+export async function generateBlocks(
+  prompt: string,
+  onUpdateProgress?: (status: string) => void,
+): Promise<VisualBlock[]> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
   if (!apiKey) {
@@ -58,12 +72,25 @@ export async function generateBlocks(prompt: string): Promise<VisualBlock[]> {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
+
+  // ── Stage 1: Parse intent into a structured spec (~2-3 s) ─────────────────
+  onUpdateProgress?.('Analyzing your request…');
+  const stage1Model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: STAGE1_SYSTEM,
+  });
+  const specResult = await stage1Model.generateContent(prompt);
+  const spec = specResult.response.text().trim();
+
+  // ── Stage 2: Generate blocks grounded by spec (~5-8 s) ───────────────────
+  onUpdateProgress?.('Designing your layout…');
+  const stage2Model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
     systemInstruction: SYSTEM_PROMPT,
   });
-
-  const result = await model.generateContent(prompt);
+  const result = await stage2Model.generateContent(
+    `User request: ${prompt}\n\nLayout brief from spec agent:\n${spec}`,
+  );
   const raw = result.response.text().trim();
 
   // Strip any accidental markdown fences the model may produce

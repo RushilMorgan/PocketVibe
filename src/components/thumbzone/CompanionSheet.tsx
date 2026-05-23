@@ -56,7 +56,7 @@ const INTENT_PILLS: { label: string; prompt: string }[] = [
   { label: '🎨 Shuffle palette', prompt: 'Shuffle to the next palette color'                           },
 ];
 
-function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) {
+function CompanionChat({ companion, appConfig, onPrompt, onSliderChange, processingStatus }: any) {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const arc = companion.archetype!;
@@ -102,6 +102,16 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
         }}
       >
         <div className="flex gap-2 items-center">
+          {processingStatus && (
+            <div
+              className="w-full text-center text-[10px] font-semibold py-1.5 px-3 rounded-full animate-pulse"
+              style={{ backgroundColor: `${appConfig.accentColor}15`, color: appConfig.accentColor }}
+            >
+              {processingStatus}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={inputText}
@@ -145,7 +155,7 @@ function CompanionChat({ companion, appConfig, onPrompt, onSliderChange }: any) 
   );
 }
 
-export default function CompanionSheet({ companion, appConfig, isOpen, onOpenChange, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
+export default function CompanionSheet({ companion, appConfig, isOpen, onOpenChange, processingStatus, onSelectArchetype, onSetCustomName, onConfirm, onPrompt, onSliderChange }: any) {
   const accentColor = companion.archetype?.accentColor ?? '#7c3aed';
   const displayEmoji = companion.archetype?.emoji ?? '✨';
   const displayName = companion.customName?.trim() || (companion.archetype?.name ?? 'AI');
@@ -204,6 +214,7 @@ export default function CompanionSheet({ companion, appConfig, isOpen, onOpenCha
               appConfig={appConfig}
               onPrompt={onPrompt}
               onSliderChange={onSliderChange}
+              processingStatus={processingStatus}
             />
           )}
         </div>

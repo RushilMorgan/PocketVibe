@@ -6,7 +6,7 @@ import CompanionSheet from './components/thumbzone/CompanionSheet';
 import { usePocketVibe } from './hooks/usePocketVibe';
 
 export default function App() {
-  const { state, dispatch, processPrompt } = usePocketVibe();
+  const { state, dispatch, processPrompt, processingStatus } = usePocketVibe();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [bannerText, setBannerText] = useState<string | null>(null);
   const [bannerSeq, setBannerSeq] = useState(0);
@@ -70,6 +70,7 @@ export default function App() {
           appConfig={state.appConfig}
           isOpen={isSheetOpen}
           onOpenChange={setIsSheetOpen}
+          processingStatus={processingStatus}
           onSelectArchetype={(a: any) => dispatch({ type: 'SELECT_ARCHETYPE', payload: a })}
           onSetCustomName={(n: string) => dispatch({ type: 'SET_CUSTOM_NAME', payload: n })}
           onConfirm={() => dispatch({ type: 'CONFIRM_COMPANION' })}

@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect, useCallback } from 'react';
+import { useReducer, useRef, useEffect, useCallback, useState } from 'react';
 import type {
   PocketVibeState,
   AIArchetype,
@@ -606,6 +606,7 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
 export function usePocketVibe() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -653,9 +654,10 @@ export function usePocketVibe() {
     // 2. Style/clear commands are fully handled synchronously — skip Gemini
     if (isSyncCommand(text.toLowerCase())) return;
 
-    // 3. Fire Gemini asynchronously
+    // 3. Fire 2-stage Gemini pipeline
     try {
-      const blocks = await generateBlocks(text);
+      const blocks = await generateBlocks(text, setProcessingStatus);
+      setProcessingStatus(null);
       if (blocks.length === 0) {
         dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg: 'Model returned empty array.' } });
         onComplete?.(generateReply(stateRef.current.companion.archetype, 'fallback', ''));
@@ -670,6 +672,7 @@ export function usePocketVibe() {
       dispatch({ type: 'APPLY_GEMINI_BLOCKS', payload: { blocks, replyText } });
       onComplete?.(replyText);
     } catch (err) {
+      setProcessingStatus(null);
       const errorMsg = err instanceof Error ? err.message : 'Unknown Gemini error';
       dispatch({ type: 'GEMINI_ERROR', payload: { text, errorMsg } });
       onComplete?.(generateReply(stateRef.current.companion.archetype, 'fallback', ''));
@@ -677,5 +680,5 @@ export function usePocketVibe() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, dispatch, processPrompt };
+  return { state, dispatch, processPrompt, processingStatus };
 }

@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import type { VisualBlock, AppConfig } from '../../types';
 
 interface BlockRendererProps {
@@ -142,6 +143,20 @@ export default function BlockRenderer({ block, appConfig, onInteract }: BlockRen
             {block.submitLabel}
           </button>
         </div>
+      );
+
+    case 'generative_html':
+      return (
+        <div
+          className="w-full transition-all duration-500"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(block.tailwindMarkup, {
+              USE_PROFILES: { html: true },
+              FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'base'],
+              FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+            }),
+          }}
+        />
       );
 
     default:

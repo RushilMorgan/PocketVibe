@@ -9,7 +9,7 @@ export interface AIArchetype {
   accentColor: string;
 }
 
-export type BlockType = 'hero_banner' | 'interactive_list' | 'action_button' | 'metrics_row' | 'interactive_form';
+export type BlockType = 'hero_banner' | 'interactive_list' | 'action_button' | 'metrics_row' | 'interactive_form' | 'generative_html';
 
 export interface BaseBlock {
   id: string;
@@ -71,7 +71,13 @@ export interface InteractiveFormBlock extends BaseBlock {
   computedMetrics?: ComputedMetric[];
 }
 
-export type VisualBlock = HeroBannerBlock | InteractiveListBlock | ActionButtonBlock | MetricsRowBlock | InteractiveFormBlock;
+export interface GenerativeHtmlBlock extends BaseBlock {
+  type: 'generative_html';
+  /** Raw semantic HTML string, fully styled with Tailwind utility classes */
+  tailwindMarkup: string;
+}
+
+export type VisualBlock = HeroBannerBlock | InteractiveListBlock | ActionButtonBlock | MetricsRowBlock | InteractiveFormBlock | GenerativeHtmlBlock;
 
 export interface AppConfig {
   blocks: VisualBlock[];

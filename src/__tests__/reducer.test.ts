@@ -419,6 +419,51 @@ describe('APPLY_GEMINI_BLOCKS', () => {
     });
     expect(result.current.state.shimmeringBlockId).toBe('g1');
   });
+
+  it('replaces ALL existing blocks when generative_html block arrives', () => {
+    const result = setupChatState();
+    // First load a non-welcome block
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: FAKE_BLOCKS, replyText: 'first' },
+      });
+    });
+    expect(result.current.state.appConfig.blocks).toHaveLength(1);
+    // Now dispatch a generative_html block — should wipe previous blocks
+    const htmlBlock: VisualBlock = {
+      type: 'generative_html',
+      id: 'gh1',
+      tailwindMarkup: '<div class="p-4">Hello</div>',
+    };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [htmlBlock], replyText: 'Canvas redrawn.' },
+      });
+    });
+    // Only the generative_html block should remain
+    expect(result.current.state.appConfig.blocks).toHaveLength(1);
+    expect(result.current.state.appConfig.blocks[0].id).toBe('gh1');
+  });
+
+  it('appends non-generative blocks on top of existing ones', () => {
+    const result = setupChatState();
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: FAKE_BLOCKS, replyText: 'first' },
+      });
+    });
+    const second: VisualBlock = { type: 'action_button', id: 'g2', label: 'Second' };
+    act(() => {
+      result.current.dispatch({
+        type: 'APPLY_GEMINI_BLOCKS',
+        payload: { blocks: [second], replyText: 'second' },
+      });
+    });
+    expect(result.current.state.appConfig.blocks).toHaveLength(2);
+  });
 });
 
 // ── GEMINI_ERROR — offline fallback engine ────────────────────────────────────

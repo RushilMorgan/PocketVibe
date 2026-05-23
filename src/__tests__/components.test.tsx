@@ -300,6 +300,32 @@ describe('BlockRenderer — interactive_form', () => {
   });
 });
 
+// ── BlockRenderer — generative_html ──────────────────────────────────────────────────
+
+describe('BlockRenderer — generative_html', () => {
+  it('renders injected HTML content', () => {
+    const block = {
+      type: 'generative_html' as const,
+      id: 'gh1',
+      tailwindMarkup: '<div data-testid="inner">Generated Layout</div>',
+    };
+    render(<BlockRenderer block={block} appConfig={BASE_CONFIG} onInteract={noop} />);
+    expect(screen.getByTestId('inner')).toBeInTheDocument();
+    expect(screen.getByText('Generated Layout')).toBeInTheDocument();
+  });
+
+  it('strips dangerous script tags via DOMPurify', () => {
+    const block = {
+      type: 'generative_html' as const,
+      id: 'gh2',
+      tailwindMarkup: '<p data-testid="safe">Safe</p><script>alert(1)</script>',
+    };
+    render(<BlockRenderer block={block} appConfig={BASE_CONFIG} onInteract={noop} />);
+    expect(screen.getByTestId('safe')).toBeInTheDocument();
+    expect(document.querySelector('script')).toBeNull();
+  });
+});
+
 // ── PocketVibeCanvas ───────────────────────────────────────────────────────────
 
 describe('PocketVibeCanvas', () => {

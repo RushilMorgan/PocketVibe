@@ -296,6 +296,16 @@ function generateReply(
       ziggy: `BANNER UP!! 🏆 Looking ICONIC right now!! ✨`,
       nova:  `Hero banner generated: "${detail}". Welcome structure initialized.`,
     },
+    generative_html: {
+      lex:   `Generative layout rendered. Canvas updated.`,
+      ziggy: `CUSTOM UI DROPPED!! 🎨✨ Your premium layout is LIVE on the canvas!! 🔥`,
+      nova:  `Generative HTML block rendered. Tailwind layout injected into canvas.`,
+    },
+    interactive_form: {
+      lex:   `Form layout placed. Fields ready.`,
+      ziggy: `FORM IS LIVE!! 📋 Fill it in and see the results!! ✨`,
+      nova:  `Interactive form generated with ${detail || 'input fields'}. Computed metrics wired.`,
+    },
     style: {
       lex:   `Design tokens updated. ${detail}`,
       ziggy: `VIBES CHANGED!! ${detail} 🎨🔥`,
@@ -508,9 +518,14 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
       const { blocks, replyText } = action.payload;
       const aiMsg: ChatMessage = { id: `${Date.now()}-c`, role: 'companion', text: replyText };
       const firstId = blocks[0]?.id ?? 'canvas-root';
+      // generative_html blocks own the full canvas — replace all existing blocks
+      const hasGenerativeHtml = blocks.some(b => b.type === 'generative_html');
+      const existingBlocks = hasGenerativeHtml
+        ? []
+        : state.appConfig.blocks.filter(b => b.id !== 'welcome-hero');
       return {
         ...state,
-        appConfig: { ...state.appConfig, blocks: [...state.appConfig.blocks.filter(b => b.id !== 'welcome-hero'), ...blocks] },
+        appConfig: { ...state.appConfig, blocks: [...existingBlocks, ...blocks] },
         companion: { ...state.companion, messages: [...state.companion.messages, aiMsg] },
         shimmeringBlockId: firstId,
       };
@@ -621,6 +636,8 @@ export function usePocketVibe() {
     if (block.type === 'interactive_list') return block.title ?? 'List';
     if (block.type === 'action_button')    return block.label;
     if (block.type === 'metrics_row')      return `${block.metrics.length} metrics`;
+    if (block.type === 'interactive_form') return block.title;
+    if (block.type === 'generative_html')  return 'custom layout';
     return '';
   }
 

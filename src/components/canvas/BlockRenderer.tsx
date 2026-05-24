@@ -9,10 +9,12 @@ import type { VisualBlock, AppConfig } from '../../types';
 
 // Reactive micro-runtime injected into every generative_html iframe.
 // Provides zero-latency local interactions without touching React state:
-//   • Sliders:   give <input type="range" id="x"> a sibling <span data-for="x">
-//   • Formulas:  data-formula="$a * $b" data-output="resultId" on any element
-//   • Counters:  data-counter="all" on a <span> shows "X / Y checked"
-//   • Inline:    oninput / onclick / onchange handlers pass through sandbox
+//   • Sliders:      <input type="range" id="x"> + <span data-for="x">
+//   • Formulas:     data-formula="$a * $b" data-output="resultId"
+//   • Counters:     data-counter="all" | data-counter="groupName" + data-group="groupName"
+//   • List append:  data-append-to="listId" data-value-from="inputId" data-item-icon="🏋️" on <button>
+//   • Tab switch:   data-tab="daily" data-tab-group="g" on buttons + data-panel="daily" data-panel-group="g" on divs
+//   • Inline:       oninput / onclick / onchange handlers pass through sandbox
 const IFRAME_RUNTIME = `(function(){
 function reportH(){var h=document.documentElement.scrollHeight;window.parent.postMessage({pvHeight:h},'*');}
 function getVal(id){var el=document.getElementById(id);if(!el)return 0;if(el.type==='checkbox')return el.checked?1:0;return parseFloat(el.value)||0;}
@@ -40,6 +42,28 @@ window.addEventListener('load',function(){
     inp.addEventListener(inp.type==='checkbox'?'change':'input',evalAll);
   });
   evalAll();setTimeout(reportH,300);setTimeout(reportH,900);
+});
+// data-append-to + data-value-from: button appends input text as a styled item into a list element
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('[data-append-to]');if(!btn)return;
+  var list=document.getElementById(btn.dataset.appendTo);
+  var inp=document.getElementById(btn.dataset.valueFrom);
+  if(!list||!inp||!inp.value.trim())return;
+  var cls=btn.dataset.itemClass||'flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/10 text-white/90 text-sm mb-2 font-semibold';
+  var ico=btn.dataset.itemIcon||'\u2705';
+  var div=document.createElement('div');div.className=cls;
+  div.textContent=ico+' '+inp.value.trim();
+  list.appendChild(div);inp.value='';
+  evalAll();setTimeout(reportH,150);
+});
+// data-tab + data-tab-group / data-panel + data-panel-group: tab panel switching
+document.addEventListener('click',function(e){
+  var tab=e.target.closest('[data-tab]');if(!tab)return;
+  var grp=tab.dataset.tabGroup||'default',target=tab.dataset.tab;
+  document.querySelectorAll('[data-tab-group="'+grp+'"]').forEach(function(t){t.classList.remove('bg-white/20','text-white','font-black');t.classList.add('text-white/50');});
+  tab.classList.add('bg-white/20','text-white','font-black');tab.classList.remove('text-white/50');
+  document.querySelectorAll('[data-panel-group="'+grp+'"]').forEach(function(p){p.style.display=p.dataset.panel===target?'block':'none';});
+  reportH();
 });
 if(document.readyState==='complete')setTimeout(reportH,150);
 })();`;

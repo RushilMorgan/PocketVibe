@@ -10,6 +10,8 @@ import type {
   GenerateRequest,
 } from '../types';
 import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
+import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
+import { isEditRequestOnNonEditableType, isRendererAlreadyEditable } from '../lib/capabilityRegistry';
 import {
   loadCreations,
   saveCreations,
@@ -222,11 +224,57 @@ export function usePocketVibe() {
     }
 
     try {
-      const res = await generateCreation(req, (status) => {
+      let res = await generateCreation(req, (status) => {
         dispatch({ type: 'SET_PROCESSING_STATUS', payload: status });
       });
 
       const existing = stateRef.current.creations.find(c => c.id === creationId);
+
+      // ── Trust: visible-change verification for improve/add ────────────────
+      if (req.mode !== 'new' && existing) {
+        const oldSig = getCreationVisibleSignature(existing);
+        const newSig = getContentVisibleSignature(res.content);
+
+        if (oldSig === newSig) {
+          // No visible change — attempt one repair call with an explicit note
+          dispatch({ type: 'SET_PROCESSING_STATUS', payload: 'Double-checking the result…' });
+          let repaired = false;
+
+          try {
+            const repairReq: GenerateRequest = {
+              ...req,
+              userRequest: `${req.userRequest}\n\n[Important: Your previous response returned content that looks identical to what already exists. You MUST make a real visible change that satisfies the user's request. Do not return the same habits/items/amounts as before.]`,
+            };
+            const repairedRes = await generateCreation(repairReq);
+            const repairedSig = getContentVisibleSignature(repairedRes.content);
+            if (repairedSig !== oldSig) {
+              res = repairedRes;
+              repaired = true;
+            }
+          } catch {
+            // repair call failed — continue to honest failure below
+          }
+
+          if (!repaired) {
+            // Restore to ready without change, do NOT increment version
+            dispatch({
+              type: 'UPSERT_CREATION',
+              payload: { ...existing, status: 'ready', updatedAt: existing.updatedAt },
+            });
+            dispatch({
+              type: 'ADD_MESSAGE',
+              payload: {
+                id: `a-${Date.now()}`,
+                role: 'assistant',
+                text: "I tried, but that didn't actually change the tracker. I'll need to rebuild this part properly instead.",
+              },
+            });
+            return; // finally block still runs
+          }
+        }
+      }
+      // ── End trust verification ────────────────────────────────────────────
+
       const newVersion = req.mode === 'new' ? 1 : (existing?.version ?? 1) + 1;
       const updatedAt = Date.now();
 
@@ -235,7 +283,9 @@ export function usePocketVibe() {
         title: res.title,
         creationType: res.creationType,
         description: res.description,
-        summary: res.summary,
+        // For improve/add, keep the original creation summary so the banner
+        // continues to describe what the creation IS, not what the AI claimed to change.
+        summary: req.mode === 'new' ? res.summary : (existing?.summary ?? res.summary),
         originalRequest: req.mode === 'new' ? req.userRequest : (existing?.originalRequest ?? req.userRequest),
         status: 'ready',
         version: Math.max(1, newVersion),
@@ -245,9 +295,16 @@ export function usePocketVibe() {
       };
 
       dispatch({ type: 'UPSERT_CREATION', payload: finishedCreation });
+
+      // For new creations the AI summary is descriptive. For improve/add we
+      // compose the message from the verified outcome — not from AI text.
+      const assistantMessage =
+        req.mode === 'new'
+          ? res.summary
+          : `Done — I updated the ${res.title}.`;
       dispatch({
         type: 'ADD_MESSAGE',
-        payload: { id: `a-${Date.now()}`, role: 'assistant', text: res.summary },
+        payload: { id: `a-${Date.now()}`, role: 'assistant', text: assistantMessage },
       });
 
       const accentByType: Record<string, string> = {
@@ -355,6 +412,37 @@ export function usePocketVibe() {
       : null;
 
     if (!current || stateRef.current.isGenerating) return;
+
+    // ── Capability gate ───────────────────────────────────────────────────────
+    // If the user is asking to DIRECTLY EDIT a type whose renderer already
+    // supports editing, point them to the built-in controls instead of
+    // calling the AI (which would return unchanged content and then fail).
+    if (isRendererAlreadyEditable(userRequest, current.creationType)) {
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: "Tap 'Edit habits' at the top to rename habits, change their icons, add new ones, or delete any you don't need.",
+        },
+      });
+      return;
+    }
+
+    // If the renderer has no editing support at all and the user is asking for it,
+    // respond honestly instead of pretending the AI can provide it.
+    if (isEditRequestOnNonEditableType(userRequest, current.creationType)) {
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: "I can't make that editable yet in this version. I can still rebuild it as an editable tracker.",
+        },
+      });
+      return;
+    }
+    // ── End capability gate ───────────────────────────────────────────────────
 
     const locale = {
       date: new Date().toISOString().slice(0, 10),

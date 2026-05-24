@@ -1,5 +1,7 @@
-﻿import { renderHook, act } from '@testing-library/react';
+﻿import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { GenerateResponse } from '../types';
+import * as aiServiceModule from '../services/aiService';
 
 vi.mock('../services/aiService', () => ({
   generateCreation: vi.fn(),
@@ -174,5 +176,199 @@ describe('messages', () => {
       result.current.dispatch({ type: 'CLEAR_MESSAGES' });
     });
     expect(result.current.state.messages).toHaveLength(0);
+  });
+});
+
+// ── Trust / visible-change verification ──────────────────────────────────────
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+/** A habit tracker creation as it exists BEFORE any AI improvement. */
+const HABIT_CREATION = {
+  ...SAMPLE_CREATION,
+  id: 'ht-1',
+  title: 'Morning Habits',
+  creationType: 'habit_tracker' as const,
+  content: {
+    type: 'habit_tracker' as const,
+    habits: [
+      { id: 'h1', name: 'Run', icon: '🏃', frequency: 'daily' as const, completions: {} },
+    ],
+    startDate: TODAY,
+  },
+};
+
+const generateCreationMock = vi.mocked(aiServiceModule.generateCreation);
+
+describe('trust — visible change verification', () => {
+  beforeEach(() => {
+    generateCreationMock.mockReset();
+  });
+
+  it('when AI returns identical content for improve, dispatches honest failure message and does NOT update version', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    // Seed the creation
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: HABIT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'ht-1' });
+    });
+
+    // Mock AI returns IDENTICAL content (no visible change) — for BOTH initial + repair call
+    const identicalResponse: GenerateResponse = {
+      title: 'Morning Habits',
+      creationType: 'habit_tracker',
+      description: '',
+      summary: 'I updated the tracker!', // AI claims success but content is same
+      content: { ...HABIT_CREATION.content }, // same visible content
+    };
+    generateCreationMock.mockResolvedValue(identicalResponse);
+
+    await act(async () => {
+      result.current.improveCreation('improve the layout');
+    });
+
+    await waitFor(() => !result.current.state.isGenerating);
+
+    // Must NOT claim "Done — I updated"
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /done.*updated/i.test(m.text))).toBeUndefined();
+
+    // Must dispatch honest failure message
+    expect(messages.find(m => /didn't actually change/i.test(m.text))).toBeDefined();
+
+    // Version must NOT have incremented
+    const creation = result.current.state.creations.find(c => c.id === 'ht-1');
+    expect(creation?.version).toBe(1);
+  });
+
+  it('when AI changes content for improve, increments version and shows "Done — I updated" message', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: HABIT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'ht-1' });
+    });
+
+    // Mock AI returns CHANGED content (new habit added)
+    const changedResponse: GenerateResponse = {
+      title: 'Morning Habits',
+      creationType: 'habit_tracker',
+      description: '',
+      summary: 'I added a new habit.',
+      content: {
+        type: 'habit_tracker',
+        habits: [
+          { id: 'h1', name: 'Run', icon: '🏃', frequency: 'daily', completions: {} },
+          { id: 'h2', name: 'Meditate', icon: '🧘', frequency: 'daily', completions: {} },
+        ],
+        startDate: TODAY,
+      },
+    };
+    generateCreationMock.mockResolvedValue(changedResponse);
+
+    await act(async () => {
+      result.current.improveCreation('add a meditation habit');
+    });
+
+    await waitFor(() => !result.current.state.isGenerating);
+
+    // Must show "Done — I updated" message (not the AI summary)
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /done.*updated/i.test(m.text))).toBeDefined();
+
+    // Version must have incremented to 2
+    const creation = result.current.state.creations.find(c => c.id === 'ht-1');
+    expect(creation?.version).toBe(2);
+
+    // Content must reflect the new habit
+    const content = creation?.content as { type: 'habit_tracker'; habits: Array<{name:string}> };
+    expect(content.habits.length).toBe(2);
+  });
+
+  it('same AI content but different summary → still shows no-change message, not the AI summary', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: HABIT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'ht-1' });
+    });
+
+    // AI returns same content but a different (deceptive) summary
+    const deceptiveResponse: GenerateResponse = {
+      title: 'Morning Habits',
+      creationType: 'habit_tracker',
+      description: 'Updated description',
+      summary: 'I completely redesigned your tracker!', // deceptive
+      content: { ...HABIT_CREATION.content }, // same visible content
+    };
+    generateCreationMock.mockResolvedValue(deceptiveResponse);
+
+    await act(async () => {
+      result.current.improveCreation('make it look better');
+    });
+
+    await waitFor(() => !result.current.state.isGenerating);
+
+    // Must NOT show the AI's deceptive summary
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /completely redesigned/i.test(m.text))).toBeUndefined();
+
+    // Must show honest failure
+    expect(messages.find(m => /didn't actually change/i.test(m.text))).toBeDefined();
+  });
+
+  it('requesting "editable" for a habit_tracker redirects user to Edit habits button without calling AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: HABIT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'ht-1' });
+    });
+
+    await act(async () => {
+      result.current.improveCreation('make it editable so I can change things');
+    });
+
+    // AI must NOT be called
+    expect(generateCreationMock).not.toHaveBeenCalled();
+
+    // Must show helpful pointer to the built-in edit button
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /edit habits/i.test(m.text))).toBeDefined();
+  });
+
+  it('requesting "editable" on a non-editable type (event_planner) returns honest "not yet" message', async () => {
+    const eventCreation = {
+      ...SAMPLE_CREATION,
+      id: 'ev-1',
+      creationType: 'event_planner' as const,
+      content: {
+        type: 'event_planner' as const,
+        eventName: 'My Party',
+        eventDate: '',
+        tasks: [],
+        guestCount: 0,
+        notes: '',
+      },
+    };
+
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: eventCreation });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'ev-1' });
+    });
+
+    await act(async () => {
+      result.current.improveCreation('make this editable');
+    });
+
+    // AI must NOT be called
+    expect(generateCreationMock).not.toHaveBeenCalled();
+
+    // Must show honest "not yet" message
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /can't make that editable yet/i.test(m.text))).toBeDefined();
   });
 });

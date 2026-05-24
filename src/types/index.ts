@@ -363,12 +363,20 @@ export interface GenerateRequest {
   locale?: { date: string; timezone: string };
 }
 
+// Trust metadata returned by the server (or computed by the client) for improve/add flows
+export interface ChangeReport {
+  changed: boolean;
+  changes: string[];      // human-readable list of what visibly changed
+  unsupported: string[];  // capabilities that could not be applied
+}
+
 export interface GenerateResponse {
   title: string;
   creationType: CreationType;
   description: string;
   summary: string;
   content: CreationContent;
+  changeReport?: ChangeReport; // optional — added by server QA or client verification
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────

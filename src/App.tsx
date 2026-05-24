@@ -48,8 +48,10 @@ export default function App() {
 
         {view === 'creation' && (
           <div className="flex flex-col h-full overflow-hidden relative">
-            {/* Summary message from AI */}
-            {activeCreation?.status === 'ready' && activeCreation.summary && messages.length > 0 && (
+            {/* Summary banner — only for new creations (version 1).
+                For improve/add flows the verified outcome is in the messages thread. */}
+            {activeCreation?.status === 'ready' && activeCreation.summary &&
+              messages.length > 0 && activeCreation.version === 1 && (
               <div className="mx-4 mt-3 px-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-600 leading-relaxed flex-shrink-0">
                 {activeCreation.summary}
               </div>

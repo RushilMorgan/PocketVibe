@@ -265,3 +265,118 @@ describe('HabitTrackerRenderer', () => {
     expect(updated.habits[0].completions[today]).toBe(true);
   });
 });
+
+// ── BudgetCalculatorRenderer ──────────────────────────────────────────────────
+
+import { BudgetCalculatorRenderer } from '../components/templates/BudgetCalculatorRenderer';
+import type { BudgetCalculatorContent } from '../types';
+
+function makeBudgetContent(overrides?: Partial<BudgetCalculatorContent>): BudgetCalculatorContent {
+  return {
+    type: 'budget_calculator',
+    currency: 'R',
+    income: [
+      { id: 'inc1', label: 'Main income', amount: 20000 },
+    ],
+    expenses: [
+      { id: 'exp1', label: 'Rent', category: 'Housing', amount: 5000 },
+    ],
+    notes: '',
+    ...overrides,
+  };
+}
+
+describe('BudgetCalculatorRenderer', () => {
+  let onChange: Mock<(updated: BudgetCalculatorContent) => void>;
+
+  beforeEach(() => {
+    onChange = vi.fn<(updated: BudgetCalculatorContent) => void>();
+  });
+
+  it('shows "Edit budget" button in view mode', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    expect(screen.getByRole('button', { name: /edit budget/i })).toBeInTheDocument();
+  });
+
+  it('clicking "Edit budget" shows editable inputs for income label and amount', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    expect(screen.getByTestId('income-label-inc1')).toBeInTheDocument();
+    expect(screen.getByTestId('income-amount-inc1')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit budget" shows editable inputs for expense label, category, and amount', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    expect(screen.getByTestId('expense-label-exp1')).toBeInTheDocument();
+    expect(screen.getByTestId('expense-category-exp1')).toBeInTheDocument();
+    expect(screen.getByTestId('expense-amount-exp1')).toBeInTheDocument();
+  });
+
+  it('add income row calls onChange with a new income entry', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    fireEvent.click(screen.getByTestId('add-income-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.income.length).toBe(2);
+  });
+
+  it('delete income row calls onChange without that entry', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    fireEvent.click(screen.getByTestId('delete-income-inc1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.income.find(i => i.id === 'inc1')).toBeUndefined();
+  });
+
+  it('add expense row calls onChange with a new expense entry', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    fireEvent.click(screen.getByTestId('add-expense-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.expenses.length).toBe(2);
+  });
+
+  it('delete expense row calls onChange without that entry', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    fireEvent.click(screen.getByTestId('delete-expense-exp1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.expenses.find(e => e.id === 'exp1')).toBeUndefined();
+  });
+
+  it('editing income label calls onChange with updated label', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    const labelInput = screen.getByTestId('income-label-inc1');
+    fireEvent.change(labelInput, { target: { value: 'Freelance' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.income.find(i => i.id === 'inc1')?.label).toBe('Freelance');
+  });
+
+  it('editing income amount calls onChange with updated amount', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    const amountInput = screen.getByTestId('income-amount-inc1');
+    fireEvent.change(amountInput, { target: { value: '25000' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.income.find(i => i.id === 'inc1')?.amount).toBe(25000);
+  });
+
+  it('notes textarea is visible in edit mode and calls onChange on change', () => {
+    render(<BudgetCalculatorRenderer content={makeBudgetContent({ notes: 'Pay rent 1st' })} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /edit budget/i }));
+    const notesInput = screen.getByTestId('notes-input');
+    expect(notesInput).toBeInTheDocument();
+    fireEvent.change(notesInput, { target: { value: 'Pay rent on 3rd' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: BudgetCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.notes).toBe('Pay rent on 3rd');
+  });
+});

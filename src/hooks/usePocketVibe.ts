@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
-import { isEditRequestOnNonEditableType, isRendererAlreadyEditable } from '../lib/capabilityRegistry';
+import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableRedirectMessage } from '../lib/capabilityRegistry';
 import {
   loadCreations,
   saveCreations,
@@ -232,6 +232,24 @@ export function usePocketVibe() {
 
       // ── Trust: visible-change verification for improve/add ────────────────
       if (req.mode !== 'new' && existing) {
+        // Task 5: Honor server-side changeReport — if the server's QA pass confirmed
+        // no visible change, skip the client repair attempt and respond honestly.
+        if (res.changeReport !== undefined && !res.changeReport.changed) {
+          dispatch({
+            type: 'UPSERT_CREATION',
+            payload: { ...existing, status: 'ready', updatedAt: existing.updatedAt },
+          });
+          const unsupportedMsg =
+            res.changeReport.unsupported.length > 0
+              ? `I can't make that change yet: ${res.changeReport.unsupported[0]}`
+              : "I tried, but that didn't actually change anything. I'll need to rebuild this part properly instead.";
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: { id: `a-${Date.now()}`, role: 'assistant', text: unsupportedMsg },
+          });
+          return; // finally block still runs
+        }
+
         const oldSig = getCreationVisibleSignature(existing);
         const newSig = getContentVisibleSignature(res.content);
 
@@ -301,7 +319,7 @@ export function usePocketVibe() {
       const assistantMessage =
         req.mode === 'new'
           ? res.summary
-          : `Done — I updated the ${res.title}.`;
+          : `Done — I updated your ${res.title.toLowerCase()}.`;
       dispatch({
         type: 'ADD_MESSAGE',
         payload: { id: `a-${Date.now()}`, role: 'assistant', text: assistantMessage },
@@ -423,7 +441,7 @@ export function usePocketVibe() {
         payload: {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          text: "Tap 'Edit habits' at the top to rename habits, change their icons, add new ones, or delete any you don't need.",
+          text: getEditableRedirectMessage(current.creationType),
         },
       });
       return;

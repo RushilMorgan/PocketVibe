@@ -371,4 +371,37 @@ describe('trust — visible change verification', () => {
     const messages = result.current.state.messages;
     expect(messages.find(m => /can't make that editable yet/i.test(m.text))).toBeDefined();
   });
+
+  it('requesting "make this editable" on budget_calculator redirects to Edit budget without calling AI', async () => {
+    const budgetCreation: Creation = {
+      ...SAMPLE_CREATION,
+      id: 'bc-1',
+      title: 'Monthly Budget',
+      creationType: 'budget_calculator',
+      content: {
+        type: 'budget_calculator',
+        currency: 'R',
+        income: [{ id: 'inc1', label: 'Salary', amount: 20000 }],
+        expenses: [{ id: 'exp1', label: 'Rent', category: 'Housing', amount: 5000 }],
+      },
+    };
+
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: budgetCreation });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'bc-1' });
+    });
+
+    await act(async () => {
+      result.current.improveCreation('make this editable');
+    });
+
+    // AI must NOT be called
+    expect(generateCreationMock).not.toHaveBeenCalled();
+
+    // Must show the "Tap 'Edit budget'" message
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /edit budget/i.test(m.text))).toBeDefined();
+  });
 });

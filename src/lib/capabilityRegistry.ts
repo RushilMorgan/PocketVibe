@@ -26,9 +26,13 @@ export type CreationCapability =
   // Budget calculator
   | 'edit_amounts'
   | 'edit_labels'
+  | 'edit_categories'
+  | 'edit_currency'
+  | 'edit_notes'
   | 'add_income'
   | 'add_expense'
-  | 'delete_lines'
+  | 'delete_income'
+  | 'delete_expense'
   // Savings tracker
   | 'add_contribution'
   | 'edit_goal_name'
@@ -48,7 +52,17 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
     'delete_habit',
   ],
   checklist: ['toggle_items'],
-  budget_calculator: ['edit_amounts', 'edit_labels'],
+  budget_calculator: [
+    'edit_amounts',
+    'edit_labels',
+    'edit_categories',
+    'edit_currency',
+    'edit_notes',
+    'add_income',
+    'add_expense',
+    'delete_income',
+    'delete_expense',
+  ],
   savings_tracker: ['add_contribution', 'edit_goal_name'],
   // These types show a generic JSON viewer — no direct user editing yet
   event_planner: [],
@@ -89,11 +103,25 @@ export function isRendererAlreadyEditable(
 ): boolean {
   const supported = getSupportedCapabilities(creationType);
   // Only meaningful when the renderer has comprehensive edit support
-  const fullyEditable: CreationType[] = ['habit_tracker'];
+  const fullyEditable: CreationType[] = ['habit_tracker', 'budget_calculator'];
   if (!fullyEditable.includes(creationType)) return false;
-  if (!supported.includes('edit_habit_names' as CreationCapability)) return false;
+  if (supported.length < 3) return false;
   // User is asking for the ability to edit (not asking AI to make an edit)
-  return /\b(editable|changeable|let me (edit|change|rename)|make.*editable|directly edit)\b/i.test(
+  return /\b(editable|changeable|let me (edit|change|rename|add|delete|remove)|i (want|need) to (edit|change|add|delete)|make.*editable|directly (edit|change))\b/i.test(
     userRequest,
+  );
+}
+
+/** Returns a type-specific message redirecting the user to the built-in edit controls. */
+export function getEditableRedirectMessage(creationType: CreationType): string {
+  const messages: Partial<Record<CreationType, string>> = {
+    habit_tracker:
+      "Tap 'Edit habits' at the top to rename habits, change their icons, add new ones, or delete any you don't need.",
+    budget_calculator:
+      "Tap 'Edit budget' to change labels, amounts, categories, add rows, or delete anything you don't need.",
+  };
+  return (
+    messages[creationType] ??
+    'You can edit this directly using the controls in the view.'
   );
 }

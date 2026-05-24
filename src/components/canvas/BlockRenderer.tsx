@@ -7,17 +7,55 @@ import type { VisualBlock, AppConfig } from '../../types';
 // We solve this by wrapping the AI markup in a complete HTML document (srcdoc)
 // that loads the Tailwind Play CDN so ALL utility classes resolve at runtime.
 
+// Reactive micro-runtime injected into every generative_html iframe.
+// Provides zero-latency local interactions without touching React state:
+//   • Sliders:   give <input type="range" id="x"> a sibling <span data-for="x">
+//   • Formulas:  data-formula="$a * $b" data-output="resultId" on any element
+//   • Counters:  data-counter="all" on a <span> shows "X / Y checked"
+//   • Inline:    oninput / onclick / onchange handlers pass through sandbox
+const IFRAME_RUNTIME = `(function(){
+function reportH(){var h=document.documentElement.scrollHeight;window.parent.postMessage({pvHeight:h},'*');}
+function getVal(id){var el=document.getElementById(id);if(!el)return 0;if(el.type==='checkbox')return el.checked?1:0;return parseFloat(el.value)||0;}
+function evalAll(){
+  document.querySelectorAll('[data-formula]').forEach(function(node){
+    try{var expr=node.dataset.formula.replace(/\\$([a-zA-Z0-9_-]+)/g,function(_,id){return getVal(id);});
+    var r=Function('"use strict";return('+expr+')')();
+    var t=node.dataset.output?document.getElementById(node.dataset.output):node;
+    if(t)t.textContent=isNaN(r)?'\u2014':Math.round(r*100)/100;}catch(e){}
+  });
+  document.querySelectorAll('[data-counter]').forEach(function(el){
+    var g=el.dataset.counter,sel=g==='all'?'input[type=checkbox]':'input[type=checkbox][data-group='+JSON.stringify(g)+']';
+    var boxes=document.querySelectorAll(sel);if(!boxes.length)return;
+    var c=Array.from(boxes).filter(function(b){return b.checked;}).length;
+    el.textContent=el.dataset.counterformat==='pct'?Math.round(c/boxes.length*100)+'%':c+' / '+boxes.length;
+  });
+  reportH();
+}
+window.addEventListener('load',function(){
+  document.querySelectorAll('input[type=range]').forEach(function(sl){
+    function upd(){var d=document.querySelector('[data-for='+JSON.stringify(sl.id)+']')||sl.nextElementSibling;if(d&&d.tagName!=='INPUT')d.textContent=sl.value;evalAll();}
+    sl.addEventListener('input',upd);upd();
+  });
+  document.querySelectorAll('input[type=number],input[type=text],input[type=checkbox]').forEach(function(inp){
+    inp.addEventListener(inp.type==='checkbox'?'change':'input',evalAll);
+  });
+  evalAll();setTimeout(reportH,300);setTimeout(reportH,900);
+});
+if(document.readyState==='complete')setTimeout(reportH,150);
+})();`;
+
 function GenerativeHtmlFrame({ markup }: { markup: string }) {
   const [height, setHeight] = useState(300);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Allow user-interaction handlers — safe inside sandbox="allow-scripts" (no navigation, isolated origin)
   const sanitized = DOMPurify.sanitize(markup, {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ['object', 'embed', 'base'],
-    FORBID_ATTR: ['onerror', 'onload', 'onmouseover', 'onfocus', 'onblur'],
+    FORBID_ATTR: ['onerror', 'onload'],
+    ADD_ATTR: ['oninput', 'onchange', 'onclick', 'onsubmit', 'onkeyup'],
   });
 
-  // Tiny inline script reports rendered body height back via postMessage
   const srcdoc = [
     '<!DOCTYPE html><html><head>',
     '<meta charset="UTF-8">',
@@ -27,9 +65,7 @@ function GenerativeHtmlFrame({ markup }: { markup: string }) {
     '</head><body>',
     sanitized,
     '<script>',
-    'function reportH(){var h=document.documentElement.scrollHeight;window.parent.postMessage({pvHeight:h},"*");}',
-    'if(document.readyState==="complete"){setTimeout(reportH,150);}',
-    'window.addEventListener("load",function(){setTimeout(reportH,300);});',
+    IFRAME_RUNTIME,
     '<\/script>',
     '</body></html>',
   ].join('');

@@ -12,6 +12,8 @@ import type {
 import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
 import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableRedirectMessage } from '../lib/capabilityRegistry';
+import { normalizeGenerateResponse } from '../lib/normalizeResponse';
+import { containsHtmlLikeText } from '../lib/htmlGuard';
 import {
   loadCreations,
   saveCreations,
@@ -181,6 +183,19 @@ export function usePocketVibe() {
 
   // ── Core generation ───────────────────────────────────────────────────────────
 
+  /** Maps errors to short, safe, user-facing messages. Never exposes HTML or technical details. */
+  function toUserSafeErrorMessage(err: unknown): string {
+    if (err instanceof Error) {
+      const msg = err.message;
+      // Never show HTML, JSON blobs, or long technical strings
+      if (containsHtmlLikeText(msg) || msg.length > 200 || msg.trimStart().startsWith('{') || msg.trimStart().startsWith('[')) {
+        return 'The AI service returned something unexpected. Please try again.';
+      }
+      return msg;
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
   const _runGeneration = useCallback(async (
     req: GenerateRequest,
     existingCreationId?: string,
@@ -227,6 +242,15 @@ export function usePocketVibe() {
       let res = await generateCreation(req, (status) => {
         dispatch({ type: 'SET_PROCESSING_STATUS', payload: status });
       });
+
+      // ── Normalize: reject generative_html, strip HTML from text fields ────
+      const safeRes = normalizeGenerateResponse(res, req);
+      if (!safeRes) {
+        // AI returned an unsupported or HTML type — use offline fallback silently
+        res = generateOfflineFallback(req.userRequest);
+      } else {
+        res = safeRes;
+      }
 
       const existing = stateRef.current.creations.find(c => c.id === creationId);
 
@@ -336,11 +360,10 @@ export function usePocketVibe() {
         workout_tracker: '#ef4444',
         survey_form: '#8b5cf6',
         task_planner: '#6366f1',
-        generative_html: '#7c3aed',
       };
       dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong.';
+      const message = toUserSafeErrorMessage(err);
       const isConfig = err instanceof AIConfigError;
       const existing = stateRef.current.creations.find(c => c.id === creationId);
 

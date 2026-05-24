@@ -71,7 +71,6 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
   survey_form: [],
   task_planner: [],
   landing_page: [],
-  generative_html: [],
 };
 
 export function getSupportedCapabilities(type: CreationType): CreationCapability[] {

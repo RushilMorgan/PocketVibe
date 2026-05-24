@@ -116,7 +116,7 @@ Use this exact structure:
 
 SUPPORTED CREATION TYPES:
 checklist, habit_tracker, budget_calculator, savings_tracker, landing_page,
-event_planner, meal_planner, workout_tracker, survey_form, task_planner, generative_html
+event_planner, meal_planner, workout_tracker, survey_form, task_planner
 
 CONTENT FORMATS:
 checklist: { "type":"checklist","sections":[{"id":"s1","title":"Section Name","items":[{"id":"i1","label":"Item","checked":false}]}] }
@@ -139,7 +139,10 @@ RULES:
 - Today's date is ${today}
 - Do not hardcode a specific location unless the user mentions one
 - Always make something USEFUL and functional, not decorative
-- IMPORTANT: For improve/add, you MUST visibly change the content from what was provided — do not return the same data`;
+- IMPORTANT: For improve/add, you MUST visibly change the content from what was provided — do not return the same data
+- If the user asks for a website or landing page, use landing_page
+- If the user asks for an app or tool, pick the closest structured type
+- Never return raw HTML — always use a structured creationType from the list above`;
 }
 
 function buildUserMessage(body: Record<string, unknown>): string {

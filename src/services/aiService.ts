@@ -58,7 +58,6 @@ SUPPORTED CREATION TYPES — always choose the most useful one:
 - workout_tracker: gym plans, exercise routines, fitness goals
 - survey_form: forms, questionnaires, gathering information
 - task_planner: project management, work tasks, weekly or daily planning
-- generative_html: ONLY as a last resort when none of the above fit
 
 CONTENT FORMATS:
 
@@ -90,7 +89,10 @@ RULES:
 - For improve/add requests: preserve all existing data, only change or add what was asked
 - Today's date is ${today} — use this for date-sensitive content
 - Do not hardcode a specific location or city unless the user mentions one
-- Always make something USEFUL and functional, not decorative or fake`;
+- Always make something USEFUL and functional, not decorative or fake
+- If the user asks for a website or landing page, use landing_page
+- If the user asks for an app or custom tool, pick the closest structured template
+- Never return raw HTML — always use a structured creationType from the list above`;
 }
 
 function buildUserMessage(req: GenerateRequest): string {
@@ -211,8 +213,28 @@ async function generateViaEdgeFunction(
   onProgress?.(PROGRESS_STEPS[1]);
 
   if (!response.ok) {
-    const errText = await response.text().catch(() => response.statusText);
-    throw new AIGenerationError(`Server error (${response.status}): ${errText.slice(0, 120)}`);
+    // Read the body for developer debugging — but never expose it to users
+    let devBody = '';
+    try { devBody = await response.text(); } catch { devBody = response.statusText; }
+    console.error('[PocketVibe] Edge function error:', response.status, devBody.slice(0, 500));
+
+    const STATUS_MESSAGES: Record<number, string> = {
+      404: 'The AI service is not deployed correctly yet.',
+      401: 'The AI service is not authorised correctly.',
+      403: 'The AI service is not authorised correctly.',
+      429: 'Too many requests. Please try again shortly.',
+      500: 'The AI service had a problem. Please try again.',
+      502: 'The AI service had a problem. Please try again.',
+      503: 'The AI service is temporarily unavailable. Please try again.',
+    };
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const isJson = contentType.includes('application/json');
+    const userMessage =
+      STATUS_MESSAGES[response.status] ??
+      (isJson ? 'The AI service returned an error. Please try again.' : 'The AI service returned an unexpected response.');
+
+    throw new AIGenerationError(userMessage);
   }
 
   onProgress?.(PROGRESS_STEPS[2]);
@@ -344,9 +366,6 @@ export async function generateBlocks(
   onUpdateProgress?: (status: string) => void,
 ): Promise<unknown[]> {
   const res = await generateCreation({ userRequest: prompt, mode: 'new' }, onUpdateProgress);
-  if (res.content.type === 'generative_html') {
-    return [{ type: 'generative_html', id: `gen-${Date.now()}`, tailwindMarkup: res.content.tailwindMarkup }];
-  }
   return [{ type: 'hero_banner', id: `gen-${Date.now()}`, title: res.title, subtitle: res.description, ctaLabel: 'View' }];
 }
 

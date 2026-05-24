@@ -11,7 +11,7 @@ const SUPPORTED_TYPES = new Set<CreationType>([
   'workout_tracker',
   'survey_form',
   'task_planner',
-  'generative_html',
+  // generative_html is intentionally excluded — AI must not return raw HTML
 ]);
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -64,11 +64,6 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       break;
     case 'task_planner':
       if (!Array.isArray(content.sections)) errors.push('Task planner requires a sections array');
-      break;
-    case 'generative_html':
-      if (typeof content.tailwindMarkup !== 'string') {
-        errors.push('generative_html requires a tailwindMarkup string');
-      }
       break;
   }
   return errors;

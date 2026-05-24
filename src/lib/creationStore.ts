@@ -13,7 +13,8 @@ export function loadCreations(): Creation[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as Creation[];
+    // Migrate: filter out old generative_html creations that could show raw HTML
+    return (parsed as Creation[]).filter(c => c.content?.type !== 'generative_html');
   } catch {
     return [];
   }

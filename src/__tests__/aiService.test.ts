@@ -113,3 +113,175 @@ describe('generateOfflineFallback', () => {
     expect(result.content).toHaveProperty('type');
   });
 });
+
+// ── Edge function error handling ─────────────────────────────────────────────
+
+import { AIGenerationError } from '../services/aiService';
+import { validateGenerateResponse } from '../lib/validator';
+import { containsHtmlLikeText } from '../lib/htmlGuard';
+import { normalizeGenerateResponse } from '../lib/normalizeResponse';
+
+describe('generateViaEdgeFunction error handling', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key');
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('throws a friendly error (not raw HTML) when Supabase returns an HTML 500 error page', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: { get: (_: string) => 'text/html; charset=utf-8' },
+      statusText: 'Internal Server Error',
+      text: vi.fn().mockResolvedValue('<html><head></head><body>Internal Server Error</body></html>'),
+    }));
+    const err = await generateCreation({ userRequest: 'budget', mode: 'new' }).catch(e => e);
+    expect(err).toBeInstanceOf(AIGenerationError);
+    expect(containsHtmlLikeText(err.message)).toBe(false);
+    expect(err.message).toMatch(/problem|try again/i);
+  });
+
+  it('shows a specific message for 404 (not deployed)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: { get: (_: string) => 'text/html' },
+      statusText: 'Not Found',
+      text: vi.fn().mockResolvedValue('<html>Not Found</html>'),
+    }));
+    const err = await generateCreation({ userRequest: 'budget', mode: 'new' }).catch(e => e);
+    expect(err).toBeInstanceOf(AIGenerationError);
+    expect(err.message).toMatch(/not deployed/i);
+    expect(containsHtmlLikeText(err.message)).toBe(false);
+  });
+
+  it('shows a specific message for 429 (rate limit)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: { get: (_: string) => 'application/json' },
+      statusText: 'Too Many Requests',
+      text: vi.fn().mockResolvedValue('{"error":"rate_limit"}'),
+    }));
+    const err = await generateCreation({ userRequest: 'budget', mode: 'new' }).catch(e => e);
+    expect(err).toBeInstanceOf(AIGenerationError);
+    expect(err.message).toMatch(/too many/i);
+  });
+});
+
+// ── HTML guard ────────────────────────────────────────────────────────────────
+
+describe('containsHtmlLikeText', () => {
+  it('returns true for a full HTML page', () => {
+    expect(containsHtmlLikeText('<html><head></head><body>Hello</body></html>')).toBe(true);
+  });
+  it('returns true for closing tags', () => {
+    expect(containsHtmlLikeText('</div>')).toBe(true);
+  });
+  it('returns true for DOCTYPE', () => {
+    expect(containsHtmlLikeText('<!DOCTYPE html>')).toBe(true);
+  });
+  it('returns false for plain text', () => {
+    expect(containsHtmlLikeText('I made you a budget tracker!')).toBe(false);
+  });
+  it('returns false for non-strings', () => {
+    expect(containsHtmlLikeText(42)).toBe(false);
+    expect(containsHtmlLikeText(null)).toBe(false);
+    expect(containsHtmlLikeText(undefined)).toBe(false);
+  });
+});
+
+// ── normalizeGenerateResponse ─────────────────────────────────────────────────
+
+const BASE_REQ = { userRequest: 'make a checklist', mode: 'new' as const };
+
+describe('normalizeGenerateResponse', () => {
+  it('returns the response unchanged when it is valid and clean', () => {
+    const result = normalizeGenerateResponse(VALID_CHECKLIST_RESPONSE as any, BASE_REQ);
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe(VALID_CHECKLIST_RESPONSE.title);
+  });
+
+  it('returns null for generative_html creationType', () => {
+    const res = {
+      title: 'My Website',
+      creationType: 'generative_html',
+      description: '',
+      summary: 'Here is your website.',
+      content: { type: 'generative_html', tailwindMarkup: '<div>Hello</div>' },
+    };
+    const result = normalizeGenerateResponse(res as any, BASE_REQ);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when content.type does not match creationType', () => {
+    const res = {
+      ...VALID_CHECKLIST_RESPONSE,
+      creationType: 'habit_tracker', // mismatch
+    };
+    const result = normalizeGenerateResponse(res as any, BASE_REQ);
+    expect(result).toBeNull();
+  });
+
+  it('replaces HTML in summary with safe fallback text', () => {
+    const res = {
+      ...VALID_CHECKLIST_RESPONSE,
+      summary: '<html><body>Here is your checklist!</body></html>',
+    };
+    const result = normalizeGenerateResponse(res as any, BASE_REQ);
+    expect(result).not.toBeNull();
+    expect(containsHtmlLikeText(result!.summary)).toBe(false);
+    expect(result!.summary).toBe('I made this for you. You can edit it below.');
+  });
+
+  it('replaces HTML in title with safe fallback', () => {
+    const res = {
+      ...VALID_CHECKLIST_RESPONSE,
+      title: '<div class="title">My List</div>',
+    };
+    const result = normalizeGenerateResponse(res as any, BASE_REQ);
+    expect(result).not.toBeNull();
+    expect(containsHtmlLikeText(result!.title)).toBe(false);
+  });
+});
+
+// ── Validator rejects generative_html ────────────────────────────────────────
+
+describe('validator — generative_html rejection', () => {
+  it('rejects generative_html as an unsupported creationType', () => {
+    const res = {
+      title: 'My Website',
+      creationType: 'generative_html',
+      description: '',
+      summary: 'Here is your website.',
+      content: { type: 'generative_html', tailwindMarkup: '<div>Hello</div>' },
+    };
+    const { valid, errors } = validateGenerateResponse(res);
+    expect(valid).toBe(false);
+    expect(errors.some(e => /unsupported/i.test(e))).toBe(true);
+  });
+
+  it('accepts budget_calculator as a valid creationType', () => {
+    const res = {
+      title: 'Monthly Budget',
+      creationType: 'budget_calculator',
+      description: 'Track income and expenses',
+      summary: 'Here is your budget.',
+      content: {
+        type: 'budget_calculator',
+        currency: 'R',
+        income: [{ id: 'i1', label: 'Salary', amount: 20000 }],
+        expenses: [{ id: 'e1', label: 'Rent', category: 'Housing', amount: 5000 }],
+      },
+    };
+    const { valid } = validateGenerateResponse(res);
+    expect(valid).toBe(true);
+  });
+});

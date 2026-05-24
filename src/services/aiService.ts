@@ -1,177 +1,354 @@
+// ── FILE REPLACED — see full implementation below ────────────────────────────
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { VisualBlock } from '../types';
+import type { GenerateRequest, GenerateResponse, Creation } from '../types';
+import { validateGenerateResponse, coerceGenerateResponse } from '../lib/validator';
 
-// ── Stage 1: Canvas-aware intent interpreter ─────────────────────────────────
-// Receives current canvas state + user prompt.
-// Detects NEW vs EDIT intent and outputs a grounded spec brief.
-// Short output target (≤ 150 words) keeps latency low (~2-3 s on Flash).
+// ── Error types ───────────────────────────────────────────────────────────────
 
-const STAGE1_SYSTEM = `You are the Canvas-Aware Intent Interpreter. You receive:
-1. The current canvas layout state (JSON array of blocks already visible on screen)
-2. The user's natural-language request
+export class AIConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AIConfigError';
+  }
+}
 
-Your job: determine if the user is asking to BUILD something completely NEW, or MODIFY/ADD TO/EDIT a block already on the canvas.
+export class AIGenerationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AIGenerationError';
+  }
+}
 
-Output ONLY this structured brief (≤ 150 words, plain text, no JSON):
-MODE: [NEW|EDIT]
-TARGET_ID: <exact id of the block to edit, or "none" if MODE is NEW>
-GOAL: <one sentence describing the core user goal>
-DATA: <comma-separated key data fields or inputs needed>
-LAYOUT: <preferred style: "dashboard grid" | "card calculator" | "habit tracker grid" | "interactive list" | "aesthetic showcase">
+// Kept for tests that reference the old name
+export { AIConfigError as GeminiConfigError };
 
-CRITICAL TEMPORAL CONTEXT: Today is Sunday, 24 May 2026. The user is in Cape Town, South Africa (UTC+2). When building any planner, tracker, schedule, or calendar grid, anchor all dates to this exact starting point — label the first day as "Sun 24 May", the next "Mon 25 May", etc. Never use abstract placeholders like "Day 1" or "Monday".
+// ── Progress messages ─────────────────────────────────────────────────────────
 
-If the user references an existing tool, tracker, or component visible in the canvas state, output MODE: EDIT and set TARGET_ID to its exact block id. Otherwise output MODE: NEW.
+const PROGRESS_STEPS = [
+  'Understanding what you want to make…',
+  'Sketching the first version…',
+  'Checking it works on mobile…',
+  'Polishing it…',
+];
 
-For most requests (trackers, calculators, planners, habit grids, workout logs, schedules, estimators): set LAYOUT to "generative_html rich app".
-Only set LAYOUT to "interactive list + form" when the user explicitly wants a SEPARATE standalone list block they can add items to over time. No extra text.`;
+// ── System prompt ─────────────────────────────────────────────────────────────
 
-// ── Stage 2: Block generator — full system prompt ─────────────────────────────
-// Incorporates: business utility focus, mobile viewport guardrails (390px),
-// canvas EDIT-mode injection rules, and QA tag/formula validation.
+function buildSystemPrompt(today: string): string {
+  return `You are PocketVibe, an AI that turns everyday ideas into useful tools and mini-applications. You help normal people — not developers — create things they can actually use right now.
 
-const SYSTEM_PROMPT = `You are a world-class consumer software designer. You create breathtaking, context-aware mini-applications. You are strictly forbidden from generating generic admin forms or dry input rows as standalone blocks. If a user asks to track data, calculate values, build logs, review metrics, or log activities, you MUST build a premium Tier 1 generative_html experience. You MUST interpret the user's sentence and return EXCLUSIVELY a valid JSON array. Do not wrap the JSON in Markdown block ticks or add any commentary outside the array.
+Output ONLY a valid JSON object. No markdown fences, no explanation, no extra text outside the JSON.
 
-You have access to two rendering tiers:
+Use this exact structure:
+{
+  "title": "Short friendly title (max 60 chars)",
+  "creationType": "one of the supported types listed below",
+  "description": "One sentence describing what this is",
+  "summary": "1-2 warm friendly sentences for the user, e.g. 'I made you a savings tracker. You can set your goal and log monthly contributions towards it.'",
+  "content": { ...type-specific fields... }
+}
 
-── TIER 1 — Generative HTML Canvas (PREFERRED for all rich interactive UIs) ────
-generative_html:
-  { "type": "generative_html", "id": "<unique string>", "tailwindMarkup": "<single-line HTML string>" }
+SUPPORTED CREATION TYPES — always choose the most useful one:
+- checklist: task lists, packing lists, to-do lists, moving or launch checklists
+- habit_tracker: tracking daily or weekly habits, routines, health goals
+- budget_calculator: income vs expenses, financial planning, budgeting
+- savings_tracker: saving towards a specific goal (holiday, gadget, emergency fund)
+- landing_page: simple websites, business pages, side hustles, portfolios
+- event_planner: planning events, parties, trips, projects with task lists
+- meal_planner: meal prep, weekly meals, grocery planning
+- workout_tracker: gym plans, exercise routines, fitness goals
+- survey_form: forms, questionnaires, gathering information
+- task_planner: project management, work tasks, weekly or daily planning
+- generative_html: ONLY as a last resort when none of the above fit
 
-Use generative_html for: ANY visually rich experience — calculators, BMI/macro/budget estimators, habit grids, sleep analyzers, workout planners, calendar dashboards, progress rings, SVG charts, schedule views. This is the DEFAULT choice for anything interactive or visual.
+CONTENT FORMATS:
 
-The iframe has a built-in reactive micro-runtime. All interactions work automatically:
-  • Sliders: give each <input type="range"> a unique id. Add <span data-for="sliderIdHere"> anywhere to display the live value.
-  • Formulas: add data-formula="$fieldA * $fieldB * 0.01" data-output="targetElementId" on any display element — recalculates live on input.
-  • Checkbox counters: add data-counter="all" on a <span> for "X / Y" completed. Use data-group="groupName" on checkboxes + data-counter="groupName" for scoped groups.
-  • Embedded list-append: add data-append-to="listId" data-value-from="inputId" data-item-icon="🏋️" on a <button> — clicking appends the input as a styled row, then clears the field. Use this to embed add-entry inputs directly inside the block.
-  • Tab switching: add data-tab="daily" data-tab-group="tabs1" on tab buttons and data-panel="daily" data-panel-group="tabs1" on panel divs — clicking a tab shows its panel and hides siblings.
-  • Inline handlers: oninput, onclick, onchange fire inside the sandbox — use freely.
+checklist: { "type":"checklist","sections":[{"id":"s1","title":"Section Name","items":[{"id":"i1","label":"Item","checked":false}]}] }
 
-Design guidelines for generative_html:
-- Compose valid semantic HTML in a SINGLE unbroken string (no newlines, no markdown, no comments).
-- Use premium aesthetics: bg-gradient-to-br from-slate-900 to-indigo-950, glass panels (bg-white/5 backdrop-blur-xl border border-white/10), glow buttons (shadow-[0_0_20px_rgba(99,102,241,0.5)]), neon text (text-indigo-400), SVG progress rings.
-- Give ALL interactive inputs a unique id attribute for micro-runtime binding.
-- For trackers, habit logs, or workout planners: include Daily/Weekly/Monthly tab buttons using data-tab/data-tab-group and matching panels using data-panel/data-panel-group. Style active tab with bg-white/20 font-black; inactive with text-white/50.
-- To let users add entries: embed a glass input row + action button at the bottom of the block using data-append-to + data-value-from + data-item-icon. Do NOT create a separate interactive_form block for this.
-- Calendar/schedule grids: start from Sun 24 May, use grid-cols-2 or grid-cols-3, NEVER grid-cols-7.
-- Apply max-w-full overflow-hidden truncate on all text. Min font size text-[10px]. Heavy padding px-4 py-3+.
+habit_tracker: { "type":"habit_tracker","habits":[{"id":"h1","name":"Habit name","icon":"🏃","frequency":"daily","completions":{}}],"startDate":"${today}" }
 
-⚠️ ONE RULE — Use interactive_form + interactive_list ONLY when the user explicitly wants
-   a SEPARATE persistent list block that grows independently on the canvas.
-   For ALL other data entry (adding workouts, logging habits, tracking within an app) →
-   embed the input inside the generative_html block using data-append-to.
+budget_calculator: { "type":"budget_calculator","currency":"R","income":[{"id":"inc1","label":"Monthly salary","amount":20000}],"expenses":[{"id":"exp1","label":"Rent","category":"Housing","amount":5000},{"id":"exp2","label":"Groceries","category":"Food","amount":2500}],"notes":"" }
 
-── MOBILE VIEWPORT GUARDRAILS (strict — 390px screen) ────────────────────────
-- Never stack more than 2 badges, labels, or text elements side-by-side in one row.
-- Weekly or multi-day grids MUST use grid-cols-2 or grid-cols-3 with flex-wrap — NEVER grid-cols-7 or wider.
-- All text must include truncate or text-ellipsis overflow protection. Min font size: text-[10px].
-- Apply max-w-full and overflow-hidden on every container. No horizontal scroll.
-- Use heavy padding (px-4 py-3 minimum) and min-h on interactive targets for thumb accessibility.
+savings_tracker: { "type":"savings_tracker","goalName":"Holiday Fund","targetAmount":10000,"currentAmount":0,"currency":"R","deadline":"","contributions":[] }
 
-── TIER 2 — Structured Blocks (for simple, quick-render cases) ────────────────
-hero_banner:
-  { "type": "hero_banner", "id": "<unique string>", "title": "<string>", "subtitle": "<string>", "ctaLabel": "<string>" }
+landing_page: { "type":"landing_page","businessName":"Business Name","tagline":"What you do in one line","description":"A short paragraph about what makes you special","features":[{"icon":"⭐","title":"Feature","description":"What this offers"}],"ctaLabel":"Get in touch","ctaUrl":"","contactEmail":"" }
 
-interactive_list:
-  { "type": "interactive_list", "id": "<unique string>", "title": "<optional string>", "items": [{ "id": "<string>", "label": "<string>", "icon": "<single emoji>", "state": "Pending" }] }
+event_planner: { "type":"event_planner","eventName":"Event Name","eventDate":"","tasks":[{"id":"t1","label":"Task description","dueDate":"","done":false}],"guestCount":0,"notes":"" }
 
-action_button:
-  { "type": "action_button", "id": "<unique string>", "label": "<string>", "icon": "<optional single emoji>" }
+meal_planner: { "type":"meal_planner","weekLabel":"This week","meals":[{"id":"m1","day":"Monday","slot":"dinner","name":"Meal name"}],"groceryList":["Ingredient 1","Ingredient 2"] }
 
-metrics_row:
-  { "type": "metrics_row", "id": "<unique string>", "metrics": [{ "label": "<string>", "value": "<string>" }] }
+workout_tracker: { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1 — Upper Body","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
 
-interactive_form:
-  { "type": "interactive_form", "id": "<unique string>", "title": "<string>", "submitLabel": "<string>", "fields": [{ "id": "<string>", "label": "<string>", "type": "text" | "number" | "slider", "placeholder": "<string>", "value": "<string>" }], "computedMetrics": [{ "label": "<string>", "formula": "<string>" }] }
+survey_form: { "type":"survey_form","title":"Form Title","description":"What this form is for","questions":[{"id":"q1","label":"Question?","type":"text","answer":""}] }
 
-For interactive_form used as a calculator/estimator/tracker: include a computedMetrics array. Reference field ids with $ prefix (e.g. ($gross_income * $tax_rate) / 100). Never hardcode field values as literals.
+task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"sec1","title":"This week","tasks":[{"id":"t1","label":"Task name","priority":"medium","done":false,"dueDate":""}]}] }
 
-── Canvas state rules ─────────────────────────────────────────────────────────
-- You will receive the current canvas blocks and an intent spec from Stage 1.
-- If the spec says MODE: EDIT and provides a TARGET_ID: return the COMPLETE updated block with that exact id and all requested changes applied (e.g. append items, add fields, modify rows). Do NOT create a new block or change the id.
-- If the spec says MODE: NEW: create a fresh block with a new unique id.
-- Return 1–3 blocks total. Never more.
-- Every block must have a unique id (short alphanumeric: "b1", "b2").
-- Prefer generative_html for all rich, visually interesting, self-contained interactive experiences.
-- Use interactive_form + interactive_list ONLY when the explicit goal is to APPEND new items to a SEPARATE growing log block on the canvas.
-- Do NOT include commentary, explanations, or text outside the JSON array.
-- If the prompt is ambiguous, default to interactive_list.
+RULES:
+- Use practical realistic defaults, not fake values like "John Doe" or "$99"
+- All labels must be plain friendly English — no technical jargon
+- Make it immediately useful — the user should be able to use it the moment it loads
+- Currency: use "R" (ZAR) by default unless the user specifies another
+- For improve/add requests: preserve all existing data, only change or add what was asked
+- Today's date is ${today} — use this for date-sensitive content
+- Do not hardcode a specific location or city unless the user mentions one
+- Always make something USEFUL and functional, not decorative or fake`;
+}
 
-── Household utility focus ────────────────────────────────────────────────────
-- Optimize all generated micro-apps for couples and shared household utility.
-- Prioritize clarity, shared data entry, and intuitive labelling for non-technical users.
-- Every layout must be fully usable one-handed on a 390px phone screen.
+function buildUserMessage(req: GenerateRequest): string {
+  const parts: string[] = [];
+  if (req.mode === 'new') {
+    parts.push(`User request: ${req.userRequest}`);
+  } else if (req.mode === 'improve' && req.currentCreation) {
+    parts.push('The user wants to improve an existing creation.');
+    parts.push(`Improvement request: ${req.userRequest}`);
+    parts.push(`\nCurrent creation title: ${req.currentCreation.title}`);
+    parts.push(`Current creation type: ${req.currentCreation.creationType}`);
+    parts.push(`Original request: ${req.currentCreation.originalRequest}`);
+    parts.push(`Current content:\n${JSON.stringify(req.currentCreation.content, null, 2)}`);
+    parts.push('\nInstructions: Apply the improvement. Keep the same creationType unless the user explicitly asks to change it. Preserve all existing data that was not mentioned. Keep all existing items/habits/tasks and only modify what was requested.');
+  } else if (req.mode === 'add' && req.currentCreation) {
+    parts.push('The user wants to add to an existing creation.');
+    parts.push(`Addition request: ${req.userRequest}`);
+    parts.push(`\nCurrent creation title: ${req.currentCreation.title}`);
+    parts.push(`Current creation type: ${req.currentCreation.creationType}`);
+    parts.push(`Current content:\n${JSON.stringify(req.currentCreation.content, null, 2)}`);
+    parts.push('\nInstructions: Add what the user requested. Keep all existing data. Only append new items/sections/habits/tasks as appropriate.');
+  } else {
+    parts.push(`User request: ${req.userRequest}`);
+  }
+  return parts.join('\n');
+}
 
-── Temporal context (REQUIRED for date-driven layouts) ──────────────────────
-CRITICAL TIMELINE ANCHOR: Today is Sunday, 24 May 2026. User location: Cape Town, South Africa (UTC+2). When generating any planner, fitness tracker, schedule, habit grid, or calendar component, use real sequential dates starting from today. Label days as "Sun 24 May", "Mon 25 May", "Tue 26 May", etc. Never use abstract placeholders like "Day 1", "Week 1", or "Monday" without an explicit date.`;
+// ── Direct Gemini fallback (dev mode — key stays local only) ─────────────────
 
-// ── Gemini block generator — 2-stage canvas-aware pipeline ──────────────────
-// currentBlocks defaults to [] so existing tests require no changes.
-
-export async function generateBlocks(
-  prompt: string,
-  currentBlocks: VisualBlock[] = [],
-  onUpdateProgress?: (status: string) => void,
-): Promise<VisualBlock[]> {
+async function generateViaGemini(
+  req: GenerateRequest,
+  onProgress?: (status: string) => void,
+): Promise<GenerateResponse> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-
   if (!apiKey) {
-    throw new GeminiConfigError(
-      'VITE_GEMINI_API_KEY is not set in .env.local — add it to enable live AI generation.',
+    throw new AIConfigError(
+      'No AI configured. Set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY for production, or VITE_GEMINI_API_KEY for local development.',
     );
   }
 
+  const today = req.locale?.date ?? new Date().toISOString().slice(0, 10);
   const genAI = new GoogleGenerativeAI(apiKey);
-  const canvasJson = JSON.stringify(currentBlocks);
-
-  // ── Stage 1: Canvas-aware intent parse (~2-3 s) ───────────────────────────
-  onUpdateProgress?.('Interpreter: Reading canvas state…');
-  const stage1Model = genAI.getGenerativeModel({
+  const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    systemInstruction: STAGE1_SYSTEM,
+    systemInstruction: buildSystemPrompt(today),
   });
-  const specResult = await stage1Model.generateContent(
-    `Current Canvas Layout:\n${canvasJson}\n\nUser Request: ${prompt}`,
-  );
-  const spec = specResult.response.text().trim();
 
-  // ── Stage 2: Generate blocks grounded by canvas + spec (~5-8 s) ──────────
-  onUpdateProgress?.('Engineer: Compiling layout…');
-  const stage2Model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    systemInstruction: SYSTEM_PROMPT,
-  });
-  const result = await stage2Model.generateContent(
-    `User request: ${prompt}\n\nCurrent canvas blocks:\n${canvasJson}\n\nIntent spec from interpreter:\n${spec}`,
-  );
+  onProgress?.(PROGRESS_STEPS[0]);
+  const userMessage = buildUserMessage(req);
+  onProgress?.(PROGRESS_STEPS[1]);
+
+  const result = await model.generateContent(userMessage);
+  onProgress?.(PROGRESS_STEPS[2]);
+
   const raw = result.response.text().trim();
-
-  // Strip any accidental markdown fences the model may produce
-  const cleaned = raw
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/i, '')
-    .trim();
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error(`Gemini returned non-JSON: ${cleaned.slice(0, 120)}`);
+    throw new AIGenerationError('Could not understand the response. Please try again with more detail.');
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error('Gemini response was not a JSON array.');
+  coerceGenerateResponse(parsed as Record<string, unknown>);
+  const validation = validateGenerateResponse(parsed);
+
+  if (!validation.valid) {
+    // One repair attempt
+    onProgress?.('Trying to fix it…');
+    const retryResult = await model.generateContent(
+      `${userMessage}\n\nIMPORTANT: Your previous response had these issues: ${validation.errors.join(', ')}. Fix them and return valid JSON only.`,
+    );
+    const retryRaw = retryResult.response.text().trim();
+    const retryCleaned = retryRaw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    try {
+      parsed = JSON.parse(retryCleaned);
+      coerceGenerateResponse(parsed as Record<string, unknown>);
+      const retryValidation = validateGenerateResponse(parsed);
+      if (!retryValidation.valid) {
+        throw new AIGenerationError('Something went wrong. Please try again with a more specific request.');
+      }
+    } catch (e) {
+      if (e instanceof AIGenerationError) throw e;
+      throw new AIGenerationError('Something went wrong. Please try again with a more specific request.');
+    }
   }
 
-  return parsed as VisualBlock[];
+  onProgress?.(PROGRESS_STEPS[3]);
+  return parsed as GenerateResponse;
 }
 
-// ── Typed error for config issues vs. runtime errors ─────────────────────────
+// ── Supabase Edge Function client ─────────────────────────────────────────────
 
-export class GeminiConfigError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'GeminiConfigError';
+async function generateViaEdgeFunction(
+  req: GenerateRequest,
+  onProgress?: (status: string) => void,
+): Promise<GenerateResponse> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new AIConfigError('Supabase not configured.');
   }
+
+  onProgress?.(PROGRESS_STEPS[0]);
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/pocketvibe-generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${supabaseAnonKey}`,
+      apikey: supabaseAnonKey,
+    },
+    body: JSON.stringify(req),
+  });
+
+  onProgress?.(PROGRESS_STEPS[1]);
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => response.statusText);
+    throw new AIGenerationError(`Server error (${response.status}): ${errText.slice(0, 120)}`);
+  }
+
+  onProgress?.(PROGRESS_STEPS[2]);
+  const data: unknown = await response.json();
+
+  coerceGenerateResponse(data as Record<string, unknown>);
+  const validation = validateGenerateResponse(data);
+  if (!validation.valid) {
+    throw new AIGenerationError('The server returned an unexpected response. Please try again.');
+  }
+
+  onProgress?.(PROGRESS_STEPS[3]);
+  return data as GenerateResponse;
 }
+
+// ── Public generate API ───────────────────────────────────────────────────────
+
+export async function generateCreation(
+  req: GenerateRequest,
+  onProgress?: (status: string) => void,
+): Promise<GenerateResponse> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const placeholder = 'https://your-project-ref.supabase.co';
+
+  // Prefer server-side Edge Function — keeps Gemini key off the client bundle
+  if (supabaseUrl && supabaseUrl !== placeholder) {
+    try {
+      return await generateViaEdgeFunction(req, onProgress);
+    } catch (err) {
+      // Edge Function not yet deployed — fall through to direct Gemini
+      if (err instanceof AIConfigError) {
+        return generateViaGemini(req, onProgress);
+      }
+      throw err;
+    }
+  }
+
+  return generateViaGemini(req, onProgress);
+}
+
+// ── Offline fallback ──────────────────────────────────────────────────────────
+
+export function generateOfflineFallback(userRequest: string): GenerateResponse {
+  const lower = userRequest.toLowerCase();
+
+  if (/habit|routine|daily|track|streak/.test(lower)) {
+    return {
+      title: 'Habit Tracker',
+      creationType: 'habit_tracker',
+      description: 'Track your daily habits',
+      summary: 'Here is a simple habit tracker to get you started. Tap any day to mark a habit as done.',
+      content: {
+        type: 'habit_tracker',
+        startDate: new Date().toISOString().slice(0, 10),
+        habits: [
+          { id: 'h1', name: 'Exercise', icon: '🏃', frequency: 'daily', completions: {} },
+          { id: 'h2', name: 'Read', icon: '📚', frequency: 'daily', completions: {} },
+          { id: 'h3', name: 'Drink water', icon: '💧', frequency: 'daily', completions: {} },
+        ],
+      },
+    };
+  }
+
+  if (/budget|money|expense|spend|income/.test(lower)) {
+    return {
+      title: 'Monthly Budget',
+      creationType: 'budget_calculator',
+      description: 'Track your monthly income and expenses',
+      summary: 'Here is a budget calculator to help you see where your money goes each month.',
+      content: {
+        type: 'budget_calculator',
+        currency: 'R',
+        income: [{ id: 'inc1', label: 'Main income', amount: 20000 }],
+        expenses: [
+          { id: 'exp1', label: 'Rent', category: 'Housing', amount: 5000 },
+          { id: 'exp2', label: 'Groceries', category: 'Food', amount: 2500 },
+          { id: 'exp3', label: 'Transport', category: 'Transport', amount: 1500 },
+        ],
+        notes: '',
+      },
+    };
+  }
+
+  if (/save|saving|goal|holiday|fund/.test(lower)) {
+    return {
+      title: 'Savings Tracker',
+      creationType: 'savings_tracker',
+      description: 'Track your savings towards a goal',
+      summary: 'Here is a savings tracker. Set your goal amount and log contributions as you go.',
+      content: {
+        type: 'savings_tracker',
+        goalName: 'My Savings Goal',
+        targetAmount: 10000,
+        currentAmount: 0,
+        currency: 'R',
+        deadline: '',
+        contributions: [],
+      },
+    };
+  }
+
+  return {
+    title: 'My Checklist',
+    creationType: 'checklist',
+    description: 'A simple checklist to get you started',
+    summary: 'Here is a checklist. Tap any item to mark it as done.',
+    content: {
+      type: 'checklist',
+      sections: [
+        {
+          id: 's1',
+          title: 'To do',
+          items: [
+            { id: 'i1', label: 'First task', checked: false },
+            { id: 'i2', label: 'Second task', checked: false },
+            { id: 'i3', label: 'Third task', checked: false },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+// ── Legacy compat exports ─────────────────────────────────────────────────────
+
+export async function generateBlocks(
+  prompt: string,
+  _currentBlocks: unknown[] = [],
+  onUpdateProgress?: (status: string) => void,
+): Promise<unknown[]> {
+  const res = await generateCreation({ userRequest: prompt, mode: 'new' }, onUpdateProgress);
+  if (res.content.type === 'generative_html') {
+    return [{ type: 'generative_html', id: `gen-${Date.now()}`, tailwindMarkup: res.content.tailwindMarkup }];
+  }
+  return [{ type: 'hero_banner', id: `gen-${Date.now()}`, title: res.title, subtitle: res.description, ctaLabel: 'View' }];
+}
+
+export type { Creation };
+

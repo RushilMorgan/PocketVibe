@@ -1,15 +1,7 @@
-/**
- * Unit tests for aiService.ts — all execution paths are covered:
- *   - missing API key → GeminiConfigError
- *   - clean JSON array → parsed blocks returned
- *   - markdown-fenced JSON → fences stripped before parse
- *   - non-array JSON → Error thrown
- *   - non-JSON text → Error thrown
- */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateBlocks, GeminiConfigError } from '../services/aiService';
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { generateCreation, generateOfflineFallback, GeminiConfigError, AIConfigError } from '../services/aiService';
 
-// ── Hoist mock refs so they're available inside vi.mock factory ───────────────
+// ── Hoist mock refs ────────────────────────────────────────────────────────────
 const mockGenerateContent = vi.hoisted(() => vi.fn());
 const mockGetGenerativeModel = vi.hoisted(() =>
   vi.fn().mockReturnValue({ generateContent: mockGenerateContent }),
@@ -21,17 +13,25 @@ vi.mock('@google/generative-ai', () => ({
   }),
 }));
 
-// ── Helper ────────────────────────────────────────────────────────────────────
-
 function setResponse(text: string) {
   mockGenerateContent.mockResolvedValue({ response: { text: () => text } });
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────────
+const VALID_CHECKLIST_RESPONSE = {
+  title: 'My Checklist',
+  creationType: 'checklist',
+  description: 'A simple checklist',
+  summary: 'Here is your checklist.',
+  content: {
+    type: 'checklist',
+    sections: [{ id: 's1', title: 'Tasks', items: [{ id: 'i1', label: 'Task 1', checked: false }] }],
+  },
+};
 
-describe('generateBlocks', () => {
+describe('generateCreation', () => {
   beforeEach(() => {
     vi.stubEnv('VITE_GEMINI_API_KEY', 'test-api-key');
+    vi.stubEnv('VITE_SUPABASE_URL', '');
   });
 
   afterEach(() => {
@@ -39,57 +39,77 @@ describe('generateBlocks', () => {
     vi.clearAllMocks();
   });
 
-  it('throws GeminiConfigError when API key is absent', async () => {
+  it('throws AIConfigError when no API key or Supabase URL', async () => {
     vi.stubEnv('VITE_GEMINI_API_KEY', '');
-    await expect(generateBlocks('anything')).rejects.toBeInstanceOf(GeminiConfigError);
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    await expect(generateCreation({ userRequest: 'anything', mode: 'new' })).rejects.toBeInstanceOf(AIConfigError);
   });
 
-  it('returns parsed blocks from a clean JSON array response', async () => {
-    const blocks = [
-      { type: 'action_button', id: 'b1', label: 'Go', icon: '🚀' },
-    ];
-    setResponse(JSON.stringify(blocks));
+  it('GeminiConfigError is an alias for AIConfigError', () => {
+    expect(GeminiConfigError).toBe(AIConfigError);
+  });
 
-    const result = await generateBlocks('build a button');
-    expect(result).toHaveLength(1);
-    expect(result[0].type).toBe('action_button');
+  it('returns parsed GenerateResponse from valid JSON', async () => {
+    setResponse(JSON.stringify(VALID_CHECKLIST_RESPONSE));
+    const result = await generateCreation({ userRequest: 'make a checklist', mode: 'new' });
+    expect(result.title).toBe('My Checklist');
+    expect(result.creationType).toBe('checklist');
+    expect(result.content.type).toBe('checklist');
   });
 
   it('strips markdown fences before parsing', async () => {
-    const blocks = [{ type: 'hero_banner', id: 'b1', title: 'Hi', subtitle: 'Sub', ctaLabel: 'Go' }];
-    setResponse(`\`\`\`json\n${JSON.stringify(blocks)}\n\`\`\``);
-
-    const result = await generateBlocks('hero block');
-    expect(result[0].type).toBe('hero_banner');
+    setResponse('```json\n' + JSON.stringify(VALID_CHECKLIST_RESPONSE) + '\n```');
+    const result = await generateCreation({ userRequest: 'checklist', mode: 'new' });
+    expect(result.title).toBe('My Checklist');
   });
 
-  it('strips plain ``` fences without language tag', async () => {
-    const blocks = [{ type: 'metrics_row', id: 'b1', metrics: [{ label: 'A', value: '1' }] }];
-    setResponse(`\`\`\`\n${JSON.stringify(blocks)}\n\`\`\``);
-
-    const result = await generateBlocks('metrics');
-    expect(result[0].type).toBe('metrics_row');
+  it('calls onProgress with status messages', async () => {
+    setResponse(JSON.stringify(VALID_CHECKLIST_RESPONSE));
+    const progress: string[] = [];
+    await generateCreation({ userRequest: 'checklist', mode: 'new' }, (s) => progress.push(s));
+    expect(progress.length).toBeGreaterThan(0);
   });
 
-  it('throws when Gemini returns a JSON object (not array)', async () => {
-    setResponse('{"type":"hero_banner"}');
-    await expect(generateBlocks('test')).rejects.toThrow(/not a JSON array/i);
+  it('retries once when response fails validation', async () => {
+    const invalid = { title: 123, creationType: 'checklist', description: '', summary: '', content: { type: 'checklist', sections: [] } };
+    mockGenerateContent
+      .mockResolvedValueOnce({ response: { text: () => JSON.stringify(invalid) } })
+      .mockResolvedValueOnce({ response: { text: () => JSON.stringify(VALID_CHECKLIST_RESPONSE) } });
+    const result = await generateCreation({ userRequest: 'checklist', mode: 'new' });
+    expect(result.title).toBe('My Checklist');
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('generateOfflineFallback', () => {
+  it('returns a habit_tracker for habit-related requests', () => {
+    const result = generateOfflineFallback('daily habit tracker');
+    expect(result.creationType).toBe('habit_tracker');
+    expect(result.content.type).toBe('habit_tracker');
   });
 
-  it('throws when Gemini returns non-JSON text', async () => {
-    setResponse('Sorry, I cannot help with that.');
-    await expect(generateBlocks('test')).rejects.toThrow(/non-JSON/i);
+  it('returns a budget_calculator for money-related requests', () => {
+    const result = generateOfflineFallback('monthly expenses and income');
+    expect(result.creationType).toBe('budget_calculator');
   });
 
-  it('returns multiple blocks when Gemini sends an array of 3', async () => {
-    const blocks = [
-      { type: 'hero_banner',      id: 'b1', title: 'T', subtitle: 'S', ctaLabel: 'Go' },
-      { type: 'interactive_list', id: 'b2', items: [{ id: 'i1', label: 'X', icon: '📌', state: 'Pending' }] },
-      { type: 'action_button',    id: 'b3', label: 'Act' },
-    ];
-    setResponse(JSON.stringify(blocks));
+  it('returns a savings_tracker for savings-related requests', () => {
+    const result = generateOfflineFallback('saving for a holiday');
+    expect(result.creationType).toBe('savings_tracker');
+  });
 
-    const result = await generateBlocks('full layout');
-    expect(result).toHaveLength(3);
+  it('defaults to checklist for unrecognized requests', () => {
+    const result = generateOfflineFallback('something random');
+    expect(result.creationType).toBe('checklist');
+  });
+
+  it('always returns a valid GenerateResponse shape', () => {
+    const result = generateOfflineFallback('whatever');
+    expect(result).toHaveProperty('title');
+    expect(result).toHaveProperty('creationType');
+    expect(result).toHaveProperty('description');
+    expect(result).toHaveProperty('summary');
+    expect(result).toHaveProperty('content');
+    expect(result.content).toHaveProperty('type');
   });
 });

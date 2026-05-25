@@ -14,7 +14,19 @@ export function loadCreations(): Creation[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // Migrate: filter out old generative_html creations that could show raw HTML
-    return (parsed as Creation[]).filter(c => c.content?.type !== 'generative_html');
+    // Migrate: convert legacy survey_form creations to checklist
+    return (parsed as Creation[])
+      .filter(c => c.content?.type !== 'generative_html')
+      .map(c => {
+        if ((c.content?.type as string) === 'survey_form' || (c.creationType as string) === 'survey_form') {
+          return {
+            ...c,
+            creationType: 'checklist' as const,
+            content: { type: 'checklist' as const, sections: [] },
+          };
+        }
+        return c;
+      });
   } catch {
     return [];
   }

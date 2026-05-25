@@ -110,11 +110,15 @@ describe('HomeScreen', () => {
     expect(screen.getByText(/what do you want/i)).toBeInTheDocument();
   });
 
-  it('calls onPrompt when an idea card is clicked', () => {
+  it('calls onPrompt when a starter card is clicked after selecting a category', () => {
     const onPrompt = vi.fn();
     render(<HomeScreen onPrompt={onPrompt} isGenerating={false} />);
-    const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[0]);
+    // Click the first category card to navigate into it
+    const categoryButtons = screen.getAllByRole('button');
+    fireEvent.click(categoryButtons[0]);
+    // Now in category detail — click first starter card
+    const starterButtons = screen.getAllByRole('button');
+    fireEvent.click(starterButtons[1]); // index 0 is Back, 1 is first starter
     expect(onPrompt).toHaveBeenCalled();
   });
 
@@ -380,3 +384,342 @@ describe('BudgetCalculatorRenderer', () => {
     expect(updated.notes).toBe('Pay rent on 3rd');
   });
 });
+
+// ── ChecklistRenderer (CRUD) ──────────────────────────────────────────────────
+
+import { ChecklistRenderer } from '../components/templates/ChecklistRenderer';
+import type { ChecklistContent } from '../types';
+
+function makeChecklistContent(): ChecklistContent {
+  return {
+    type: 'checklist',
+    sections: [
+      { id: 's1', title: 'Tasks', items: [{ id: 'i1', label: 'First item', checked: false }] },
+    ],
+  };
+}
+
+describe('ChecklistRenderer', () => {
+  let onChange: Mock;
+  beforeEach(() => { onChange = vi.fn(); });
+
+  it('renders checklist items', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    expect(screen.getByText('First item')).toBeInTheDocument();
+  });
+
+  it('shows "Edit list" button', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    expect(screen.getByTestId('edit-checklist-btn')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit list" shows item label input', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-checklist-btn'));
+    expect(screen.getByTestId('item-label-i1')).toBeInTheDocument();
+  });
+
+  it('editing item label calls onChange with updated label', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-checklist-btn'));
+    fireEvent.change(screen.getByTestId('item-label-i1'), { target: { value: 'Updated item' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: ChecklistContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].items[0].label).toBe('Updated item');
+  });
+
+  it('delete item calls onChange without that item', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-checklist-btn'));
+    fireEvent.click(screen.getByTestId('delete-item-i1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: ChecklistContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].items).toHaveLength(0);
+  });
+
+  it('add item button calls onChange with a new item', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-checklist-btn'));
+    fireEvent.click(screen.getByTestId('add-item-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: ChecklistContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].items).toHaveLength(2);
+  });
+
+  it('toggling item in view mode calls onChange', () => {
+    render(<ChecklistRenderer content={makeChecklistContent()} onChange={onChange} />);
+    // View mode: items are rendered as buttons with the item label as accessible name
+    fireEvent.click(screen.getByRole('button', { name: 'First item' }));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: ChecklistContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].items[0].checked).toBe(true);
+  });
+});
+
+// ── PriceCalculatorRenderer ───────────────────────────────────────────────────
+
+import { PriceCalculatorRenderer } from '../components/templates/PriceCalculatorRenderer';
+import type { PriceCalculatorContent } from '../types';
+
+function makePriceContent(): PriceCalculatorContent {
+  return {
+    type: 'price_calculator',
+    title: 'Service Quote',
+    currency: 'R',
+    description: 'Quote for services',
+    lineItems: [{ id: 'li1', label: 'Consultation', quantity: 1, unitPrice: 500, category: 'Services' }],
+    taxRate: 15,
+    notes: '',
+  };
+}
+
+describe('PriceCalculatorRenderer', () => {
+  let onChange: Mock;
+  beforeEach(() => { onChange = vi.fn(); });
+
+  it('renders line item label', () => {
+    render(<PriceCalculatorRenderer content={makePriceContent()} onChange={onChange} />);
+    expect(screen.getByText('Consultation')).toBeInTheDocument();
+  });
+
+  it('shows "Edit prices" button', () => {
+    render(<PriceCalculatorRenderer content={makePriceContent()} onChange={onChange} />);
+    expect(screen.getByTestId('edit-price-btn')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit prices" shows item label input', () => {
+    render(<PriceCalculatorRenderer content={makePriceContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-price-btn'));
+    expect(screen.getByTestId('item-label-li1')).toBeInTheDocument();
+  });
+
+  it('editing item label calls onChange', () => {
+    render(<PriceCalculatorRenderer content={makePriceContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-price-btn'));
+    fireEvent.change(screen.getByTestId('item-label-li1'), { target: { value: 'Strategy Session' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: PriceCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.lineItems[0].label).toBe('Strategy Session');
+  });
+
+  it('add item button appends a new line item', () => {
+    render(<PriceCalculatorRenderer content={makePriceContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-price-btn'));
+    fireEvent.click(screen.getByTestId('add-item-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: PriceCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.lineItems).toHaveLength(2);
+  });
+
+  it('delete item removes the line item', () => {
+    render(<PriceCalculatorRenderer content={makePriceContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-price-btn'));
+    fireEvent.click(screen.getByTestId('delete-item-li1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: PriceCalculatorContent = onChange.mock.calls[0][0];
+    expect(updated.lineItems).toHaveLength(0);
+  });
+});
+
+// ── TaskPlannerRenderer ───────────────────────────────────────────────────────
+
+import { TaskPlannerRenderer } from '../components/templates/TaskPlannerRenderer';
+import type { TaskPlannerContent } from '../types';
+
+function makeTaskContent(): TaskPlannerContent {
+  return {
+    type: 'task_planner',
+    planTitle: 'My Plan',
+    sections: [
+      { id: 'sec1', title: 'This week', tasks: [{ id: 't1', label: 'Write report', priority: 'high', done: false, dueDate: '' }] },
+    ],
+  };
+}
+
+describe('TaskPlannerRenderer', () => {
+  let onChange: Mock;
+  beforeEach(() => { onChange = vi.fn(); });
+
+  it('renders task label', () => {
+    render(<TaskPlannerRenderer content={makeTaskContent()} onChange={onChange} />);
+    expect(screen.getByText('Write report')).toBeInTheDocument();
+  });
+
+  it('shows "Edit tasks" button', () => {
+    render(<TaskPlannerRenderer content={makeTaskContent()} onChange={onChange} />);
+    expect(screen.getByTestId('edit-tasks-btn')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit tasks" shows task label input', () => {
+    render(<TaskPlannerRenderer content={makeTaskContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-tasks-btn'));
+    expect(screen.getByTestId('task-label-t1')).toBeInTheDocument();
+  });
+
+  it('editing task label calls onChange', () => {
+    render(<TaskPlannerRenderer content={makeTaskContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-tasks-btn'));
+    fireEvent.change(screen.getByTestId('task-label-t1'), { target: { value: 'Review slides' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: TaskPlannerContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].tasks[0].label).toBe('Review slides');
+  });
+
+  it('toggle task done state calls onChange', () => {
+    render(<TaskPlannerRenderer content={makeTaskContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('toggle-task-t1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: TaskPlannerContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].tasks[0].done).toBe(true);
+  });
+
+  it('add task button appends a new task', () => {
+    render(<TaskPlannerRenderer content={makeTaskContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-tasks-btn'));
+    fireEvent.click(screen.getByTestId('add-task-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: TaskPlannerContent = onChange.mock.calls[0][0];
+    expect(updated.sections[0].tasks).toHaveLength(2);
+  });
+});
+
+// ── LandingPageRenderer ───────────────────────────────────────────────────────
+
+import { LandingPageRenderer } from '../components/templates/LandingPageRenderer';
+import type { LandingPageContent } from '../types';
+
+function makeLandingContent(): LandingPageContent {
+  return {
+    type: 'landing_page',
+    businessName: 'My Business',
+    tagline: 'We do great things',
+    description: 'A short description',
+    features: [{ icon: '⭐', title: 'Quality', description: 'We care about quality' }],
+    ctaLabel: 'Contact us',
+    ctaUrl: '',
+    contactEmail: 'hello@example.com',
+  };
+}
+
+describe('LandingPageRenderer', () => {
+  let onChange: Mock;
+  beforeEach(() => { onChange = vi.fn(); });
+
+  it('renders business name', () => {
+    render(<LandingPageRenderer content={makeLandingContent()} onChange={onChange} />);
+    expect(screen.getByText('My Business')).toBeInTheDocument();
+  });
+
+  it('shows "Edit page" button', () => {
+    render(<LandingPageRenderer content={makeLandingContent()} onChange={onChange} />);
+    expect(screen.getByTestId('edit-landing-btn')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit page" shows business name input', () => {
+    render(<LandingPageRenderer content={makeLandingContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-landing-btn'));
+    expect(screen.getByTestId('business-name-input')).toBeInTheDocument();
+  });
+
+  it('editing business name calls onChange', () => {
+    render(<LandingPageRenderer content={makeLandingContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-landing-btn'));
+    fireEvent.change(screen.getByTestId('business-name-input'), { target: { value: 'New Name' } });
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: LandingPageContent = onChange.mock.calls[0][0];
+    expect(updated.businessName).toBe('New Name');
+  });
+});
+
+// ── EventPlannerRenderer ──────────────────────────────────────────────────────
+
+import { EventPlannerRenderer } from '../components/templates/EventPlannerRenderer';
+import type { EventPlannerContent } from '../types';
+
+function makeEventContent(): EventPlannerContent {
+  return {
+    type: 'event_planner',
+    eventName: 'Birthday Party',
+    eventDate: '2025-08-01',
+    guestCount: 20,
+    tasks: [{ id: 't1', label: 'Book venue', done: false, dueDate: '' }],
+    notes: '',
+  };
+}
+
+describe('EventPlannerRenderer', () => {
+  let onChange: Mock;
+  beforeEach(() => { onChange = vi.fn(); });
+
+  it('renders event name', () => {
+    render(<EventPlannerRenderer content={makeEventContent()} onChange={onChange} />);
+    expect(screen.getByText('Birthday Party')).toBeInTheDocument();
+  });
+
+  it('shows "Edit event" button', () => {
+    render(<EventPlannerRenderer content={makeEventContent()} onChange={onChange} />);
+    expect(screen.getByTestId('edit-event-btn')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit event" shows task label input', () => {
+    render(<EventPlannerRenderer content={makeEventContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-event-btn'));
+    expect(screen.getByTestId('task-label-t1')).toBeInTheDocument();
+  });
+
+  it('toggle task done state calls onChange', () => {
+    render(<EventPlannerRenderer content={makeEventContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('toggle-task-t1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: EventPlannerContent = onChange.mock.calls[0][0];
+    expect(updated.tasks[0].done).toBe(true);
+  });
+});
+
+// ── Reducer tests — TOGGLE_FAVORITE ──────────────────────────────────────────
+
+import { act, renderHook } from '@testing-library/react';
+import { usePocketVibe } from '../hooks/usePocketVibe';
+
+describe('TOGGLE_FAVORITE', () => {
+  it('toggleFavorite sets isFavorite to true then false', () => {
+    const creation: Creation = {
+      id: 'fav-1', title: 'Fav test', creationType: 'checklist',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: { type: 'checklist', sections: [] },
+    };
+
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => { result.current.dispatch({ type: 'UPSERT_CREATION', payload: creation }); });
+
+    // Initially not favorited
+    expect(result.current.state.creations.find(c => c.id === 'fav-1')?.isFavorite).toBeFalsy();
+
+    act(() => { result.current.toggleFavorite('fav-1'); });
+    expect(result.current.state.creations.find(c => c.id === 'fav-1')?.isFavorite).toBe(true);
+
+    act(() => { result.current.toggleFavorite('fav-1'); });
+    expect(result.current.state.creations.find(c => c.id === 'fav-1')?.isFavorite).toBe(false);
+  });
+});
+
+describe('duplicateCreation — sourceTemplate', () => {
+  it('sets sourceTemplate on duplicated creation', () => {
+    const original: Creation = {
+      id: 'orig-1', title: 'Original', creationType: 'checklist',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: { type: 'checklist', sections: [] },
+    };
+
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => { result.current.dispatch({ type: 'UPSERT_CREATION', payload: original }); });
+    act(() => { result.current.duplicateCreation('orig-1'); });
+
+    const copy = result.current.state.creations.find(c => c.id !== 'orig-1');
+    expect(copy?.sourceTemplate).toBe('orig-1');
+    expect(copy?.isFavorite).toBe(false);
+  });
+});
+

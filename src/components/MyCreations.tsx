@@ -7,6 +7,7 @@ interface MyCreationsProps {
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onRename: (id: string, title: string) => void;
   onBack: () => void;
 }
 
@@ -19,7 +20,7 @@ const TYPE_EMOJI: Record<CreationType, string> = {
   event_planner: '🎉',
   meal_planner: '🍽️',
   workout_tracker: '💪',
-  survey_form: '📋',
+  price_calculator: '🧾',
   task_planner: '📌',
   generative_html: '🎨',
 };
@@ -33,7 +34,7 @@ const TYPE_LABEL: Record<CreationType, string> = {
   event_planner: 'Event planner',
   meal_planner: 'Meal planner',
   workout_tracker: 'Workout plan',
-  survey_form: 'Survey form',
+  price_calculator: 'Price calculator',
   task_planner: 'Task planner',
   generative_html: 'Custom page',
 };
@@ -56,9 +57,29 @@ export function MyCreations({
   onOpen,
   onDelete,
   onDuplicate,
+  onRename,
   onBack,
 }: MyCreationsProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  function startRename(creation: Creation) {
+    setRenamingId(creation.id);
+    setRenameValue(creation.title);
+  }
+
+  function commitRename(id: string) {
+    const trimmed = renameValue.trim();
+    if (trimmed) onRename(id, trimmed);
+    setRenamingId(null);
+    setRenameValue('');
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue('');
+  }
 
   const sorted = [...creations].sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -116,22 +137,38 @@ export function MyCreations({
                       <span className="text-2xl leading-none flex-shrink-0 mt-0.5">
                         {TYPE_EMOJI[creation.creationType] ?? '📄'}
                       </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-900 text-sm truncate max-w-[160px]">
-                            {creation.title}
-                          </span>
-                          {creation.version > 1 && (
-                            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full flex-shrink-0">
-                              v{creation.version}
+                      <div className="min-w-0 flex-1">
+                        {renamingId === creation.id ? (
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onBlur={() => commitRename(creation.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') commitRename(creation.id);
+                              if (e.key === 'Escape') cancelRename();
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            maxLength={100}
+                            className="w-full text-sm font-semibold border border-violet-400 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-gray-900 text-sm truncate max-w-[140px]">
+                              {creation.title}
                             </span>
-                          )}
-                          {isActive && (
-                            <span className="text-xs px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded-full font-medium flex-shrink-0">
-                              Active
-                            </span>
-                          )}
-                        </div>
+                            {creation.version > 1 && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full flex-shrink-0">
+                                v{creation.version}
+                              </span>
+                            )}
+                            {isActive && (
+                              <span className="text-xs px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded-full font-medium flex-shrink-0">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
                           {TYPE_LABEL[creation.creationType]} · {timeAgo(creation.updatedAt)}
                         </p>
@@ -143,6 +180,17 @@ export function MyCreations({
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); startRename(creation); }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
+                        aria-label="Rename"
+                        title="Rename"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
                       <button
                         onClick={() => onDuplicate(creation.id)}
                         className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"

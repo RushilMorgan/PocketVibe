@@ -9,7 +9,7 @@ const SUPPORTED_TYPES = new Set<CreationType>([
   'event_planner',
   'meal_planner',
   'workout_tracker',
-  'survey_form',
+  'price_calculator',
   'task_planner',
   // generative_html is intentionally excluded — AI must not return raw HTML
 ]);
@@ -59,8 +59,9 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       if (typeof content.planName !== 'string') errors.push('Workout tracker requires planName');
       if (!Array.isArray(content.days)) errors.push('Workout tracker requires a days array');
       break;
-    case 'survey_form':
-      if (!Array.isArray(content.questions)) errors.push('Survey form requires a questions array');
+    case 'price_calculator':
+      if (!Array.isArray(content.lineItems)) errors.push('Price calculator requires a lineItems array');
+      if (typeof content.currency !== 'string') errors.push('Price calculator requires a currency string');
       break;
     case 'task_planner':
       if (!Array.isArray(content.sections)) errors.push('Task planner requires a sections array');

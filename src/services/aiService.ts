@@ -25,10 +25,12 @@ export { AIConfigError as GeminiConfigError };
 // ── Progress messages ─────────────────────────────────────────────────────────
 
 const PROGRESS_STEPS = [
-  'Understanding what you want to make…',
-  'Sketching the first version…',
-  'Checking it works on mobile…',
-  'Polishing it…',
+  'Figuring out what you need…',
+  'Picking the best format…',
+  'Planning the structure…',
+  'Building your creation…',
+  'Checking the result…',
+  'Polishing the details…',
 ];
 
 // ── System prompt ─────────────────────────────────────────────────────────────
@@ -56,7 +58,7 @@ SUPPORTED CREATION TYPES — always choose the most useful one:
 - event_planner: planning events, parties, trips, projects with task lists
 - meal_planner: meal prep, weekly meals, grocery planning
 - workout_tracker: gym plans, exercise routines, fitness goals
-- survey_form: forms, questionnaires, gathering information
+- price_calculator: quotes, estimates, invoices, price lists, service calculators
 - task_planner: project management, work tasks, weekly or daily planning
 
 CONTENT FORMATS:
@@ -77,7 +79,7 @@ meal_planner: { "type":"meal_planner","weekLabel":"This week","meals":[{"id":"m1
 
 workout_tracker: { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1 — Upper Body","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
 
-survey_form: { "type":"survey_form","title":"Form Title","description":"What this form is for","questions":[{"id":"q1","label":"Question?","type":"text","answer":""}] }
+price_calculator: { "type":"price_calculator","title":"Service Quote","currency":"R","description":"Quote for services","lineItems":[{"id":"li1","label":"Service name","quantity":1,"unitPrice":500,"category":"Services"},{"id":"li2","label":"Additional item","quantity":2,"unitPrice":150,"category":"Materials"}],"taxRate":15,"notes":"" }
 
 task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"sec1","title":"This week","tasks":[{"id":"t1","label":"Task name","priority":"medium","done":false,"dueDate":""}]}] }
 
@@ -210,7 +212,7 @@ async function generateViaEdgeFunction(
     body: JSON.stringify(req),
   });
 
-  onProgress?.(PROGRESS_STEPS[1]);
+  onProgress?.(PROGRESS_STEPS[3]);
 
   if (!response.ok) {
     // Read the body for developer debugging — but never expose it to users
@@ -237,7 +239,7 @@ async function generateViaEdgeFunction(
     throw new AIGenerationError(userMessage);
   }
 
-  onProgress?.(PROGRESS_STEPS[2]);
+  onProgress?.(PROGRESS_STEPS[4]);
   const data: unknown = await response.json();
 
   coerceGenerateResponse(data as Record<string, unknown>);
@@ -246,7 +248,7 @@ async function generateViaEdgeFunction(
     throw new AIGenerationError('The server returned an unexpected response. Please try again.');
   }
 
-  onProgress?.(PROGRESS_STEPS[3]);
+  onProgress?.(PROGRESS_STEPS[5]);
   return data as GenerateResponse;
 }
 

@@ -5,6 +5,11 @@ import { HabitTrackerRenderer } from './HabitTrackerRenderer';
 import { BudgetCalculatorRenderer } from './BudgetCalculatorRenderer';
 import { SavingsTrackerRenderer } from './SavingsTrackerRenderer';
 import { LandingPageRenderer } from './LandingPageRenderer';
+import { EventPlannerRenderer } from './EventPlannerRenderer';
+import { MealPlannerRenderer } from './MealPlannerRenderer';
+import { WorkoutTrackerRenderer } from './WorkoutTrackerRenderer';
+import { TaskPlannerRenderer } from './TaskPlannerRenderer';
+import { PriceCalculatorRenderer } from './PriceCalculatorRenderer';
 
 interface TemplateRendererProps {
   creation: Creation;
@@ -44,30 +49,22 @@ export function TemplateRenderer({ creation, onContentChange }: TemplateRenderer
         return <SavingsTrackerRenderer content={content} onChange={handleChange} />;
 
       case 'landing_page':
-        return <LandingPageRenderer content={content} />;
+        return <LandingPageRenderer content={content} onChange={handleChange} />;
 
       case 'event_planner':
+        return <EventPlannerRenderer content={content} onChange={handleChange} />;
+
       case 'meal_planner':
+        return <MealPlannerRenderer content={content} onChange={handleChange} />;
+
       case 'workout_tracker':
-      case 'survey_form':
-      case 'task_planner': {
-        // Generic JSON viewer for types without a dedicated renderer yet
-        return (
-          <div className="p-4">
-            <div className="bg-white rounded-2xl border border-gray-100 p-4">
-              <p className="text-sm text-gray-500 mb-3">
-                {creation.summary || creation.description}
-              </p>
-              <details className="text-xs text-gray-400">
-                <summary className="cursor-pointer hover:text-gray-600 select-none">View raw data</summary>
-                <pre className="mt-2 overflow-x-auto text-xs bg-gray-50 rounded-xl p-3 leading-relaxed">
-                  {JSON.stringify(content, null, 2)}
-                </pre>
-              </details>
-            </div>
-          </div>
-        );
-      }
+        return <WorkoutTrackerRenderer content={content} onChange={handleChange} />;
+
+      case 'task_planner':
+        return <TaskPlannerRenderer content={content} onChange={handleChange} />;
+
+      case 'price_calculator':
+        return <PriceCalculatorRenderer content={content} onChange={handleChange} />;
 
       case 'generative_html':
         // generative_html is disabled — the AI should not produce this type.

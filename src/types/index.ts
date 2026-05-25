@@ -122,7 +122,7 @@ export type CreationType =
   | 'event_planner'
   | 'meal_planner'
   | 'workout_tracker'
-  | 'survey_form'
+  | 'price_calculator'
   | 'task_planner'
   | 'generative_html';
 
@@ -275,21 +275,24 @@ export interface WorkoutTrackerContent {
   days: WorkoutDay[];
 }
 
-// ── Survey / form ─────────────────────────────────────────────────────────────
+// ── Price calculator ──────────────────────────────────────────────────────────
 
-export interface SurveyQuestion {
+export interface PriceLineItem {
   id: string;
   label: string;
-  type: 'text' | 'number' | 'choice';
-  options?: string[];
-  answer?: string;
+  quantity: number;
+  unitPrice: number;
+  category?: string;
 }
 
-export interface SurveyFormContent {
-  type: 'survey_form';
+export interface PriceCalculatorContent {
+  type: 'price_calculator';
   title: string;
+  currency: string;
   description?: string;
-  questions: SurveyQuestion[];
+  lineItems: PriceLineItem[];
+  taxRate?: number;
+  notes?: string;
 }
 
 // ── Task planner ───────────────────────────────────────────────────────────────
@@ -332,7 +335,7 @@ export type CreationContent =
   | EventPlannerContent
   | MealPlannerContent
   | WorkoutTrackerContent
-  | SurveyFormContent
+  | PriceCalculatorContent
   | TaskPlannerContent
   | GenerativeHtmlCreationContent;
 
@@ -350,6 +353,8 @@ export interface Creation {
   createdAt: number;
   updatedAt: number;
   content: CreationContent;
+  isFavorite?: boolean;
+  sourceTemplate?: string;
 }
 
 // ── Generation ────────────────────────────────────────────────────────────────

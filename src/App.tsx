@@ -20,6 +20,7 @@ export default function App() {
     dismissPendingAction,
     deleteCreation,
     duplicateCreation,
+    renameCreation,
     updateCreationContent,
   } = usePocketVibe();
 
@@ -108,6 +109,7 @@ export default function App() {
             onOpen={openCreation}
             onDelete={deleteCreation}
             onDuplicate={duplicateCreation}
+            onRename={renameCreation}
             onBack={activeCreation ? () => { openCreation(activeCreation.id); } : goHome}
           />
         )}

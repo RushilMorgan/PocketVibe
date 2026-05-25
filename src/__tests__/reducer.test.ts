@@ -338,26 +338,23 @@ describe('trust — visible change verification', () => {
     expect(messages.find(m => /edit habits/i.test(m.text))).toBeDefined();
   });
 
-  it('requesting "editable" on a non-editable type (event_planner) returns honest "not yet" message', async () => {
-    const eventCreation = {
+  it('requesting "editable" on a non-editable type (generative_html) returns honest "not yet" message', async () => {
+    const htmlCreation = {
       ...SAMPLE_CREATION,
-      id: 'ev-1',
-      creationType: 'event_planner' as const,
+      id: 'gh-1',
+      creationType: 'generative_html' as const,
       content: {
-        type: 'event_planner' as const,
-        eventName: 'My Party',
-        eventDate: '',
-        tasks: [],
-        guestCount: 0,
-        notes: '',
+        type: 'generative_html' as const,
+        html: '<p>Legacy</p>',
+        tailwindMarkup: '<p>Legacy</p>',
       },
     };
 
     const { result } = renderHook(() => usePocketVibe());
 
     act(() => {
-      result.current.dispatch({ type: 'UPSERT_CREATION', payload: eventCreation });
-      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'ev-1' });
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: htmlCreation });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'gh-1' });
     });
 
     await act(async () => {

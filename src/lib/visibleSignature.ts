@@ -16,6 +16,7 @@ import type {
   BudgetCalculatorContent,
   SavingsTrackerContent,
   LandingPageContent,
+  PriceCalculatorContent,
 } from '../types';
 
 export function getCreationVisibleSignature(creation: Creation): string {
@@ -34,6 +35,8 @@ export function getContentVisibleSignature(content: CreationContent): string {
       return savingsSignature(content as SavingsTrackerContent);
     case 'landing_page':
       return landingSignature(content as LandingPageContent);
+    case 'price_calculator':
+      return priceSignature(content as PriceCalculatorContent);
     default:
       // For all other types use full content serialization
       return JSON.stringify(content);
@@ -88,5 +91,13 @@ function landingSignature(c: LandingPageContent): string {
     description: c.description,
     featureTitles: c.features.map(f => f.title),
     ctaLabel: c.ctaLabel,
+  });
+}
+
+function priceSignature(c: PriceCalculatorContent): string {
+  return JSON.stringify({
+    currency: c.currency,
+    taxRate: c.taxRate ?? 0,
+    lineItems: c.lineItems.map(l => ({ label: l.label, quantity: l.quantity, unitPrice: l.unitPrice })),
   });
 }

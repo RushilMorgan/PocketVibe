@@ -51,6 +51,7 @@ type PVAction =
   | { type: 'CLEAR_MESSAGES' }
   | { type: 'UPDATE_CREATION_CONTENT'; payload: { id: string; content: CreationContent } }
   | { type: 'RENAME_CREATION'; payload: { id: string; title: string } }
+  | { type: 'TOGGLE_FAVORITE'; payload: string }
   | { type: 'SET_ACCENT_COLOR'; payload: string };
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
@@ -125,6 +126,13 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
     case 'SET_ACCENT_COLOR':
       return { ...state, accentColor: action.payload };
+
+    case 'TOGGLE_FAVORITE': {
+      const updated = state.creations.map(c =>
+        c.id === action.payload ? { ...c, isFavorite: !c.isFavorite, updatedAt: Date.now() } : c,
+      );
+      return { ...state, creations: updated };
+    }
 
     default:
       return state;
@@ -358,7 +366,7 @@ export function usePocketVibe() {
         event_planner: '#f43f5e',
         meal_planner: '#14b8a6',
         workout_tracker: '#ef4444',
-        survey_form: '#8b5cf6',
+        price_calculator: '#8b5cf6',
         task_planner: '#6366f1',
       };
       dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
@@ -530,6 +538,8 @@ export function usePocketVibe() {
       updatedAt: now,
       version: 1,
       status: 'ready',
+      sourceTemplate: original.id,
+      isFavorite: false,
     };
     dispatch({ type: 'UPSERT_CREATION', payload: duplicate });
     dispatch({ type: 'SET_ACTIVE_CREATION', payload: duplicate.id });
@@ -538,6 +548,10 @@ export function usePocketVibe() {
 
   const updateCreationContent = useCallback((id: string, content: CreationContent) => {
     dispatch({ type: 'UPDATE_CREATION_CONTENT', payload: { id, content } });
+  }, []);
+
+  const toggleFavorite = useCallback((id: string) => {
+    dispatch({ type: 'TOGGLE_FAVORITE', payload: id });
   }, []);
 
   return {
@@ -555,5 +569,6 @@ export function usePocketVibe() {
     renameCreation,
     duplicateCreation,
     updateCreationContent,
+    toggleFavorite,
   };
 }

@@ -71,7 +71,10 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       break;
     case 'workout_tracker':
       if (typeof content.planName !== 'string') errors.push('Workout tracker requires planName');
-      if (!Array.isArray(content.days)) errors.push('Workout tracker requires a days array');
+      // days is required in basic mode; challenge mode uses participants + logs instead
+      if (!Array.isArray(content.days) && !Array.isArray(content.participants) && !Array.isArray(content.logs)) {
+        errors.push('Workout tracker requires days array or challenge mode data');
+      }
       break;
     case 'price_calculator':
       if (!Array.isArray(content.lineItems)) errors.push('Price calculator requires a lineItems array');
@@ -152,7 +155,8 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
   if (type === 'savings_tracker' && !Array.isArray(content.contributions)) content.contributions = [];
   if (type === 'event_planner' && !Array.isArray(content.tasks)) content.tasks = [];
   if (type === 'meal_planner' && !Array.isArray(content.meals)) content.meals = [];
-  if (type === 'workout_tracker' && !Array.isArray(content.days)) content.days = [];
+  // In challenge mode, days is optional — only default to [] in basic mode
+  if (type === 'workout_tracker' && !Array.isArray(content.days) && !content.challengeMode && !Array.isArray(content.participants)) content.days = [];
   if (type === 'task_planner' && !Array.isArray(content.sections)) content.sections = [];
   if (type === 'landing_page' && !Array.isArray(content.features)) content.features = [];
 }

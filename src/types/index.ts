@@ -268,10 +268,45 @@ export interface WorkoutDay {
   completed: boolean;
 }
 
+// ── Challenge Mode ─────────────────────────────────────────────────────────────
+
+export interface ChallengeParticipant {
+  id: string;
+  name: string;
+  emoji?: string;
+}
+
+export type ActivityType = 'walk' | 'run' | 'gym' | 'other';
+
+export interface ActivityLog {
+  id: string;
+  participantId: string;
+  date: string;           // ISO date e.g. '2026-05-27'
+  activityType: ActivityType;
+  duration?: string;      // e.g. '30 min'
+  distance?: string;      // e.g. '5 km'
+  note?: string;
+}
+
+export interface ChallengeScoringRules {
+  pointsPerActivity: number;   // base points for any completed activity
+  weeklyTargetBonus: number;   // bonus when weekly session target is met
+  runningBonus: number;        // extra points for a 'run' activity
+  streakBonus?: number;        // optional consecutive-day bonus
+}
+
 export interface WorkoutTrackerContent {
   type: 'workout_tracker';
   planName: string;
-  days: WorkoutDay[];
+  // Challenge Mode fields (optional — absent means basic/legacy mode)
+  challengeMode?: boolean;
+  participants?: ChallengeParticipant[];
+  activityTypes?: string[];
+  weeklyTarget?: number;
+  logs?: ActivityLog[];
+  scoringRules?: ChallengeScoringRules;
+  // Legacy basic mode
+  days?: WorkoutDay[];
 }
 
 // ── Price calculator ──────────────────────────────────────────────────────────

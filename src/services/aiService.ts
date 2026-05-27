@@ -401,37 +401,28 @@ export function generateOfflineFallback(userRequest: string): GenerateResponse {
     };
   }
 
-  if (/workout|gym|exercise|fitness|training/.test(lower)) {
+  if (/workout|gym|exercise|fitness|training|challenge/.test(lower)) {
     return {
-      title: 'Workout Tracker',
+      title: 'Partner Challenge',
       creationType: 'workout_tracker',
-      description: 'Track your workout plan',
-      summary: 'Here is a workout plan. Mark days as complete as you go.',
+      description: 'Track your walking and running challenge with points',
+      summary: 'Here is your challenge tracker. Log activities, earn points, and see who wins!',
       content: {
         type: 'workout_tracker',
-        planName: 'My Workout Plan',
-        days: [
-          {
-            id: 'd1',
-            label: 'Day 1 — Upper Body',
-            exercises: [
-              { id: 'e1', name: 'Push-ups', sets: 3, reps: '15' },
-              { id: 'e2', name: 'Pull-ups', sets: 3, reps: '10' },
-              { id: 'e3', name: 'Shoulder press', sets: 3, reps: '12' },
-            ],
-            completed: false,
-          },
-          {
-            id: 'd2',
-            label: 'Day 2 — Lower Body',
-            exercises: [
-              { id: 'e4', name: 'Squats', sets: 4, reps: '15' },
-              { id: 'e5', name: 'Lunges', sets: 3, reps: '12 each' },
-              { id: 'e6', name: 'Calf raises', sets: 3, reps: '20' },
-            ],
-            completed: false,
-          },
+        planName: 'Partner Challenge',
+        challengeMode: true,
+        participants: [
+          { id: 'p1', name: 'You', emoji: '🏃' },
+          { id: 'p2', name: 'Partner', emoji: '🚶' },
         ],
+        activityTypes: ['walk', 'run', 'gym', 'other'],
+        weeklyTarget: 3,
+        logs: [],
+        scoringRules: {
+          pointsPerActivity: 10,
+          weeklyTargetBonus: 20,
+          runningBonus: 5,
+        },
       },
     };
   }

@@ -70,6 +70,15 @@ function getVisibleSignature(content: Record<string, unknown>): string {
     return JSON.stringify({ weekLabel: content.weekLabel, meals: (content.meals as Array<{day:string;slot:string;name:string}> ?? []).map(m => ({ day: m.day, slot: m.slot, name: m.name })) });
   }
   if (type === 'workout_tracker') {
+    if (content.challengeMode || Array.isArray(content.participants)) {
+      return JSON.stringify({
+        planName: content.planName,
+        participantCount: (content.participants as unknown[] ?? []).length,
+        logCount: (content.logs as unknown[] ?? []).length,
+        weeklyTarget: content.weeklyTarget,
+        scoringRules: content.scoringRules,
+      });
+    }
     return JSON.stringify({ planName: content.planName, days: (content.days as Array<{label:string;exercises:Array<{name:string}>}> ?? []).map(d => ({ label: d.label, exercises: d.exercises.map(e => e.name) })) });
   }
   if (type === 'task_planner') {
@@ -247,7 +256,8 @@ savings_tracker: { "type":"savings_tracker","goalName":"Holiday Fund","targetAmo
 landing_page: { "type":"landing_page","businessName":"Business Name","tagline":"What you do","description":"About paragraph","features":[{"icon":"⭐","title":"Feature","description":"What this offers"}],"ctaLabel":"Get in touch","ctaUrl":"","contactEmail":"" }
 event_planner: { "type":"event_planner","eventName":"Event Name","eventDate":"","tasks":[{"id":"t1","label":"Task","dueDate":"","done":false}],"guestCount":0,"notes":"" }
 meal_planner: { "type":"meal_planner","weekLabel":"This week","meals":[{"id":"m1","day":"Monday","slot":"dinner","name":"Meal name"}],"groceryList":["Ingredient 1"] }
-workout_tracker: { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
+workout_tracker (challenge mode): { "type":"workout_tracker","planName":"Partner Challenge","challengeMode":true,"participants":[{"id":"p1","name":"Alice","emoji":"🏃"},{"id":"p2","name":"Bob","emoji":"🚶"}],"activityTypes":["walk","run","gym","other"],"weeklyTarget":3,"logs":[],"scoringRules":{"pointsPerActivity":10,"weeklyTargetBonus":20,"runningBonus":5} }
+workout_tracker (basic plan): { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
 price_calculator: { "type":"price_calculator","title":"Service Quote","currency":"R","description":"Quote for services","lineItems":[{"id":"li1","label":"Service name","quantity":1,"unitPrice":500,"category":"Services"},{"id":"li2","label":"Additional item","quantity":2,"unitPrice":150,"category":"Materials"}],"taxRate":15,"notes":"" }
 task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"sec1","title":"This week","tasks":[{"id":"t1","label":"Task","priority":"medium","done":false,"dueDate":""}]}] }
 

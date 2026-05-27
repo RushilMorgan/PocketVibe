@@ -1,7 +1,8 @@
 ﻿import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import type { HabitTrackerContent } from '../types';
+import type { HabitTrackerContent, WorkoutTrackerContent } from '../types';
 import { HabitTrackerRenderer } from '../components/templates/HabitTrackerRenderer';
+import { WorkoutTrackerRenderer } from '../components/templates/WorkoutTrackerRenderer';
 import AppShell from '../components/AppShell';
 import PVHeader from '../components/PVHeader';
 import { HomeScreen } from '../components/HomeScreen';
@@ -954,6 +955,107 @@ describe('copy-creation-btn testid exists', () => {
     expect(src).toContain('data-testid="copy-creation-btn"');
     expect(src).toContain('handleCopyText');
     expect(src).toContain('handleNativeShare');
+  });
+});
+
+// ── WorkoutTrackerRenderer — Challenge Mode ───────────────────────────────────
+
+function makeChallenge(): WorkoutTrackerContent {
+  return {
+    type: 'workout_tracker',
+    planName: 'Partner Challenge',
+    challengeMode: true,
+    participants: [
+      { id: 'p1', name: 'Alice', emoji: '🏃' },
+      { id: 'p2', name: 'Bob', emoji: '🚶' },
+    ],
+    activityTypes: ['walk', 'run', 'gym', 'other'],
+    weeklyTarget: 3,
+    logs: [],
+    scoringRules: { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 },
+  };
+}
+
+describe('WorkoutTrackerRenderer — Challenge Mode', () => {
+  it('can edit participant names', () => {
+    const onChange = vi.fn();
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.change(screen.getByTestId('participant-name-input-p1'), { target: { value: 'Alicia' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        participants: expect.arrayContaining([expect.objectContaining({ id: 'p1', name: 'Alicia' })]),
+      }),
+    );
+  });
+
+  it('can log a walk for a participant', () => {
+    const onChange = vi.fn();
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('log-activity-btn'));
+    expect(screen.getByTestId('log-activity-form')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('log-type-walk'));
+    fireEvent.click(screen.getByTestId('log-submit-btn'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        logs: expect.arrayContaining([expect.objectContaining({ participantId: 'p1', activityType: 'walk' })]),
+      }),
+    );
+  });
+
+  it('score updates after logging an activity', () => {
+    const content = makeChallenge();
+    const today = new Date().toISOString().slice(0, 10);
+    const { rerender } = render(<WorkoutTrackerRenderer content={content} onChange={() => {}} />);
+    expect(screen.getByTestId('participant-score-p1')).toHaveTextContent('0');
+    const withLog = { ...content, logs: [{ id: 'l1', participantId: 'p1', date: today, activityType: 'walk' as const }] };
+    rerender(<WorkoutTrackerRenderer content={withLog} onChange={() => {}} />);
+    expect(screen.getByTestId('participant-score-p1')).toHaveTextContent('10');
+  });
+
+  it('can change points per activity', () => {
+    const onChange = vi.fn();
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.change(screen.getByTestId('points-per-activity-input'), { target: { value: '15' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ scoringRules: expect.objectContaining({ pointsPerActivity: 15 }) }),
+    );
+  });
+
+  it('score recalculates when scoring rules change', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const content = { ...makeChallenge(), logs: [{ id: 'l1', participantId: 'p1', date: today, activityType: 'walk' as const }] };
+    const { rerender } = render(<WorkoutTrackerRenderer content={content} onChange={() => {}} />);
+    expect(screen.getByTestId('participant-score-p1')).toHaveTextContent('10');
+    const updated = { ...content, scoringRules: { pointsPerActivity: 20, weeklyTargetBonus: 20, runningBonus: 5 } };
+    rerender(<WorkoutTrackerRenderer content={updated} onChange={() => {}} />);
+    expect(screen.getByTestId('participant-score-p1')).toHaveTextContent('20');
+  });
+
+  it('can change weekly target', () => {
+    const onChange = vi.fn();
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.change(screen.getByTestId('weekly-target-input'), { target: { value: '5' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ weeklyTarget: 5 }));
+  });
+
+  it('weekly progress updates when weekly target changes', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const content = {
+      ...makeChallenge(),
+      weeklyTarget: 3,
+      logs: [
+        { id: 'l1', participantId: 'p1', date: today, activityType: 'walk' as const },
+        { id: 'l2', participantId: 'p1', date: today, activityType: 'run' as const },
+      ],
+    };
+    const { rerender } = render(<WorkoutTrackerRenderer content={content} onChange={() => {}} />);
+    expect(screen.getByTestId('weekly-progress-p1')).toHaveTextContent('2/3 this week');
+    const updated = { ...content, weeklyTarget: 5 };
+    rerender(<WorkoutTrackerRenderer content={updated} onChange={() => {}} />);
+    expect(screen.getByTestId('weekly-progress-p1')).toHaveTextContent('2/5 this week');
   });
 });
 

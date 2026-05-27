@@ -89,7 +89,14 @@ function formatMealPlanner(c: MealPlannerContent): string {
 }
 
 function formatWorkoutTracker(c: WorkoutTrackerContent): string {
-  return c.days
+  if (c.challengeMode || (c.participants && c.participants.length > 0)) {
+    const names = (c.participants ?? []).map(p => p.name).join(', ');
+    const lines = [`Challenge: ${c.planName}`, `Participants: ${names}`];
+    if (c.weeklyTarget) lines.push(`Weekly target: ${c.weeklyTarget} sessions`);
+    if (c.logs && c.logs.length > 0) lines.push(`Total logs: ${c.logs.length}`);
+    return lines.join('\n');
+  }
+  return (c.days ?? [])
     .map(d => {
       const exs = d.exercises.map(e => `${e.name} ${e.sets}×${e.reps}`).join(', ');
       return `${d.label}: ${exs}`;

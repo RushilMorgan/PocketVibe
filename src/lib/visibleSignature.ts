@@ -141,9 +141,18 @@ function mealSignature(c: MealPlannerContent): string {
 }
 
 function workoutSignature(c: WorkoutTrackerContent): string {
+  if (c.challengeMode || (c.participants && c.participants.length > 0)) {
+    return JSON.stringify({
+      planName: c.planName,
+      participants: (c.participants ?? []).map(p => p.name),
+      weeklyTarget: c.weeklyTarget ?? 3,
+      logCount: (c.logs ?? []).length,
+      scoringRules: c.scoringRules,
+    });
+  }
   return JSON.stringify({
     planName: c.planName,
-    days: c.days.map(d => ({
+    days: (c.days ?? []).map(d => ({
       label: d.label,
       completed: d.completed,
       exercises: d.exercises.map(e => ({ name: e.name, sets: e.sets ?? 0, reps: e.reps ?? '', duration: e.duration ?? '' })),

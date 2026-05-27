@@ -40,7 +40,11 @@ export type CreationCapability =
   | 'delete_contributions'
   | 'edit_contributions'
   // Landing page / shared
-  | 'edit_page_fields';
+  | 'edit_page_fields'
+  // Workout tracker challenge mode
+  | 'log_activity'
+  | 'edit_participants'
+  | 'edit_scoring_rules';
 
 /**
  * Direct-edit capabilities that each renderer provides.
@@ -75,7 +79,7 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
   ],
   event_planner: ['edit_labels', 'add_items', 'delete_items', 'toggle_items'],
   meal_planner: ['edit_labels', 'add_items', 'delete_items'],
-  workout_tracker: ['edit_labels', 'add_items', 'delete_items'],
+  workout_tracker: ['edit_labels', 'add_items', 'delete_items', 'log_activity', 'edit_participants', 'edit_scoring_rules'],
   price_calculator: [
     'edit_amounts',
     'edit_labels',
@@ -152,7 +156,7 @@ export function getEditableRedirectMessage(creationType: CreationType): string {
     meal_planner:
       "Tap 'Edit meals' to change meal names, add or remove meals, and update your grocery list.",
     workout_tracker:
-      "Tap 'Edit workout' to change exercises, sets, reps, and workout days.",
+      "Tap 'Edit challenge' to manage participants, update scoring rules, or change the weekly target. Use the quick log buttons to record activities.",
     task_planner:
       "Tap 'Edit tasks' to add, rename, or delete tasks and sections.",
     landing_page:

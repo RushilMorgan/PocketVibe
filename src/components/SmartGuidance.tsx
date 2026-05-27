@@ -1,107 +1,105 @@
 import React from 'react';
-import type { GuidanceState } from '../lib/guidance';
+import type { GuidanceState, QuickActionDef } from '../lib/guidance';
 
 interface SmartGuidanceProps {
   guidance: GuidanceState;
   onAction: (actionId: string) => void;
 }
 
+function pickNextAction(guidance: GuidanceState): {
+  label: string;
+  icon: string;
+  actionId?: string;
+} | null {
+  const topSuggestion = guidance.suggestions[0];
+  if (topSuggestion) {
+    return {
+      label: topSuggestion.label,
+      icon: topSuggestion.icon,
+      actionId: topSuggestion.actionId,
+    };
+  }
+
+  const nextStep = guidance.setupSteps.find(step => !step.done);
+  if (nextStep) {
+    return {
+      label: `Next: ${nextStep.label}`,
+      icon: '→',
+    };
+  }
+
+  const primary = guidance.quickActions.find(action => action.variant === 'primary') ?? guidance.quickActions[0];
+  if (primary) {
+    return {
+      label: primary.label,
+      icon: primary.icon,
+      actionId: primary.id,
+    };
+  }
+
+  return null;
+}
+
+function pickSecondaryActions(guidance: GuidanceState, usedActionId?: string): QuickActionDef[] {
+  return guidance.quickActions
+    .filter(action => action.id !== usedActionId)
+    .slice(0, 2);
+}
+
 export function SmartGuidance({ guidance, onAction }: SmartGuidanceProps) {
-  const { setupTitle, setupSteps, suggestions, quickActions, isSetupComplete } = guidance;
+  const next = pickNextAction(guidance);
+  const quickActions = pickSecondaryActions(guidance, next?.actionId);
+
+  if (!next && quickActions.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3">
-
-      {/* ── Quick actions: horizontal scroll row ──────────────────────────── */}
-      {quickActions.length > 0 && (
+    <div className="flex flex-col gap-2">
+      {next && (
         <div
-          data-testid="quick-actions"
-          className="flex gap-2 overflow-x-auto pb-0.5"
-          style={{ scrollbarWidth: 'none' } as React.CSSProperties}
+          data-testid="next-best-action"
+          className="rounded-2xl border border-gray-200 bg-white/90 px-4 py-3 shadow-sm"
         >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-900 text-sm font-bold text-white">
+              {next.icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">
+                Next Best Action
+              </p>
+              <p className="text-sm font-semibold text-gray-900">{next.label}</p>
+            </div>
+            {next.actionId && (
+              <button
+                data-testid="next-best-action-button"
+                onClick={() => onAction(next.actionId!)}
+                className="rounded-full bg-gray-900 px-3 py-2 text-xs font-semibold text-white active:bg-black"
+              >
+                Do it
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {quickActions.length > 0 && (
+        <div data-testid="quick-actions" className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' } as React.CSSProperties}>
           {quickActions.map(action => (
             <button
               key={action.id}
               data-testid={`quick-action-${action.id}`}
               onClick={() => onAction(action.id)}
-              className={`flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all active:scale-95 whitespace-nowrap
-                ${action.variant === 'primary'
-                  ? 'bg-yellow-500 text-white active:bg-yellow-600'
+              className={`flex-shrink-0 rounded-full px-3 py-2 text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${
+                action.variant === 'primary'
+                  ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-                }`}
+              }`}
             >
-              <span>{action.icon}</span>
-              <span>{action.label}</span>
+              {action.icon} {action.label}
             </button>
           ))}
         </div>
       )}
-
-      {/* ── Setup checklist: shown until all steps done ───────────────────── */}
-      {!isSetupComplete && setupSteps.length > 0 && (
-        <div
-          data-testid="setup-checklist"
-          className="bg-amber-50 border border-amber-100 rounded-2xl p-4"
-        >
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">
-            {setupTitle}
-          </p>
-          <div className="flex flex-col gap-2.5">
-            {setupSteps.map(step => (
-              <div key={step.id} className="flex items-start gap-2.5">
-                <div
-                  className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
-                    ${step.done
-                      ? 'bg-green-500 text-white'
-                      : 'border-2 border-amber-200 bg-white'
-                    }`}
-                >
-                  {step.done && '✓'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className={`text-sm ${step.done ? 'text-gray-400 line-through' : 'text-gray-800 font-medium'}`}>
-                    {step.label}
-                  </span>
-                  {step.detail && (
-                    <p className="text-xs text-gray-500 mt-0.5">{step.detail}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Smart suggestions: top contextual hints ───────────────────────── */}
-      {suggestions.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {suggestions.slice(0, 3).map(s => (
-            <div
-              key={s.id}
-              data-testid={`suggestion-${s.id}`}
-              onClick={s.actionId ? () => onAction(s.actionId!) : undefined}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium
-                ${s.variant === 'warning'
-                  ? 'bg-red-50 border border-red-100 text-red-700'
-                  : s.variant === 'info'
-                    ? 'bg-blue-50 border border-blue-100 text-blue-700'
-                    : s.actionId
-                      ? 'bg-gray-50 border border-gray-100 text-gray-700 cursor-pointer active:bg-gray-100'
-                      : 'bg-gray-50 border border-gray-100 text-gray-600'
-                }`}
-            >
-              <span className="flex-shrink-0">{s.icon}</span>
-              <span className="flex-1">{s.label}</span>
-              {s.actionId && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 opacity-40">
-                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-                </svg>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
     </div>
   );
 }

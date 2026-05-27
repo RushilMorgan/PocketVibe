@@ -976,6 +976,30 @@ function makeChallenge(): WorkoutTrackerContent {
 }
 
 describe('WorkoutTrackerRenderer — Challenge Mode', () => {
+  it('shows head-to-head scoreboard in hero', () => {
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('Bob')).toBeInTheDocument();
+  });
+
+  it('opens log activity as a bottom sheet form', () => {
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('log-activity-btn'));
+    expect(screen.getByTestId('log-activity-form')).toBeInTheDocument();
+  });
+
+  it('opens manage challenge controls in a sheet', () => {
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    expect(screen.getByTestId('manage-challenge-sheet')).toBeInTheDocument();
+  });
+
+  it('keeps setup checklist compact and not dominant', () => {
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
+    expect(screen.getByTestId('next-best-action')).toBeInTheDocument();
+    expect(screen.queryByText('Get your challenge ready')).not.toBeInTheDocument();
+  });
+
   it('can edit participant names', () => {
     const onChange = vi.fn();
     render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
@@ -1076,7 +1100,6 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     const content = { ...makeChallenge(), logs: [{ id: 'l1', participantId: 'p1', date: today, activityType: 'walk' as const }] };
     const onChange = vi.fn();
     render(<WorkoutTrackerRenderer content={content} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
     fireEvent.click(screen.getByTestId('edit-log-open-l1'));
     fireEvent.click(screen.getByTestId('edit-log-type-l1-run'));
     fireEvent.click(screen.getByTestId('save-edit-log-l1'));
@@ -1164,7 +1187,7 @@ describe('TournamentPoolRenderer', () => {
   it('adds a participant', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('add-participant-btn'));
     fireEvent.change(screen.getByTestId('new-participant-name'), { target: { value: 'Charlie' } });
     fireEvent.click(screen.getByTestId('save-participant-btn'));
@@ -1178,7 +1201,7 @@ describe('TournamentPoolRenderer', () => {
   it('edits a participant name', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('edit-participant-btn-p1'));
     fireEvent.change(screen.getByTestId('edit-participant-name-p1'), { target: { value: 'Alice Updated' } });
     fireEvent.click(screen.getByTestId('save-participant-p1'));
@@ -1192,7 +1215,7 @@ describe('TournamentPoolRenderer', () => {
   it('adds a team into a pot', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('add-team-btn'));
     fireEvent.change(screen.getByTestId('new-team-name'), { target: { value: 'Argentina' } });
     fireEvent.change(screen.getByTestId('new-team-pot'), { target: { value: '1' } });
@@ -1207,6 +1230,7 @@ describe('TournamentPoolRenderer', () => {
   it('draws one team for the next participant', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('draw-one-btn'));
     const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
     const assigned = updated.teams.filter(t => t.assignedTo !== undefined);
@@ -1216,6 +1240,7 @@ describe('TournamentPoolRenderer', () => {
   it('draws all teams with no duplicates', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('draw-all-btn'));
     const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
     const assignedTeamIds = updated.teams.filter(t => t.assignedTo).map(t => t.id);
@@ -1234,6 +1259,7 @@ describe('TournamentPoolRenderer', () => {
     });
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={alreadyAssigned} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('draw-one-btn'));
     const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
     const brazil = updated.teams.find(t => t.id === 't1')!;
@@ -1251,6 +1277,7 @@ describe('TournamentPoolRenderer', () => {
       ],
     });
     render(<TournamentPoolRenderer content={withAssignments} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('lock-draw-btn'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ drawLocked: true }));
   });
@@ -1267,6 +1294,7 @@ describe('TournamentPoolRenderer', () => {
     });
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={content} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('add-match-btn'));
     fireEvent.change(screen.getByTestId('match-team-a-select'), { target: { value: 't1' } });
     fireEvent.change(screen.getByTestId('match-team-b-select'), { target: { value: 't2' } });
@@ -1289,6 +1317,7 @@ describe('TournamentPoolRenderer', () => {
     });
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={content} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('add-match-btn'));
     fireEvent.change(screen.getByTestId('match-team-a-select'), { target: { value: 't1' } });
     fireEvent.change(screen.getByTestId('match-team-b-select'), { target: { value: 't2' } });
@@ -1302,7 +1331,7 @@ describe('TournamentPoolRenderer', () => {
   it('changes the scoring rules', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.change(screen.getByTestId('points-per-win-input'), { target: { value: '5' } });
     fireEvent.click(screen.getByTestId('save-scoring-btn'));
     expect(onChange).toHaveBeenCalledWith(
@@ -1323,7 +1352,7 @@ describe('TournamentPoolRenderer', () => {
     });
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={content} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.change(screen.getByTestId('points-per-win-input'), { target: { value: '10' } });
     fireEvent.click(screen.getByTestId('save-scoring-btn'));
     const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
@@ -1334,6 +1363,45 @@ describe('TournamentPoolRenderer', () => {
     const fun = TEMPLATE_CATEGORIES.find(c => c.id === 'fun');
     expect(fun).toBeDefined();
     expect(fun!.starters.some(s => s.creationType === 'tournament_pool_tracker')).toBe(true);
+  });
+
+  it('opens participant detail sheet when a leaderboard row is tapped', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active', assignedTo: 'p2' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('participant-row-p1'));
+    expect(screen.getByTestId('participant-detail-sheet')).toBeInTheDocument();
+  });
+
+  it('keeps full teams list collapsed by default', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    expect(screen.getByTestId('teams-collapsed-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('all-teams-list')).not.toBeInTheDocument();
+  });
+
+  it('shows full teams list only after tapping view all teams', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('view-all-teams-btn'));
+    expect(screen.getByTestId('all-teams-list')).toBeInTheDocument();
+  });
+
+  it('opens manage pool sheet from hero action', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
+  });
+
+  it('next best action changes after participants are added', () => {
+    const noPeople = makePool({ participants: [] });
+    const withPeople = makePool();
+    const { rerender } = render(<TournamentPoolRenderer content={noPeople} onChange={vi.fn()} />);
+    expect(screen.getByTestId('next-best-action')).toHaveTextContent('Add people');
+    rerender(<TournamentPoolRenderer content={withPeople} onChange={vi.fn()} />);
+    expect(screen.getByTestId('next-best-action')).toHaveTextContent('Run the draw');
   });
 });
 
@@ -1400,7 +1468,7 @@ describe('TournamentPoolRenderer — team inline editing', () => {
   it('can edit an existing team name', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
     fireEvent.change(screen.getByTestId('edit-team-name-t1'), { target: { value: 'Portugal' } });
     fireEvent.click(screen.getByTestId('save-team-edit-t1'));
@@ -1414,7 +1482,7 @@ describe('TournamentPoolRenderer — team inline editing', () => {
   it('can change team pot via inline edit', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
     fireEvent.change(screen.getByTestId('edit-team-pot-t1'), { target: { value: '3' } });
     fireEvent.click(screen.getByTestId('save-team-edit-t1'));
@@ -1428,7 +1496,7 @@ describe('TournamentPoolRenderer — team inline editing', () => {
   it('can change team status to quarter_final via inline edit', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
     fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
     fireEvent.change(screen.getByTestId('edit-team-status-t1'), { target: { value: 'quarter_final' } });
     fireEvent.click(screen.getByTestId('save-team-edit-t1'));
@@ -1472,8 +1540,74 @@ describe('CreationComposer — AI status banner', () => {
         onAdd={noop}
       />,
     );
-    fireEvent.click(screen.getByLabelText(/chat with AI/i));
+    fireEvent.click(screen.getByLabelText(/ask toolie about this pool/i));
     expect(screen.getByTestId('ai-status-banner')).toBeInTheDocument();
+  });
+
+  it('shows pool contextual chips for tournament pool state', () => {
+    const onImprove = vi.fn();
+    const creation: Creation = {
+      id: 'cp-1', title: 'Family Pool', creationType: 'tournament_pool_tracker',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: {
+        type: 'tournament_pool_tracker',
+        poolName: 'Family Pool',
+        tournamentName: 'Cup',
+        participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+        teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'active' }],
+        matches: [],
+        drawLocked: false,
+        scoringRules: { pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5, quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50 },
+      },
+    };
+
+    render(
+      <CreationComposer
+        activeCreation={creation}
+        messages={[]}
+        isGenerating={false}
+        processingStatus={null}
+        onNew={noop}
+        onImprove={onImprove}
+        onAdd={noop}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText(/ask toolie about this pool/i));
+    expect(screen.getByTestId('contextual-chat-suggestions')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('context-suggestion-run-draw'));
+    expect(onImprove).toHaveBeenCalledWith(expect.stringMatching(/run the draw/i));
+  });
+
+  it('shows challenge contextual chips for workout challenge state', () => {
+    const onImprove = vi.fn();
+    const creation: Creation = {
+      id: 'cw-1', title: 'Partner Challenge', creationType: 'workout_tracker',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: {
+        ...makeChallenge(),
+        logs: [],
+      },
+    };
+
+    render(
+      <CreationComposer
+        activeCreation={creation}
+        messages={[]}
+        isGenerating={false}
+        processingStatus={null}
+        onNew={noop}
+        onImprove={onImprove}
+        onAdd={noop}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText(/ask toolie about this challenge/i));
+    expect(screen.getByTestId('contextual-chat-suggestions')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('context-suggestion-first-log'));
+    expect(onImprove).toHaveBeenCalledWith(expect.stringMatching(/log a walk/i));
   });
 });
 

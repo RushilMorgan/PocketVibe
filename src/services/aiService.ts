@@ -338,6 +338,149 @@ export function generateOfflineFallback(userRequest: string): GenerateResponse {
     };
   }
 
+  if (/landing|website|page|portfolio|business/.test(lower)) {
+    return {
+      title: 'My Landing Page',
+      creationType: 'landing_page',
+      description: 'A simple landing page for your business or project',
+      summary: 'Here is a landing page to showcase your business. You can edit any of the fields directly.',
+      content: {
+        type: 'landing_page',
+        businessName: 'My Business',
+        tagline: 'What we do in one line',
+        description: 'A short paragraph about what makes your business special.',
+        features: [
+          { icon: '⭐', title: 'Quality', description: 'We deliver the best quality' },
+          { icon: '🚀', title: 'Fast', description: 'Quick and reliable service' },
+          { icon: '💬', title: 'Support', description: 'We are always here to help' },
+        ],
+        ctaLabel: 'Get in touch',
+        ctaUrl: '',
+        contactEmail: '',
+      },
+    };
+  }
+
+  if (/event|party|wedding|birthday|plan a/.test(lower)) {
+    return {
+      title: 'Event Planner',
+      creationType: 'event_planner',
+      description: 'Plan your event with a task list',
+      summary: 'Here is an event planner to keep track of everything you need to do.',
+      content: {
+        type: 'event_planner',
+        eventName: 'My Event',
+        eventDate: '',
+        tasks: [
+          { id: 't1', label: 'Book venue', dueDate: '', done: false },
+          { id: 't2', label: 'Send invitations', dueDate: '', done: false },
+          { id: 't3', label: 'Arrange catering', dueDate: '', done: false },
+        ],
+        guestCount: 0,
+        notes: '',
+      },
+    };
+  }
+
+  if (/meal|food|recipe|grocery|eat/.test(lower)) {
+    return {
+      title: 'Weekly Meal Planner',
+      creationType: 'meal_planner',
+      description: 'Plan your meals for the week',
+      summary: 'Here is a weekly meal planner. Add meals for each day and build your grocery list.',
+      content: {
+        type: 'meal_planner',
+        weekLabel: 'This week',
+        meals: [
+          { id: 'm1', day: 'Monday', slot: 'dinner', name: 'Pasta' },
+          { id: 'm2', day: 'Tuesday', slot: 'dinner', name: 'Chicken stir-fry' },
+          { id: 'm3', day: 'Wednesday', slot: 'dinner', name: 'Grilled fish' },
+        ],
+        groceryList: ['Pasta', 'Chicken', 'Fish', 'Vegetables', 'Olive oil'],
+      },
+    };
+  }
+
+  if (/workout|gym|exercise|fitness|training/.test(lower)) {
+    return {
+      title: 'Workout Tracker',
+      creationType: 'workout_tracker',
+      description: 'Track your workout plan',
+      summary: 'Here is a workout plan. Mark days as complete as you go.',
+      content: {
+        type: 'workout_tracker',
+        planName: 'My Workout Plan',
+        days: [
+          {
+            id: 'd1',
+            label: 'Day 1 — Upper Body',
+            exercises: [
+              { id: 'e1', name: 'Push-ups', sets: 3, reps: '15' },
+              { id: 'e2', name: 'Pull-ups', sets: 3, reps: '10' },
+              { id: 'e3', name: 'Shoulder press', sets: 3, reps: '12' },
+            ],
+            completed: false,
+          },
+          {
+            id: 'd2',
+            label: 'Day 2 — Lower Body',
+            exercises: [
+              { id: 'e4', name: 'Squats', sets: 4, reps: '15' },
+              { id: 'e5', name: 'Lunges', sets: 3, reps: '12 each' },
+              { id: 'e6', name: 'Calf raises', sets: 3, reps: '20' },
+            ],
+            completed: false,
+          },
+        ],
+      },
+    };
+  }
+
+  if (/task|project|sprint|work|to.do/.test(lower)) {
+    return {
+      title: 'Task Planner',
+      creationType: 'task_planner',
+      description: 'Organise your tasks by section',
+      summary: 'Here is a task planner. Add tasks and check them off as you go.',
+      content: {
+        type: 'task_planner',
+        planTitle: 'My Plan',
+        sections: [
+          {
+            id: 'sec1',
+            title: 'This week',
+            tasks: [
+              { id: 't1', label: 'First task', priority: 'high', done: false, dueDate: '' },
+              { id: 't2', label: 'Second task', priority: 'medium', done: false, dueDate: '' },
+              { id: 't3', label: 'Third task', priority: 'low', done: false, dueDate: '' },
+            ],
+          },
+        ],
+      },
+    };
+  }
+
+  if (/price|quote|invoice|cost|estimate/.test(lower)) {
+    return {
+      title: 'Price Calculator',
+      creationType: 'price_calculator',
+      description: 'Calculate a price or quote',
+      summary: 'Here is a price calculator. Add your line items and adjust quantities to get a total.',
+      content: {
+        type: 'price_calculator',
+        title: 'Service Quote',
+        currency: 'R',
+        description: '',
+        lineItems: [
+          { id: 'li1', label: 'Service', quantity: 1, unitPrice: 500, category: 'Services' },
+          { id: 'li2', label: 'Materials', quantity: 2, unitPrice: 150, category: 'Materials' },
+        ],
+        taxRate: 15,
+        notes: '',
+      },
+    };
+  }
+
   return {
     title: 'My Checklist',
     creationType: 'checklist',

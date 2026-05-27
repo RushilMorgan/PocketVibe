@@ -16,6 +16,20 @@ const SUPPORTED_TYPES = new Set<CreationType>([
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
+const HTML_MARKERS = ['<html', '<!doctype', '<script', '<div', '</', 'onclick=', 'oninput=', 'class='];
+
+export function containsHtmlDeep(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase();
+    return HTML_MARKERS.some(m => lower.includes(m));
+  }
+  if (Array.isArray(value)) return value.some(item => containsHtmlDeep(item));
+  if (value !== null && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(v => containsHtmlDeep(v));
+  }
+  return false;
+}
+
 function hasNoDangerousKeys(obj: Record<string, unknown>): boolean {
   for (const key of Object.keys(obj)) {
     if (DANGEROUS_KEYS.has(key)) return false;
@@ -87,6 +101,8 @@ export function validateGenerateResponse(raw: unknown): ValidationResult {
     errors.push('Missing or empty title');
   } else if (r.title.length > 100) {
     errors.push('Title too long (max 100 chars)');
+  } else if (containsHtmlDeep(r.title)) {
+    errors.push('Title contains raw HTML');
   }
 
   if (typeof r.creationType !== 'string') {
@@ -101,6 +117,8 @@ export function validateGenerateResponse(raw: unknown): ValidationResult {
 
   if (typeof r.summary !== 'string' || r.summary.trim().length === 0) {
     errors.push('Missing or empty summary');
+  } else if (containsHtmlDeep(r.summary)) {
+    errors.push('Summary contains raw HTML');
   }
 
   if (!r.content || typeof r.content !== 'object') {
@@ -111,6 +129,9 @@ export function validateGenerateResponse(raw: unknown): ValidationResult {
       errors.push(`content.type (${content.type}) does not match creationType (${r.creationType})`);
     } else if (typeof r.creationType === 'string' && SUPPORTED_TYPES.has(r.creationType as CreationType)) {
       errors.push(...validateContent(r.creationType as CreationType, content));
+    }
+    if (containsHtmlDeep(content)) {
+      errors.push('Content contains raw HTML');
     }
   }
 
@@ -132,7 +153,6 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
   if (type === 'event_planner' && !Array.isArray(content.tasks)) content.tasks = [];
   if (type === 'meal_planner' && !Array.isArray(content.meals)) content.meals = [];
   if (type === 'workout_tracker' && !Array.isArray(content.days)) content.days = [];
-  if (type === 'survey_form' && !Array.isArray(content.questions)) content.questions = [];
   if (type === 'task_planner' && !Array.isArray(content.sections)) content.sections = [];
   if (type === 'landing_page' && !Array.isArray(content.features)) content.features = [];
 }

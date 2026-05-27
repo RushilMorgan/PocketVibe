@@ -285,3 +285,61 @@ describe('validator — generative_html rejection', () => {
     expect(valid).toBe(true);
   });
 });
+
+// ── validateGenerateResponse — HTML safety ────────────────────────────────────
+
+describe('validateGenerateResponse — HTML content rejection', () => {
+  it('rejects a response where content contains raw HTML', () => {
+    const response = {
+      title: 'Safe Title',
+      creationType: 'checklist',
+      description: 'A checklist',
+      summary: 'Here you go.',
+      content: {
+        type: 'checklist',
+        sections: [{
+          id: 's1',
+          title: 'Tasks',
+          items: [{ id: 'i1', label: '<script>alert("xss")</script>', checked: false }],
+        }],
+      },
+    };
+    const { valid, errors } = validateGenerateResponse(response);
+    expect(valid).toBe(false);
+    expect(errors.some(e => /html/i.test(e))).toBe(true);
+  });
+});
+
+// ── generateOfflineFallback — all supported types ─────────────────────────────
+
+describe('generateOfflineFallback — offline fallbacks', () => {
+  it('returns meal_planner for meal-related requests', () => {
+    const result = generateOfflineFallback('plan my meals for the week');
+    expect(result.creationType).toBe('meal_planner');
+    expect((result.content as { type: string }).type).toBe('meal_planner');
+  });
+
+  it('returns workout_tracker for fitness-related requests', () => {
+    const result = generateOfflineFallback('make a workout plan');
+    expect(result.creationType).toBe('workout_tracker');
+    expect((result.content as { type: string }).type).toBe('workout_tracker');
+  });
+
+  it('returns event_planner for event-related requests', () => {
+    const result = generateOfflineFallback('plan my birthday party');
+    expect(result.creationType).toBe('event_planner');
+    expect((result.content as { type: string }).type).toBe('event_planner');
+  });
+
+  it('returns landing_page for website-related requests', () => {
+    const result = generateOfflineFallback('create a landing page for my business');
+    expect(result.creationType).toBe('landing_page');
+    expect((result.content as { type: string }).type).toBe('landing_page');
+  });
+
+  it('returns price_calculator for quote-related requests', () => {
+    const result = generateOfflineFallback('make a price quote for my services');
+    expect(result.creationType).toBe('price_calculator');
+    expect((result.content as { type: string }).type).toBe('price_calculator');
+  });
+});

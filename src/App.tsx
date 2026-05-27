@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
 import AppShell from './components/AppShell';
 import PVHeader from './components/PVHeader';
 import { HomeScreen } from './components/HomeScreen';
@@ -6,6 +6,7 @@ import { MyCreations } from './components/MyCreations';
 import { CreationComposer } from './components/CreationComposer';
 import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { usePocketVibe } from './hooks/usePocketVibe';
+import { formatCreationSummary } from './lib/creationSummary';
 
 export default function App() {
   const {
@@ -24,7 +25,25 @@ export default function App() {
     updateCreationContent,
   } = usePocketVibe();
 
+  const [copied, setCopied] = useState(false);
+
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
+
+  async function handleShare() {
+    if (!activeCreation) return;
+    const text = formatCreationSummary(activeCreation);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: activeCreation.title, text });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <AppShell>
@@ -55,6 +74,19 @@ export default function App() {
               messages.length > 0 && activeCreation.version === 1 && (
               <div className="mx-4 mt-3 px-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-600 leading-relaxed flex-shrink-0">
                 {activeCreation.summary}
+              </div>
+            )}
+
+            {/* Share / copy button */}
+            {activeCreation?.status === 'ready' && !isGenerating && (
+              <div className="mx-4 mt-2 flex-shrink-0">
+                <button
+                  data-testid="copy-creation-btn"
+                  onClick={handleShare}
+                  className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  {copied ? '✓ Copied' : '⎘ Copy summary'}
+                </button>
               </div>
             )}
 

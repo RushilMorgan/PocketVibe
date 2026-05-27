@@ -36,6 +36,9 @@ export type CreationCapability =
   // Savings tracker
   | 'add_contribution'
   | 'edit_goal_name'
+  | 'edit_goal_details'
+  | 'delete_contributions'
+  | 'edit_contributions'
   // Landing page / shared
   | 'edit_page_fields';
 
@@ -63,7 +66,13 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
     'delete_income',
     'delete_expense',
   ],
-  savings_tracker: ['add_contribution', 'edit_goal_name'],
+  savings_tracker: [
+    'add_contribution',
+    'edit_goal_name',
+    'edit_goal_details',
+    'delete_contributions',
+    'edit_contributions',
+  ],
   event_planner: ['edit_labels', 'add_items', 'delete_items', 'toggle_items'],
   meal_planner: ['edit_labels', 'add_items', 'delete_items'],
   workout_tracker: ['edit_labels', 'add_items', 'delete_items'],
@@ -112,6 +121,7 @@ export function isRendererAlreadyEditable(
   const fullyEditable: CreationType[] = [
     'habit_tracker',
     'budget_calculator',
+    'savings_tracker',
     'price_calculator',
     'event_planner',
     'meal_planner',

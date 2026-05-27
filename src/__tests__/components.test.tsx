@@ -723,3 +723,142 @@ describe('duplicateCreation — sourceTemplate', () => {
   });
 });
 
+// ── SavingsTrackerRenderer ────────────────────────────────────────────────────
+
+import { SavingsTrackerRenderer } from '../components/templates/SavingsTrackerRenderer';
+import type { SavingsTrackerContent } from '../types';
+
+function makeSavingsContent(): SavingsTrackerContent {
+  return {
+    type: 'savings_tracker',
+    goalName: 'Holiday Fund',
+    targetAmount: 10000,
+    currentAmount: 3000,
+    currency: 'R',
+    deadline: '',
+    contributions: [
+      { id: 'con1', date: '2025-01-01', amount: 3000, note: 'First deposit' },
+    ],
+  };
+}
+
+describe('SavingsTrackerRenderer', () => {
+  let onChange: Mock;
+  beforeEach(() => { onChange = vi.fn(); });
+
+  it('shows "Edit savings goal" button', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    expect(screen.getByTestId('edit-savings-btn')).toBeInTheDocument();
+  });
+
+  it('clicking "Edit savings goal" shows goal name input', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-savings-btn'));
+    expect(screen.getByTestId('edit-goal-name-input')).toBeInTheDocument();
+  });
+
+  it('user can edit goal name', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-savings-btn'));
+    fireEvent.change(screen.getByTestId('edit-goal-name-input'), { target: { value: 'Car Fund' } });
+    fireEvent.click(screen.getByTestId('done-editing-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: SavingsTrackerContent = onChange.mock.calls[0][0];
+    expect(updated.goalName).toBe('Car Fund');
+  });
+
+  it('user can edit target amount', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-savings-btn'));
+    fireEvent.change(screen.getByTestId('edit-target-amount-input'), { target: { value: '20000' } });
+    fireEvent.click(screen.getByTestId('done-editing-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: SavingsTrackerContent = onChange.mock.calls[0][0];
+    expect(updated.targetAmount).toBe(20000);
+  });
+
+  it('user can edit current amount', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-savings-btn'));
+    fireEvent.change(screen.getByTestId('edit-current-amount-input'), { target: { value: '5000' } });
+    fireEvent.click(screen.getByTestId('done-editing-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: SavingsTrackerContent = onChange.mock.calls[0][0];
+    expect(updated.currentAmount).toBe(5000);
+  });
+
+  it('user can edit currency', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-savings-btn'));
+    fireEvent.change(screen.getByTestId('edit-currency-input'), { target: { value: '$' } });
+    fireEvent.click(screen.getByTestId('done-editing-btn'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: SavingsTrackerContent = onChange.mock.calls[0][0];
+    expect(updated.currency).toBe('$');
+  });
+
+  it('user can delete a contribution', () => {
+    render(<SavingsTrackerRenderer content={makeSavingsContent()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('delete-contribution-con1'));
+    expect(onChange).toHaveBeenCalledOnce();
+    const updated: SavingsTrackerContent = onChange.mock.calls[0][0];
+    expect(updated.contributions).toHaveLength(0);
+    expect(updated.currentAmount).toBe(0);
+  });
+});
+
+// ── formatCreationSummary ─────────────────────────────────────────────────────
+
+import { formatCreationSummary } from '../lib/creationSummary';
+
+describe('formatCreationSummary', () => {
+  it('produces human-readable text with no JSON or technical terms', () => {
+    const creation: Creation = {
+      id: 'c1', title: 'Holiday Fund', creationType: 'savings_tracker',
+      description: 'Savings goal', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: {
+        type: 'savings_tracker',
+        goalName: 'Holiday Fund',
+        targetAmount: 10000,
+        currentAmount: 3000,
+        currency: 'R',
+        deadline: '',
+        contributions: [],
+      },
+    };
+    const text = formatCreationSummary(creation);
+    expect(text).toContain('Holiday Fund');
+    expect(text).toMatch(/R3/);
+    expect(text).not.toMatch(/\{"type"/);
+    expect(text).not.toMatch(/schema|render/i);
+  });
+});
+
+// ── Edge function file integrity ──────────────────────────────────────────────
+
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+describe('edge function file integrity', () => {
+  const edgeFnPath = join(process.cwd(), 'supabase/functions/pocketvibe-generate/index.ts');
+  let content: string;
+
+  beforeEach(() => {
+    content = readFileSync(edgeFnPath, 'utf8');
+  });
+
+  it('has exactly one Deno.serve() call', () => {
+    const matches = content.match(/Deno\.serve\(/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  it('does not contain survey_form in the server file', () => {
+    expect(content).not.toContain('survey_form');
+  });
+
+  it('does not contain generative_html in the server file', () => {
+    expect(content).not.toContain('generative_html');
+  });
+});
+

@@ -303,6 +303,11 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
   const [logDuration, setLogDuration] = useState('');
   const [logDistance, setLogDistance] = useState('');
   const [logNote, setLogNote] = useState('');
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [editLogDate, setEditLogDate] = useState('');
+  const [editLogActivity, setEditLogActivity] = useState<ActivityType>('walk');
+  const [editLogDuration, setEditLogDuration] = useState('');
+  const [editLogNote, setEditLogNote] = useState('');
 
   const isChallenge = !!(content.challengeMode || (content.participants && content.participants.length > 0));
 
@@ -377,6 +382,26 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
 
   function deleteLog(id: string) {
     update({ logs: logs.filter(l => l.id !== id) });
+  }
+
+  function openEditLog(log: ActivityLog) {
+    setEditingLogId(log.id);
+    setEditLogDate(log.date);
+    setEditLogActivity(log.activityType);
+    setEditLogDuration(log.duration ?? '');
+    setEditLogNote(log.note ?? '');
+  }
+
+  function saveEditLog() {
+    if (!editingLogId) return;
+    update({
+      logs: logs.map(l =>
+        l.id === editingLogId
+          ? { ...l, date: editLogDate, activityType: editLogActivity, duration: editLogDuration || undefined, note: editLogNote || undefined }
+          : l,
+      ),
+    });
+    setEditingLogId(null);
   }
 
   function updateRule<K extends keyof ChallengeScoringRules>(key: K, value: number) {
@@ -561,8 +586,85 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
           <div className="divide-y divide-gray-50">
             {recentLogs.map(log => {
               const p = participants.find(x => x.id === log.participantId);
+              if (editMode && editingLogId === log.id) {
+                return (
+                  <div key={log.id} data-testid={`edit-log-row-${log.id}`} className="px-4 py-3 space-y-2 bg-gray-50">
+                    <div className="flex gap-2 flex-wrap">
+                      {activityTypes.map(at => (
+                        <button
+                          key={at}
+                          data-testid={`edit-log-type-${log.id}-${at}`}
+                          onClick={() => setEditLogActivity(at as ActivityType)}
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                            editLogActivity === at ? 'bg-red-500 text-white' : 'bg-white text-gray-600 border border-gray-200'
+                          }`}
+                        >
+                          {ACTIVITY_ICON[at] ?? '⭐'} {at}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Date</label>
+                        <input
+                          data-testid={`edit-log-date-${log.id}`}
+                          type="date"
+                          value={editLogDate}
+                          onChange={e => setEditLogDate(e.target.value)}
+                          className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Duration</label>
+                        <input
+                          data-testid={`edit-log-duration-${log.id}`}
+                          value={editLogDuration}
+                          onChange={e => setEditLogDuration(e.target.value)}
+                          placeholder="e.g. 30 min"
+                          className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Note</label>
+                      <input
+                        data-testid={`edit-log-note-${log.id}`}
+                        value={editLogNote}
+                        onChange={e => setEditLogNote(e.target.value)}
+                        placeholder="How did it go?"
+                        className="w-full mt-0.5 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        data-testid={`save-edit-log-${log.id}`}
+                        onClick={saveEditLog}
+                        className="flex-1 bg-red-500 text-white text-xs font-semibold rounded-xl py-2 active:bg-red-600"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingLogId(null)}
+                        className="px-3 bg-gray-100 text-gray-600 text-xs font-medium rounded-xl py-2 active:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        data-testid={`delete-log-${log.id}`}
+                        onClick={() => deleteLog(log.id)}
+                        className="px-3 bg-red-50 text-red-500 text-xs font-medium rounded-xl py-2 active:bg-red-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
               return (
-                <div key={log.id} className="flex items-center px-4 py-2.5 gap-3">
+                <div
+                  key={log.id}
+                  className="flex items-center px-4 py-2.5 gap-3"
+                >
                   <span className="text-sm">{ACTIVITY_ICON[log.activityType] ?? '⭐'}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-800 truncate">
@@ -574,14 +676,24 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
                     </p>
                   </div>
                   {editMode && (
-                    <button
-                      data-testid={`delete-log-${log.id}`}
-                      onClick={() => deleteLog(log.id)}
-                      className="text-red-400 hover:text-red-600 text-lg leading-none p-1 flex-shrink-0"
-                      aria-label="Delete log"
-                    >
-                      ×
-                    </button>
+                    <>
+                      <button
+                        data-testid={`edit-log-open-${log.id}`}
+                        onClick={() => openEditLog(log)}
+                        className="text-blue-400 hover:text-blue-600 text-xs font-medium px-2 py-1 rounded-lg active:bg-blue-50 flex-shrink-0"
+                        aria-label="Edit log"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        data-testid={`delete-log-${log.id}`}
+                        onClick={() => deleteLog(log.id)}
+                        className="text-red-400 hover:text-red-600 text-lg leading-none p-1 flex-shrink-0"
+                        aria-label="Delete log"
+                      >
+                        ×
+                      </button>
+                    </>
                   )}
                 </div>
               );
@@ -606,6 +718,18 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
       {/* ── Edit panel ── */}
       {editMode && (
         <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-5">
+          {/* Challenge name */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Challenge name</h4>
+            <input
+              data-testid="challenge-name-input"
+              value={content.planName}
+              onChange={e => update({ planName: e.target.value })}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+              placeholder="Challenge name"
+            />
+          </div>
+
           {/* Participants */}
           <div>
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Participants</h4>

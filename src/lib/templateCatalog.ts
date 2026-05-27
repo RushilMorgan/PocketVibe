@@ -78,6 +78,7 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     name: 'Fitness',
     tagline: 'Workout plans & tracking',
     starters: [
+      { label: 'Partner challenge', prompt: 'Create a walking and running challenge for me and my partner. We want to do 3 sessions per week, earn points, and see a leaderboard.', creationType: 'workout_tracker' },
       { label: 'Gym plan', prompt: 'Create a 5-day gym workout plan', creationType: 'workout_tracker' },
       { label: 'Home workout', prompt: 'Make a home workout plan with no equipment', creationType: 'workout_tracker' },
       { label: 'Beginner plan', prompt: 'Create a beginner 3-day workout plan', creationType: 'workout_tracker' },

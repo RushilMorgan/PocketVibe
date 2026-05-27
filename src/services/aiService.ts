@@ -266,14 +266,20 @@ export async function generateCreation(
     try {
       return await generateViaEdgeFunction(req, onProgress);
     } catch (err) {
-      // Edge Function not yet deployed — fall through to direct Gemini
-      if (err instanceof AIConfigError) {
+      // Edge Function not yet deployed — fall through to direct Gemini (DEV only)
+      if (err instanceof AIConfigError && import.meta.env.DEV) {
         return generateViaGemini(req, onProgress);
       }
       throw err;
     }
   }
 
+  // Direct Gemini is only allowed in development; production must use the Edge Function
+  if (!import.meta.env.DEV) {
+    throw new AIConfigError(
+      'Production requires the Supabase Edge Function. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.',
+    );
+  }
   return generateViaGemini(req, onProgress);
 }
 
@@ -281,6 +287,33 @@ export async function generateCreation(
 
 export function generateOfflineFallback(userRequest: string): GenerateResponse {
   const lower = userRequest.toLowerCase();
+
+  // Challenge / workout check runs FIRST — before habit_tracker, since "run/walk/track" could overlap
+  if (/walk|walking|run|running|partner|leaderboard|score|points|challenge|compete|competition|workout|gym|exercise|fitness|training/.test(lower)) {
+    return {
+      title: 'Partner Challenge',
+      creationType: 'workout_tracker',
+      description: 'Track your walking and running challenge with points',
+      summary: 'Here is your challenge tracker. Log activities, earn points, and see who wins!',
+      content: {
+        type: 'workout_tracker',
+        planName: 'Partner Challenge',
+        challengeMode: true,
+        participants: [
+          { id: 'p1', name: 'You', emoji: '🏃' },
+          { id: 'p2', name: 'Partner', emoji: '🚶' },
+        ],
+        activityTypes: ['walk', 'run', 'gym', 'other'],
+        weeklyTarget: 3,
+        logs: [],
+        scoringRules: {
+          pointsPerActivity: 10,
+          weeklyTargetBonus: 20,
+          runningBonus: 5,
+        },
+      },
+    };
+  }
 
   if (/habit|routine|daily|track|streak/.test(lower)) {
     return {
@@ -397,32 +430,6 @@ export function generateOfflineFallback(userRequest: string): GenerateResponse {
           { id: 'm3', day: 'Wednesday', slot: 'dinner', name: 'Grilled fish' },
         ],
         groceryList: ['Pasta', 'Chicken', 'Fish', 'Vegetables', 'Olive oil'],
-      },
-    };
-  }
-
-  if (/workout|gym|exercise|fitness|training|challenge/.test(lower)) {
-    return {
-      title: 'Partner Challenge',
-      creationType: 'workout_tracker',
-      description: 'Track your walking and running challenge with points',
-      summary: 'Here is your challenge tracker. Log activities, earn points, and see who wins!',
-      content: {
-        type: 'workout_tracker',
-        planName: 'Partner Challenge',
-        challengeMode: true,
-        participants: [
-          { id: 'p1', name: 'You', emoji: '🏃' },
-          { id: 'p2', name: 'Partner', emoji: '🚶' },
-        ],
-        activityTypes: ['walk', 'run', 'gym', 'other'],
-        weeklyTarget: 3,
-        logs: [],
-        scoringRules: {
-          pointsPerActivity: 10,
-          weeklyTargetBonus: 20,
-          runningBonus: 5,
-        },
       },
     };
   }

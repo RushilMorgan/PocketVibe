@@ -73,10 +73,18 @@ function getVisibleSignature(content: Record<string, unknown>): string {
     if (content.challengeMode || Array.isArray(content.participants)) {
       return JSON.stringify({
         planName: content.planName,
-        participantCount: (content.participants as unknown[] ?? []).length,
-        logCount: (content.logs as unknown[] ?? []).length,
+        participants: (content.participants as Array<{name:string;emoji?:string}> ?? []).map(p => ({ name: p.name, emoji: p.emoji ?? '' })),
+        activityTypes: content.activityTypes ?? [],
         weeklyTarget: content.weeklyTarget,
         scoringRules: content.scoringRules,
+        logs: (content.logs as Array<{participantId:string;date:string;activityType:string;duration?:string;distance?:string;note?:string}> ?? []).map(l => ({
+          participantId: l.participantId,
+          date: l.date,
+          activityType: l.activityType,
+          duration: l.duration ?? '',
+          distance: l.distance ?? '',
+          note: l.note ?? '',
+        })),
       });
     }
     return JSON.stringify({ planName: content.planName, days: (content.days as Array<{label:string;exercises:Array<{name:string}>}> ?? []).map(d => ({ label: d.label, exercises: d.exercises.map(e => e.name) })) });

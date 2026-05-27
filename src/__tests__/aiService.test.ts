@@ -342,4 +342,28 @@ describe('generateOfflineFallback — offline fallbacks', () => {
     expect(result.creationType).toBe('price_calculator');
     expect((result.content as { type: string }).type).toBe('price_calculator');
   });
+
+  it('maps partner + walking + leaderboard to workout_tracker challenge mode', () => {
+    const result = generateOfflineFallback('Create a walking and running challenge for me and my partner. We want to earn points and see a leaderboard.');
+    expect(result.creationType).toBe('workout_tracker');
+    expect((result.content as { challengeMode: boolean }).challengeMode).toBe(true);
+  });
+
+  it('maps "walk" alone to workout_tracker challenge mode', () => {
+    const result = generateOfflineFallback('I want to track my daily walks');
+    expect(result.creationType).toBe('workout_tracker');
+    expect((result.content as { challengeMode: boolean }).challengeMode).toBe(true);
+  });
+
+  it('maps "score" and "compete" to workout_tracker challenge mode', () => {
+    const result = generateOfflineFallback('I want to compete with my friend and score points');
+    expect(result.creationType).toBe('workout_tracker');
+    expect((result.content as { challengeMode: boolean }).challengeMode).toBe(true);
+  });
+
+  it('workout check runs before habit check — "running" does not return habit_tracker', () => {
+    const result = generateOfflineFallback('I want to track my daily running routine');
+    // "running" + "routine" + "track" — workout/challenge keywords take priority over habit keywords
+    expect(result.creationType).toBe('workout_tracker');
+  });
 });

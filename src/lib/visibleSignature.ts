@@ -144,10 +144,18 @@ function workoutSignature(c: WorkoutTrackerContent): string {
   if (c.challengeMode || (c.participants && c.participants.length > 0)) {
     return JSON.stringify({
       planName: c.planName,
-      participants: (c.participants ?? []).map(p => p.name),
+      participants: (c.participants ?? []).map(p => ({ name: p.name, emoji: p.emoji ?? '' })),
+      activityTypes: c.activityTypes ?? [],
       weeklyTarget: c.weeklyTarget ?? 3,
-      logCount: (c.logs ?? []).length,
       scoringRules: c.scoringRules,
+      logs: (c.logs ?? []).map(l => ({
+        participantId: l.participantId,
+        date: l.date,
+        activityType: l.activityType,
+        duration: l.duration ?? '',
+        distance: l.distance ?? '',
+        note: l.note ?? '',
+      })),
     });
   }
   return JSON.stringify({

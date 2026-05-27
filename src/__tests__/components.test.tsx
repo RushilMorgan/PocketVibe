@@ -8,6 +8,7 @@ import PVHeader from '../components/PVHeader';
 import { HomeScreen } from '../components/HomeScreen';
 import type { Creation } from '../types';
 import { getContentVisibleSignature } from '../lib/visibleSignature';
+import { TEMPLATE_CATEGORIES } from '../lib/templateCatalog';
 
 const noop = vi.fn();
 
@@ -1056,6 +1057,74 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     const updated = { ...content, weeklyTarget: 5 };
     rerender(<WorkoutTrackerRenderer content={updated} onChange={() => {}} />);
     expect(screen.getByTestId('weekly-progress-p1')).toHaveTextContent('2/5 this week');
+  });
+
+  it('can edit challenge planName', () => {
+    const onChange = vi.fn();
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.change(screen.getByTestId('challenge-name-input'), { target: { value: 'Summer Challenge' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ planName: 'Summer Challenge' }));
+  });
+
+  it('visible signature changes when planName changes', () => {
+    const base = makeChallenge();
+    const modified = { ...base, planName: 'Summer Challenge' };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('can edit log date and activity type', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const content = { ...makeChallenge(), logs: [{ id: 'l1', participantId: 'p1', date: today, activityType: 'walk' as const }] };
+    const onChange = vi.fn();
+    render(<WorkoutTrackerRenderer content={content} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.click(screen.getByTestId('edit-log-open-l1'));
+    fireEvent.click(screen.getByTestId('edit-log-type-l1-run'));
+    fireEvent.click(screen.getByTestId('save-edit-log-l1'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ logs: expect.arrayContaining([expect.objectContaining({ id: 'l1', activityType: 'run' })]) }),
+    );
+  });
+});
+
+// ── Template catalog ──────────────────────────────────────────────────────────
+
+describe('TEMPLATE_CATEGORIES — Fitness starters', () => {
+  it('partner challenge starter exists in fitness category', () => {
+    const fitness = TEMPLATE_CATEGORIES.find(c => c.id === 'fitness');
+    expect(fitness).toBeDefined();
+    const starter = fitness!.starters.find(s => s.label === 'Partner challenge');
+    expect(starter).toBeDefined();
+    expect(starter!.creationType).toBe('workout_tracker');
+    expect(starter!.prompt).toMatch(/partner/i);
+    expect(starter!.prompt).toMatch(/leaderboard/i);
+  });
+});
+
+// ── Server visible signature integrity ───────────────────────────────────────
+
+describe('edge function visible signature — workout challenge', () => {
+  it('includes participant names, activityTypes, and log details', () => {
+    const src = readFileSync(join(process.cwd(), 'supabase/functions/pocketvibe-generate/index.ts'), 'utf8');
+    expect(src).toContain('p.name');
+    expect(src).toContain('activityTypes');
+    expect(src).toContain('l.activityType');
+    expect(src).toContain('l.participantId');
+    expect(src).toContain('l.note');
+  });
+});
+
+// ── Production Gemini guard ───────────────────────────────────────────────────
+
+describe('production Gemini guard', () => {
+  it('generateCreation guards direct Gemini behind import.meta.env.DEV', () => {
+    const src = readFileSync(join(process.cwd(), 'src/services/aiService.ts'), 'utf8');
+    expect(src).toContain('import.meta.env.DEV');
+    // The DEV guard must appear before any call to generateViaGemini when no Supabase URL
+    const devGuardIdx = src.indexOf('import.meta.env.DEV');
+    const geminiCallIdx = src.indexOf('return generateViaGemini');
+    expect(devGuardIdx).toBeLessThan(geminiCallIdx);
   });
 });
 

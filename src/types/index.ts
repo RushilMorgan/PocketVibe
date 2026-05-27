@@ -412,6 +412,10 @@ export interface WorldCupTeam {
   code?: string;
   flagUrl?: string;
   group?: string;
+  /** Draw pot (1–4). Stored in DB after schema update. */
+  pot?: number;
+  /** FIFA ranking at time of draw. Optional, informational. */
+  fifaRank?: number;
   /** Furthest stage reached: active | round_of_32 | round_of_16 | quarter_final | semi_final | final | winner | eliminated */
   stage: string;
 }
@@ -479,8 +483,13 @@ export interface TournamentPoolTrackerContent {
   changeRequests?: ChangeRequest[];
   /** Settings for auto-updating results from canonical World Cup data. */
   autoSettings?: TournamentAutoSettings;
-  /** Where the teams came from: 'api' = live DB, 'local_fallback' = hardcoded built-in list. */
-  teamsSource?: 'api' | 'local_fallback';
+  /**
+   * Where the team list came from.
+   * - 'official'              — 48+ teams loaded from the DB sync (use these)
+   * - 'demo_fallback'         — DB empty/unavailable; using hardcoded snapshot
+   * - 'incomplete_canonical'  — DB has teams but fewer than 48; treated as partial
+   */
+  teamsSource?: 'official' | 'demo_fallback' | 'incomplete_canonical';
   /** Visual colour theme for the header and cards. Does not affect data. */
   colourTheme?: ColourTheme;
 }

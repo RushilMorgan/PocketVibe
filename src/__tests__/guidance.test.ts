@@ -63,10 +63,10 @@ function makeLog(id: string, participantId: string) {
 // ── Pool guidance ─────────────────────────────────────────────────────────────
 
 describe('computePoolGuidance', () => {
-  it('fresh pool with local_fallback teams: suggests add-people, teams step done, no draw suggestion', () => {
+  it('fresh pool with demo_fallback teams: suggests add-people, teams step done, no draw suggestion', () => {
     const content = makePool({
       teams: Array.from({ length: 48 }, (_, i) => makeTeam(`t${i}`, (i % 4) + 1)),
-      teamsSource: 'local_fallback',
+      teamsSource: 'demo_fallback',
     });
     const guidance = computePoolGuidance(content, false);
 
@@ -162,11 +162,11 @@ describe('computePoolGuidance', () => {
     expect(sendLinksSuggestion!.label).toMatch(/invite|links/i);
   });
 
-  it('local_fallback teams banner is a suggestion with info variant', () => {
+  it('demo_fallback teams banner is a suggestion with info variant', () => {
     const content = makePool({
       participants: [makeParticipant('p1', 'Alice')],
       teams: [makeTeam('t1', 1)],
-      teamsSource: 'local_fallback',
+      teamsSource: 'demo_fallback',
     });
     const guidance = computePoolGuidance(content, false);
     const localTeamsSuggestion = guidance.suggestions.find(s => s.id === 'local-teams');
@@ -314,7 +314,7 @@ describe('Theme change does not reset data', () => {
 
 describe('Suggestions cap at 5', () => {
   it('never returns more than 5 suggestions for pool', () => {
-    const content = makePool({ teamsSource: 'local_fallback' });
+    const content = makePool({ teamsSource: 'demo_fallback' });
     const guidance = computePoolGuidance(content, false);
     expect(guidance.suggestions.length).toBeLessThanOrEqual(5);
   });

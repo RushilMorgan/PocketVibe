@@ -352,6 +352,11 @@ describe('schema.sql — participant unique constraint', () => {
       'utf8',
     );
     expect(src).toContain('shared_participants_creation_ref_unique');
-    expect(src).toContain('UNIQUE (shared_creation_id, participant_ref)');
+     // Must use CREATE UNIQUE INDEX (not ADD CONSTRAINT IF NOT EXISTS — invalid PostgreSQL syntax)
+     expect(src).toContain('CREATE UNIQUE INDEX IF NOT EXISTS shared_participants_creation_ref_unique');
+     expect(src).toContain('ON shared_participants (shared_creation_id, participant_ref)');
+       // Strip SQL comments before checking — comments explaining the fix may mention the old syntax
+       const stripped = src.replace(/--[^\n]*/g, '');
+       expect(stripped).not.toMatch(/ADD\s+CONSTRAINT\s+IF\s+NOT\s+EXISTS/i);
   });
 });

@@ -342,7 +342,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  let body: { shareSlug?: string; token?: string; action?: string; payload?: Record<string, unknown> };
+  let body: { shareSlug?: string; token?: string; action?: string; payload?: Record<string, unknown>; expectedVersion?: number };
   try {
     body = await req.json();
   } catch {
@@ -405,37 +405,99 @@ Deno.serve(async (req: Request) => {
     return json({ error: `Action '${action}' requires admin access` }, 403);
   }
 
-  // Apply the action
-  const content = row.content as Record<string, unknown>;
-  const result =
-    accessMode === 'admin'
-      ? applyAdminAction(action, payload, content)
-      : applyParticipantAction(action, payload, participantRef!, row.creation_type, content);
+  // ── Optimistic concurrency control ──────────────────────────────────────────
+  // Append-only actions (log_activity, create_change_request) use a retry loop
+  // so concurrent writers don't overwrite each other's data.
+  // All other actions accept an optional expectedVersion from the caller and
+  // fail fast on any version conflict.
+  const APPEND_ONLY_ACTIONS = new Set(['log_activity', 'create_change_request']);
+  const MAX_RETRIES = 3;
 
-  if (!result.ok) {
-    return json({ error: result.reason ?? 'Action rejected' }, 403);
-  }
+  let currentRow = row;
+  let savedVersion = 0;
+  let savedContent = {};
 
-  // Persist updated content
-  const newVersion = row.version + 1;
-  const { error: updateError } = await supabase
-    .from('shared_creations')
-    .update({ content: result.content, version: newVersion })
-    .eq('id', row.id);
+  if (APPEND_ONLY_ACTIONS.has(action)) {
+    // Retry loop: re-read → apply → write with optimistic lock
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const { data: fresh, error: refreshError } = await supabase
+          .from('shared_creations')
+          .select('id, creation_type, content, version, owner_token_hash')
+          .eq('share_slug', shareSlug)
+          .maybeSingle();
+        if (refreshError || !fresh) return json({ error: 'Creation not found on retry' }, 404);
+        currentRow = fresh;
+      }
 
-  if (updateError) {
-    console.error('[apply-creation-action] Update error:', updateError.message);
-    return json({ error: 'Failed to save changes' }, 500);
+      const currentContent = currentRow.content;
+      const result =
+        accessMode === 'admin'
+          ? applyAdminAction(action, payload, currentContent)
+          : applyParticipantAction(action, payload, participantRef, currentRow.creation_type, currentContent);
+
+      if (!result.ok) return json({ error: result.reason ?? 'Action rejected' }, 403);
+
+      const newVersion = currentRow.version + 1;
+      const { data: updated, error: updateError } = await supabase
+        .from('shared_creations')
+        .update({ content: result.content, version: newVersion })
+        .eq('id', currentRow.id)
+        .eq('version', currentRow.version)  // optimistic lock
+        .select('id');
+
+      if (!updateError && updated && updated.length > 0) {
+        savedVersion = newVersion;
+        savedContent = result.content;
+        break;
+      }
+      if (attempt === MAX_RETRIES - 1) {
+        return json({ error: 'Too many concurrent modifications. Please try again.' }, 409);
+      }
+      // else loop — re-read fresh row on next iteration
+    }
+  } else {
+    // Non-append action: honour optional expectedVersion from caller
+    const expectedVersion = body.expectedVersion;
+    if (expectedVersion !== undefined && expectedVersion !== row.version) {
+      return json({
+        error: 'Version conflict: this tool has been updated since you loaded it. Please refresh.',
+      }, 409);
+    }
+
+    const currentContent = row.content;
+    const result =
+      accessMode === 'admin'
+        ? applyAdminAction(action, payload, currentContent)
+        : applyParticipantAction(action, payload, participantRef, row.creation_type, currentContent);
+
+    if (!result.ok) return json({ error: result.reason ?? 'Action rejected' }, 403);
+
+    const newVersion = row.version + 1;
+    const { data: updated, error: updateError } = await supabase
+      .from('shared_creations')
+      .update({ content: result.content, version: newVersion })
+      .eq('id', row.id)
+      .eq('version', row.version)  // optimistic lock
+      .select('id');
+
+    if (updateError || !updated || updated.length === 0) {
+      console.error('[apply-creation-action] Update failed:', updateError?.message ?? 'version conflict');
+      return json({ error: 'Conflict: this tool was updated concurrently. Please refresh.' }, 409);
+    }
+
+    savedVersion = newVersion;
+    savedContent = result.content;
   }
 
   // Log event
   await supabase.from('shared_creation_events').insert({
-    shared_creation_id: row.id,
+    shared_creation_id: currentRow.id,
     actor_type: accessMode,
     actor_ref: accessMode === 'admin' ? 'admin' : participantRef,
     event_type: action,
     payload: { ...payload, _action: action },
   });
 
-  return json({ version: newVersion, content: result.content });
+  return json({ version: savedVersion, content: savedContent });
 });

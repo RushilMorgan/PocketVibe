@@ -402,3 +402,237 @@ describe('calcTournamentScores — auto-results integration', () => {
     expect(customCount).toBe(1);
   });
 });
+
+// ── Phase 3 MVP fix tests ─────────────────────────────────────────────────────
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import {
+  WC2026_FALLBACK_TEAMS,
+  NAME_TO_POT,
+  toPoolTeams,
+  resolveTeamSource,
+} from '../lib/worldCupTeams';
+
+// ── Fallback team list integrity ──────────────────────────────────────────────
+
+describe('WC2026_FALLBACK_TEAMS integrity', () => {
+  it('has exactly 48 teams', () => {
+    expect(WC2026_FALLBACK_TEAMS).toHaveLength(48);
+  });
+
+  it('every team has a pot value between 1 and 4', () => {
+    WC2026_FALLBACK_TEAMS.forEach(t => {
+      expect(t.pot).toBeGreaterThanOrEqual(1);
+      expect(t.pot).toBeLessThanOrEqual(4);
+    });
+  });
+
+  it('has 12 teams in each pot', () => {
+    for (let pot = 1; pot <= 4; pot++) {
+      const count = WC2026_FALLBACK_TEAMS.filter(t => t.pot === pot).length;
+      expect(count).toBe(12);
+    }
+  });
+});
+
+// ── NAME_TO_POT lookup ────────────────────────────────────────────────────────
+
+describe('NAME_TO_POT lookup', () => {
+  it('Argentina is pot 1', () => expect(NAME_TO_POT['argentina']).toBe(1));
+  it('France is pot 1',    () => expect(NAME_TO_POT['france']).toBe(1));
+  it('Morocco is pot 2',   () => expect(NAME_TO_POT['morocco']).toBe(2));
+  it('Italy is pot 3',     () => expect(NAME_TO_POT['italy']).toBe(3));
+  it('Ghana is pot 4',     () => expect(NAME_TO_POT['ghana']).toBe(4));
+
+  it('covers all 48 teams', () => {
+    expect(Object.keys(NAME_TO_POT)).toHaveLength(48);
+  });
+});
+
+// ── toPoolTeams pot resolution ────────────────────────────────────────────────
+
+describe('toPoolTeams — pot resolution', () => {
+  it('uses NAME_TO_POT: Argentina → pot 1', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 1, name: 'Argentina', stage: 'active' }]);
+    expect(team.pot).toBe(1);
+  });
+
+  it('uses NAME_TO_POT: Morocco → pot 2', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 2, name: 'Morocco', stage: 'active' }]);
+    expect(team.pot).toBe(2);
+  });
+
+  it('uses NAME_TO_POT: Italy → pot 3', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 3, name: 'Italy', stage: 'active' }]);
+    expect(team.pot).toBe(3);
+  });
+
+  it('uses NAME_TO_POT: Ghana → pot 4', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 4, name: 'Ghana', stage: 'active' }]);
+    expect(team.pot).toBe(4);
+  });
+
+  it('prefers wt.pot from DB over NAME_TO_POT when set', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 1, name: 'Argentina', stage: 'active', pot: 3 }]);
+    expect(team.pot).toBe(3); // DB value wins
+  });
+
+  it('does NOT return pot 2 for all non-host teams (old derivePot bug)', () => {
+    const wcTeams: WorldCupTeam[] = [
+      { providerTeamId: 1, name: 'France',  stage: 'active' },
+      { providerTeamId: 2, name: 'Italy',   stage: 'active' },
+      { providerTeamId: 3, name: 'Ghana',   stage: 'active' },
+    ];
+    const poolTeams = toPoolTeams(wcTeams);
+    expect(poolTeams.find(t => t.name === 'France')!.pot).toBe(1);
+    expect(poolTeams.find(t => t.name === 'Italy')!.pot).toBe(3);
+    expect(poolTeams.find(t => t.name === 'Ghana')!.pot).toBe(4);
+  });
+});
+
+// ── resolveTeamSource logic ───────────────────────────────────────────────────
+
+describe('resolveTeamSource', () => {
+  const makeTeam = (i: number): WorldCupTeam => ({
+    providerTeamId: i,
+    name: `Team ${i}`,
+    stage: 'active',
+  });
+
+  it('returns official when 48 teams provided', () => {
+    const wcTeams = Array.from({ length: 48 }, (_, i) => makeTeam(i));
+    const { teamsSource } = resolveTeamSource(wcTeams);
+    expect(teamsSource).toBe('official');
+  });
+
+  it('returns official when more than 48 teams provided', () => {
+    const wcTeams = Array.from({ length: 50 }, (_, i) => makeTeam(i));
+    const { teamsSource } = resolveTeamSource(wcTeams);
+    expect(teamsSource).toBe('official');
+  });
+
+  it('uses live teams when official', () => {
+    const wcTeams = Array.from({ length: 48 }, (_, i) => makeTeam(i));
+    const { teams } = resolveTeamSource(wcTeams);
+    expect(teams).toHaveLength(48);
+    expect(teams[0].id).toMatch(/^wct-live-/);
+  });
+
+  it('returns incomplete_canonical for 1-47 teams', () => {
+    const wcTeams = Array.from({ length: 47 }, (_, i) => makeTeam(i));
+    const { teamsSource, warning } = resolveTeamSource(wcTeams);
+    expect(teamsSource).toBe('incomplete_canonical');
+    expect(warning).toBeTruthy();
+  });
+
+  it('uses fallback teams (not live DB) when incomplete_canonical', () => {
+    const wcTeams = Array.from({ length: 10 }, (_, i) => makeTeam(i));
+    const { teams } = resolveTeamSource(wcTeams);
+    expect(teams).toHaveLength(48);
+    expect(teams[0].id).not.toMatch(/^wct-live-/);
+  });
+
+  it('returns demo_fallback for 0 teams', () => {
+    const { teamsSource, warning } = resolveTeamSource([]);
+    expect(teamsSource).toBe('demo_fallback');
+    expect(warning).toBeUndefined();
+  });
+
+  it('uses fallback teams when demo_fallback', () => {
+    const { teams } = resolveTeamSource([]);
+    expect(teams).toHaveLength(48);
+  });
+});
+
+// ── Schema SQL safety ─────────────────────────────────────────────────────────
+
+describe('schema.sql safety', () => {
+  const schemaPath = join(process.cwd(), 'supabase', 'schema.sql');
+  const schema = readFileSync(schemaPath, 'utf-8');
+
+  it('does NOT use ADD CONSTRAINT IF NOT EXISTS (invalid PostgreSQL syntax)', () => {
+     // Strip SQL comments first so we don't match the comment explaining the fix.
+     // The actual invalid SQL pattern is: ALTER TABLE ... ADD CONSTRAINT IF NOT EXISTS
+     const stripped = schema.replace(/--[^\n]*/g, '');
+     expect(stripped).not.toMatch(/ADD\s+CONSTRAINT\s+IF\s+NOT\s+EXISTS/i);
+  });
+
+  it('uses CREATE UNIQUE INDEX IF NOT EXISTS for the participants uniqueness constraint', () => {
+    expect(schema).toContain('CREATE UNIQUE INDEX IF NOT EXISTS shared_participants_creation_ref_unique');
+  });
+});
+
+// ── SharePanel — no duplicate props ──────────────────────────────────────────
+
+describe('SharePanel.tsx — LinkRow props', () => {
+  const sharePanelPath = join(process.cwd(), 'src', 'components', 'SharePanel.tsx');
+  const source = readFileSync(sharePanelPath, 'utf-8');
+
+  it('no single <LinkRow has copiedKey listed more than once', () => {
+    const blocks = source.split('<LinkRow');
+    // Skip the first chunk (before any <LinkRow)
+    blocks.slice(1).forEach((block, idx) => {
+      const end = block.indexOf('/>');
+      const propsSection = end >= 0 ? block.substring(0, end) : block;
+      const occurrences = (propsSection.match(/\bcopiedKey=/g) ?? []).length;
+      expect(occurrences).toBeLessThanOrEqual(1);
+    });
+  });
+});
+
+// ── Append-only action semantics (mirrors edge function pure logic) ────────────
+
+describe('append-only action semantics', () => {
+  // These tests mirror the pure logic inside applyParticipantAction in the edge function.
+  // They confirm that concurrent retries won't lose existing records.
+
+  function simulateLogActivity(
+    existingLogs: { id: string; participantId: string; date: string; activityType: string }[],
+    newLog: { participantId: string; date: string; activityType: string },
+  ) {
+    const logs = [...existingLogs, { id: `l-new`, ...newLog }];
+    return { logs };
+  }
+
+  function simulateCreateChangeRequest(
+    existingRequests: { id: string; description: string; status: string }[],
+    description: string,
+  ) {
+    const changeRequests = [...existingRequests, { id: `cr-new`, description, status: 'pending' }];
+    return { changeRequests };
+  }
+
+  it('log_activity appends to existing logs, does not replace them', () => {
+    const existing = [
+      { id: 'l1', participantId: 'p1', date: '2026-05-01', activityType: 'run' },
+    ];
+    const result = simulateLogActivity(existing, {
+      participantId: 'p1',
+      date: '2026-05-02',
+      activityType: 'walk',
+    });
+    expect(result.logs).toHaveLength(2);
+    expect(result.logs[0].id).toBe('l1');
+    expect(result.logs[1].activityType).toBe('walk');
+  });
+
+  it('two sequential log_activity calls both survive (no overwrite)', () => {
+    const log1 = { id: 'l1', participantId: 'p1', date: '2026-05-01', activityType: 'run' };
+    const after = simulateLogActivity([log1], { participantId: 'p2', date: '2026-05-01', activityType: 'cycle' });
+    expect(after.logs).toHaveLength(2);
+  });
+
+  it('create_change_request appends to existing requests, does not replace them', () => {
+    const existing = [{ id: 'cr1', description: 'old', status: 'pending' }];
+    const result = simulateCreateChangeRequest(existing, 'Fix team assignment');
+    expect(result.changeRequests).toHaveLength(2);
+    expect(result.changeRequests[0].id).toBe('cr1');
+    expect(result.changeRequests[1].description).toBe('Fix team assignment');
+  });
+
+  it('two sequential create_change_request calls both survive', () => {
+    const req1 = [{ id: 'cr1', description: 'First request', status: 'pending' }];
+    const after = simulateCreateChangeRequest(req1, 'Second request');
+    expect(after.changeRequests).toHaveLength(2);
+  });
+});

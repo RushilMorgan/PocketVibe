@@ -95,22 +95,58 @@ export const WC2026_FALLBACK_TEAMS: TournamentTeam[] = FALLBACK_LIST.map(f => ({
   status: 'active' as const,
 }));
 
+/** Pre-built lookup: lower-case team name → pot (1–4). Derived from FALLBACK_LIST. */
+export const NAME_TO_POT: Readonly<Record<string, number>> = Object.fromEntries(
+  FALLBACK_LIST.map(f => [f.name.toLowerCase(), f.pot]),
+);
+
 // ── Convert canonical WorldCupTeam[] → TournamentTeam[] ──────────────────────
 
 /**
  * Convert WorldCupTeam rows from the DB into TournamentTeam objects
  * ready for use inside a pool's teams array.
+ *
+ * Pot resolution priority:
+ *   1. wt.pot (set on DB row after schema migration)
+ *   2. NAME_TO_POT lookup from the verified fallback list
+ *   3. derivePot() heuristic (last resort)
  */
 export function toPoolTeams(wcTeams: WorldCupTeam[]): TournamentTeam[] {
   return wcTeams.map((wt, i) => ({
     id: `wct-live-${i}-${wt.providerTeamId}`,
     name: wt.name,
     flagEmoji: wt.code ? countryCodeToEmoji(wt.code) : '🏳',
-    pot: derivePot(wt),
+    pot: wt.pot ?? NAME_TO_POT[wt.name.toLowerCase()] ?? derivePot(wt),
     group: wt.group,
     status: mapStageToStatus(wt.stage),
     providerTeamId: wt.providerTeamId,
   }));
+}
+
+/**
+ * Decide which team list to use and label the source.
+ *
+ * - 48+ teams from DB  → 'official' (use live data)
+ * - 1–47 teams from DB → 'incomplete_canonical' (use fallback, show warning)
+ * - 0 teams            → 'demo_fallback'
+ */
+export function resolveTeamSource(wcTeams: WorldCupTeam[]): {
+  teams: TournamentTeam[];
+  teamsSource: 'official' | 'demo_fallback' | 'incomplete_canonical';
+  warning?: string;
+} {
+  if (wcTeams.length >= 48) {
+    return { teams: toPoolTeams(wcTeams), teamsSource: 'official' };
+  }
+  const fallback = WC2026_FALLBACK_TEAMS.map(t => ({ ...t }));
+  if (wcTeams.length >= 1) {
+    return {
+      teams: fallback,
+      teamsSource: 'incomplete_canonical',
+      warning: 'World Cup teams are still loading. Using built-in demo teams for now.',
+    };
+  }
+  return { teams: fallback, teamsSource: 'demo_fallback' };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

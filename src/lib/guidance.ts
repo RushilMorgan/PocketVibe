@@ -109,7 +109,7 @@ export function computePoolGuidance(
   if (drawLocked && hasShareLink) {
     raw.push({ id: 'send-links', icon: '🔗', label: 'Send invite links to all participants', actionId: 'share', variant: 'tip', priority: 5 });
   }
-  if (teamsSource === 'local_fallback' && !drawLocked) {
+  if ((teamsSource === 'demo_fallback' || teamsSource === 'incomplete_canonical') && !drawLocked) {
     raw.push({ id: 'local-teams', icon: 'ℹ️', label: 'Using built-in team list — connect sync for live results', variant: 'info', priority: 2 });
   }
   if (!prizeNote && drawLocked) {

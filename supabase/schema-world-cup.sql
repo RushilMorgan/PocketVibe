@@ -23,6 +23,13 @@ CREATE TABLE IF NOT EXISTS world_cup_teams (
 
 CREATE INDEX IF NOT EXISTS wc_teams_provider_idx ON world_cup_teams (provider_team_id);
 
+-- Add pot and FIFA ranking columns (safe to run multiple times).
+-- pot: draw pot (1–4); populated by sync function once official draw groups are known.
+-- fifa_rank: FIFA ranking at time of draw; informational only.
+ALTER TABLE world_cup_teams ADD COLUMN IF NOT EXISTS pot integer;
+ALTER TABLE world_cup_teams ADD COLUMN IF NOT EXISTS fifa_rank integer;
+CREATE INDEX IF NOT EXISTS wc_teams_pot_idx ON world_cup_teams (pot);
+
 -- ── world_cup_matches ─────────────────────────────────────────────────────────
 -- One row per fixture.  Scores are null until the match is finished.
 -- is_manual_override marks admin-corrected scores (provider data will not

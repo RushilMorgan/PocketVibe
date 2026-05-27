@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
 import { getWorldCupData } from '../services/worldCupService';
-import { WC2026_FALLBACK_TEAMS, WC2026_SCORING_RULES, toPoolTeams } from '../lib/worldCupTeams';
+import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
 import { tryApplyLocalUpdate } from '../lib/localUpdater';
 import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableRedirectMessage } from '../lib/capabilityRegistry';
@@ -636,20 +636,19 @@ export function usePocketVibe() {
     dispatch({ type: 'SET_PROCESSING_STATUS', payload: 'Loading World Cup teams…' });
 
     let teams: TournamentTeam[];
-    let teamsSource: 'api' | 'local_fallback';
+    let teamsSource: 'official' | 'demo_fallback' | 'incomplete_canonical';
+    let warningMessage: string | undefined;
 
     try {
       const { teams: wcTeams } = await getWorldCupData();
-      if (wcTeams.length > 0) {
-        teams = toPoolTeams(wcTeams);
-        teamsSource = 'api';
-      } else {
-        teams = WC2026_FALLBACK_TEAMS.map(t => ({ ...t }));
-        teamsSource = 'local_fallback';
-      }
+      const resolved = resolveTeamSource(wcTeams);
+      teams = resolved.teams;
+      teamsSource = resolved.teamsSource;
+      warningMessage = resolved.warning;
     } catch {
-      teams = WC2026_FALLBACK_TEAMS.map(t => ({ ...t }));
-      teamsSource = 'local_fallback';
+      const resolved = resolveTeamSource([]);
+      teams = resolved.teams;
+      teamsSource = resolved.teamsSource;
     }
 
     const now = Date.now();
@@ -659,7 +658,9 @@ export function usePocketVibe() {
       title: 'World Cup 2026 Pool',
       creationType: 'tournament_pool_tracker',
       description: '',
-      summary: `${teams.length} teams across 4 pots, ready to draw.`,
+      summary: teamsSource === 'official'
+        ? `${teams.length} official teams across 4 pots, ready to draw.`
+        : `${teams.length} teams across 4 pots (demo data).${warningMessage ? ' ' + warningMessage : ''}`,
       originalRequest: 'World Cup Pool',
       status: 'ready',
       version: 1,

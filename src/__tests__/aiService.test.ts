@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateCreation, generateOfflineFallback, GeminiConfigError, AIConfigError } from '../services/aiService';
+import { generateCreation, generateOfflineFallback, GeminiConfigError, AIConfigError, getAIConnectionStatus } from '../services/aiService';
 
 // ── Hoist mock refs ────────────────────────────────────────────────────────────
 const mockGenerateContent = vi.hoisted(() => vi.fn());
@@ -365,5 +365,62 @@ describe('generateOfflineFallback — offline fallbacks', () => {
     const result = generateOfflineFallback('I want to track my daily running routine');
     // "running" + "routine" + "track" — workout/challenge keywords take priority over habit keywords
     expect(result.creationType).toBe('workout_tracker');
+  });
+});
+
+// ── getAIConnectionStatus ─────────────────────────────────────────────────────
+
+describe('getAIConnectionStatus', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns supabase_configured when URL and anon key are valid', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://abc.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key-123');
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
+    const status = getAIConnectionStatus();
+    expect(status.connected).toBe(true);
+    expect(status.activeProvider).toBe('supabase_edge_function');
+    expect(status.reason).toBe('supabase_configured');
+  });
+
+  it('returns placeholder_supabase_url when URL is the template placeholder', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://your-project-ref.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
+    const status = getAIConnectionStatus();
+    expect(status.connected).toBe(false);
+    expect(status.reason).toBe('placeholder_supabase_url');
+  });
+
+  it('returns missing_supabase_anon_key when URL set but anon key missing', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://abc.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
+    const status = getAIConnectionStatus();
+    expect(status.connected).toBe(false);
+    expect(status.reason).toBe('missing_supabase_anon_key');
+  });
+
+  it('returns client_gemini_dev_configured in DEV with a Gemini key (no supabase)', () => {
+    // Vitest runs with DEV=true
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_GEMINI_API_KEY', 'dev-gemini-key');
+    const status = getAIConnectionStatus();
+    expect(status.connected).toBe(true);
+    expect(status.activeProvider).toBe('client_gemini_dev');
+    expect(status.reason).toBe('client_gemini_dev_configured');
+  });
+
+  it('returns missing_supabase_url in DEV when no supabase and no gemini key', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
+    const status = getAIConnectionStatus();
+    expect(status.connected).toBe(false);
+    expect(status.activeProvider).toBe('missing');
+    expect(status.reason).toBe('missing_supabase_url');
   });
 });

@@ -283,6 +283,73 @@ export async function generateCreation(
   return generateViaGemini(req, onProgress);
 }
 
+// ── AI Connection Status ──────────────────────────────────────────────────────
+
+export type AIConnectionReason =
+  | 'supabase_configured'
+  | 'client_gemini_dev_configured'
+  | 'missing_supabase_url'
+  | 'missing_supabase_anon_key'
+  | 'placeholder_supabase_url'
+  | 'old_vercel_key_present_but_not_used'
+  | 'production_requires_supabase_edge_function'
+  | 'unknown';
+
+export type AIConnectionStatus = {
+  connected: boolean;
+  activeProvider: 'supabase_edge_function' | 'client_gemini_dev' | 'missing';
+  reason: AIConnectionReason;
+};
+
+export function getAIConnectionStatus(): AIConnectionStatus {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  const placeholder = 'https://your-project-ref.supabase.co';
+  const isDev = import.meta.env.DEV as boolean;
+
+  const supabaseValid = !!(supabaseUrl && supabaseUrl !== placeholder && supabaseAnonKey);
+
+  // ✅ Supabase fully configured — use Edge Function (the production path)
+  if (supabaseValid) {
+    return { connected: true, activeProvider: 'supabase_edge_function', reason: 'supabase_configured' };
+  }
+
+  // ✅ Local dev with a Gemini key — direct client fallback is allowed
+  if (isDev && geminiKey) {
+    return { connected: true, activeProvider: 'client_gemini_dev', reason: 'client_gemini_dev_configured' };
+  }
+
+  // ❌ Not connected — diagnose the specific reason
+
+  // Old Vercel Gemini key present but production no longer routes through it
+  if (!isDev && geminiKey) {
+    console.warn(
+      '[PocketVibe] Gemini key exists in Vercel, but production AI now expects Supabase Edge Function config.',
+      'Set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY and deploy the pocketvibe-generate Edge Function.',
+    );
+    return { connected: false, activeProvider: 'missing', reason: 'old_vercel_key_present_but_not_used' };
+  }
+
+  if (supabaseUrl === placeholder) {
+    return { connected: false, activeProvider: 'missing', reason: 'placeholder_supabase_url' };
+  }
+
+  if (!supabaseUrl) {
+    // Production with no supabase URL at all — common after migrating away from Vercel Gemini
+    if (!isDev) {
+      return { connected: false, activeProvider: 'missing', reason: 'production_requires_supabase_edge_function' };
+    }
+    return { connected: false, activeProvider: 'missing', reason: 'missing_supabase_url' };
+  }
+
+  if (!supabaseAnonKey) {
+    return { connected: false, activeProvider: 'missing', reason: 'missing_supabase_anon_key' };
+  }
+
+  return { connected: false, activeProvider: 'missing', reason: 'unknown' };
+}
+
 // ── Offline fallback ──────────────────────────────────────────────────────────
 
 export function generateOfflineFallback(userRequest: string): GenerateResponse {

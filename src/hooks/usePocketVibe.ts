@@ -53,7 +53,8 @@ type PVAction =
   | { type: 'UPDATE_CREATION_CONTENT'; payload: { id: string; content: CreationContent } }
   | { type: 'RENAME_CREATION'; payload: { id: string; title: string } }
   | { type: 'TOGGLE_FAVORITE'; payload: string }
-  | { type: 'SET_ACCENT_COLOR'; payload: string };
+  | { type: 'SET_ACCENT_COLOR'; payload: string }
+  | { type: 'SET_CREATION_SHARE_SLUG'; payload: { id: string; shareSlug: string } };
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,14 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
     case 'TOGGLE_FAVORITE': {
       const updated = state.creations.map(c =>
         c.id === action.payload ? { ...c, isFavorite: !c.isFavorite, updatedAt: Date.now() } : c,
+      );
+      return { ...state, creations: updated };
+    }
+
+    case 'SET_CREATION_SHARE_SLUG': {
+      const { id, shareSlug } = action.payload;
+      const updated = state.creations.map(c =>
+        c.id === id ? { ...c, shareSlug, updatedAt: Date.now() } : c,
       );
       return { ...state, creations: updated };
     }
@@ -606,6 +615,10 @@ export function usePocketVibe() {
     dispatch({ type: 'TOGGLE_FAVORITE', payload: id });
   }, []);
 
+  const setCreationShareSlug = useCallback((id: string, shareSlug: string) => {
+    dispatch({ type: 'SET_CREATION_SHARE_SLUG', payload: { id, shareSlug } });
+  }, []);
+
   return {
     state,
     dispatch,
@@ -622,5 +635,6 @@ export function usePocketVibe() {
     duplicateCreation,
     updateCreationContent,
     toggleFavorite,
+    setCreationShareSlug,
   };
 }

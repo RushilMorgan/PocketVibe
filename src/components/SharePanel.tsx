@@ -26,9 +26,10 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
   const [error, setError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // If already shared, load the existing slug immediately
+  // If already shared, show existing links without re-creating
   const existingSlug = creation.shareSlug;
   const existingAdminToken = existingSlug ? getStoredAdminToken(existingSlug) : undefined;
+  const isAlreadyShared = Boolean(existingSlug);
 
   const isWorkout = creation.creationType === 'workout_tracker';
   const isTournament = creation.creationType === 'tournament_pool_tracker';
@@ -102,8 +103,61 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
           <button onClick={onClose} className="text-gray-400 text-xl leading-none p-1">×</button>
         </div>
 
-        {/* ── Idle / error / creating ── */}
-        {(phase === 'idle' || phase === 'error' || phase === 'creating') && (
+        {/* ── Already-shared info ── */}
+        {isAlreadyShared && phase !== 'done' && (
+          <div className="space-y-3">
+            <div className="px-3 py-2.5 bg-violet-50 border border-violet-100 rounded-xl text-sm text-violet-700">
+              ✅ This tool was already shared.
+            </div>
+
+            {existingAdminToken ? (
+              <>
+                <LinkRow
+                  label="View link"
+                  url={`${typeof window !== 'undefined' ? window.location.origin : 'https://heytoolie.com'}/s/${existingSlug}`}
+                  copiedKey={copiedKey}
+                  myKey="existing-view"
+                  onCopy={copy}
+                  testId="copy-existing-view-link"
+                />
+                <LinkRow
+                  label="Admin link (keep private)"
+                  sublabel="Lets you edit everything"
+                  url={`${typeof window !== 'undefined' ? window.location.origin : 'https://heytoolie.com'}/s/${existingSlug}?admin=${existingAdminToken}`}
+                  copiedKey={copiedKey}
+                  myKey="existing-admin"
+                  onCopy={copy}
+                  testId="copy-existing-admin-link"
+                  warn
+                />
+              </>
+            ) : (
+              <div className="px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">
+                ⚠️ This tool was shared before, but the private admin link is not saved on this device. Create a new share link below if you need admin access.
+              </div>
+            )}
+
+            <button
+              data-testid="create-new-share-link-btn"
+              onClick={handleCreate}
+              disabled={phase === 'creating' || !isShareAvailable()}
+              className="w-full py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-600 font-medium disabled:opacity-50"
+            >
+              {phase === 'creating' ? 'Creating…' : '+ Create a new share link'}
+            </button>
+
+            {error && (
+              <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            <button onClick={onClose} className="w-full py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-600 font-medium mt-1">Done</button>
+          </div>
+        )}
+
+        {/* ── Idle / error / creating — for not-yet-shared ── */}
+        {!isAlreadyShared && (phase === 'idle' || phase === 'error' || phase === 'creating') && (
           <div className="space-y-3">
             <p className="text-sm text-gray-500">
               Create a link so others can view or use this tool — no account needed.

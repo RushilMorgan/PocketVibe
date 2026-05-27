@@ -436,15 +436,22 @@ export interface TournamentAutoSettings {
 
 export type ChangeRequestStatus = 'pending' | 'approved' | 'declined';
 
+export type ChangeRequestActionType =
+  | 'free_text'
+  | 'add_result'
+  | 'edit_participant_name'
+  | 'update_team_status'
+  | 'correct_team_assignment';
+
 export interface ChangeRequest {
   id: string;
   participantId: string;
   participantName: string;
   /** Free-form description supplied by the participant */
   description: string;
-  /** Action type / extra metadata (optional, for structured requests) */
-  actionType?: string;
-  /** Arbitrary extra payload for structured actions */
+  /** Action type for structured requests */
+  actionType?: ChangeRequestActionType;
+  /** Typed payload for structured actions (e.g. add_result: { teamAId, teamBId, scoreA, scoreB }) */
   payload?: Record<string, unknown>;
   status: ChangeRequestStatus;
   createdAt: number;
@@ -527,6 +534,8 @@ export interface CreateSharedResult {
   viewUrl: string;
   adminUrl: string;
   adminToken: string;
+  /** Whether the creation is publicly viewable without a token. */
+  publicView: boolean;
 }
 
 export interface ParticipantLinkResult {

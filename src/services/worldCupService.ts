@@ -5,8 +5,15 @@
  */
 import type { WorldCupTeam, WorldCupMatch } from '../types';
 
-const SUPABASE_URL    = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// ── Env helpers (lazy so tests can stub env before side-effects) ──────────────
+
+function getSupabaseUrl(): string | undefined {
+  return import.meta.env.VITE_SUPABASE_URL as string | undefined;
+}
+
+function getSupabaseAnonKey(): string | undefined {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+}
 
 // ── Row shapes from PostgREST (snake_case) ────────────────────────────────────
 
@@ -35,15 +42,17 @@ interface WcMatchRow {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function restUrl(table: string, query: string): string {
-  if (!SUPABASE_URL) throw new Error('Supabase not configured');
-  return `${SUPABASE_URL}/rest/v1/${table}?${query}`;
+  const url = getSupabaseUrl();
+  if (!url) throw new Error('Supabase not configured');
+  return `${url}/rest/v1/${table}?${query}`;
 }
 
 function authHeaders(): Record<string, string> {
-  if (!SUPABASE_ANON_KEY) throw new Error('Supabase anon key not configured');
+  const key = getSupabaseAnonKey();
+  if (!key) throw new Error('Supabase anon key not configured');
   return {
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${key}`,
+    apikey: key,
   };
 }
 
@@ -87,7 +96,7 @@ export interface WorldCupData {
  * Returns empty arrays on error (callers must gracefully degrade).
  */
 export async function getWorldCupData(): Promise<WorldCupData> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!getSupabaseUrl() || !getSupabaseAnonKey()) {
     return { teams: [], matches: [] };
   }
   try {
@@ -111,7 +120,7 @@ export async function getWorldCupData(): Promise<WorldCupData> {
  * Load only live and recently-finished matches (lighter query for polling).
  */
 export async function getLiveWorldCupMatches(): Promise<WorldCupMatch[]> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
+  if (!getSupabaseUrl() || !getSupabaseAnonKey()) return [];
   try {
     const headers = authHeaders();
     const res = await fetch(
@@ -127,5 +136,5 @@ export async function getLiveWorldCupMatches(): Promise<WorldCupMatch[]> {
 
 /** Returns true if the Supabase credentials are present (WC data can be fetched). */
 export function isWorldCupDataAvailable(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  return Boolean(getSupabaseUrl() && getSupabaseAnonKey());
 }

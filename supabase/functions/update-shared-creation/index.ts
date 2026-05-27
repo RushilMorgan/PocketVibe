@@ -163,14 +163,10 @@ Deno.serve(async (req: Request) => {
 
     if (!participantRef) return json({ error: 'Invalid token' }, 403);
 
-    // Validate participant is allowed to make this patch
-    const validation = validateParticipantPatch(
-      row.creation_type,
-      participantRef,
-      row.content as Record<string, unknown>,
-      patch,
-    );
-    if (!validation.ok) return json({ error: validation.reason }, 403);
+    // Participants must use apply-creation-action, not full patch updates.
+    return json({
+      error: 'Participants must use the apply-creation-action endpoint to make changes. Direct content patches are restricted to admins.',
+    }, 403);
   }
 
   const newContent = { ...(row.content as object), ...patch };

@@ -24,6 +24,7 @@ export default function App() {
     duplicateCreation,
     renameCreation,
     updateCreationContent,
+    setCreationShareSlug,
   } = usePocketVibe();
 
   const [copied, setCopied] = useState(false);
@@ -201,8 +202,7 @@ export default function App() {
           creation={activeCreation}
           onClose={() => setSharePanelOpen(false)}
           onCreationShared={(slug) => {
-            // Mark creation as shared in local state (no-op if hook doesn't support it)
-            setSharePanelOpen(false);
+            if (activeCreation) setCreationShareSlug(activeCreation.id, slug);
           }}
         />
       )}

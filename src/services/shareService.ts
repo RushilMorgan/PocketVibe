@@ -10,8 +10,15 @@ import type {
   ParticipantLinkResult,
 } from '../types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// ── Env helpers (read lazily so tests can stub before import side-effects) ────
+
+function getSupabaseUrl(): string | undefined {
+  return import.meta.env.VITE_SUPABASE_URL as string | undefined;
+}
+
+function getSupabaseAnonKey(): string | undefined {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+}
 
 // ── Admin token store (localStorage) ─────────────────────────────────────────
 
@@ -38,16 +45,18 @@ export function getStoredAdminToken(shareSlug: string): string | undefined {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function edgeFunctionUrl(name: string): string {
-  if (!SUPABASE_URL) throw new Error('Supabase not configured');
-  return `${SUPABASE_URL}/functions/v1/${name}`;
+  const url = getSupabaseUrl();
+  if (!url) throw new Error('Supabase not configured');
+  return `${url}/functions/v1/${name}`;
 }
 
 function authHeaders(): Record<string, string> {
-  if (!SUPABASE_ANON_KEY) throw new Error('Supabase anon key not configured');
+  const key = getSupabaseAnonKey();
+  if (!key) throw new Error('Supabase anon key not configured');
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${key}`,
+    apikey: key,
   };
 }
 
@@ -143,7 +152,7 @@ export async function createParticipantLink(
 
 /** Returns true if the Supabase credentials are present in the environment. */
 export function isShareAvailable(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  return Boolean(getSupabaseUrl() && getSupabaseAnonKey());
 }
 
 /**

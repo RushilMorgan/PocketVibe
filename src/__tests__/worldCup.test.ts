@@ -212,6 +212,44 @@ describe('buildEffectiveMatches', () => {
     expect(result).toHaveLength(0);
   });
 
+  it('FIX 8: owned team scores win points against unowned opponent', () => {
+    // Brazil (owned by p1, providerTeamId=5) beats a team NOT in pool (provId=99)
+    const wcMatch: WorldCupMatch = {
+      providerMatchId: 200,
+      homeTeamId: 5,   // Brazil — in pool
+      awayTeamId: 99,  // not in pool
+      scoreHome: 2,
+      scoreAway: 0,
+      status: 'finished',
+      isManualOverride: false,
+    };
+    const result = buildEffectiveMatches(TEAMS, [], [wcMatch], true);
+    expect(result).toHaveLength(1);
+    // teamAId should be pool Brazil's id ('t1'), teamBId should be sentinel
+    expect(result[0].teamAId).toBe('t1');
+    expect(result[0].teamBId).toBe('__ext_99');
+    expect(result[0].scoreA).toBe(2);
+    expect(result[0].scoreB).toBe(0);
+  });
+
+  it('FIX 8: owned team scores draw points against unowned opponent', () => {
+    const wcMatch: WorldCupMatch = {
+      providerMatchId: 201,
+      homeTeamId: 99,  // not in pool
+      awayTeamId: 5,   // Brazil — in pool
+      scoreHome: 1,
+      scoreAway: 1,
+      status: 'finished',
+      isManualOverride: false,
+    };
+    const result = buildEffectiveMatches(TEAMS, [], [wcMatch], true);
+    expect(result).toHaveLength(1);
+    expect(result[0].teamAId).toBe('__ext_99');
+    expect(result[0].teamBId).toBe('t1');
+    expect(result[0].scoreA).toBe(1);
+    expect(result[0].scoreB).toBe(1);
+  });
+
   it('does not duplicate pool match that was already covered by canonical', () => {
     const manualMatch = {
       id: 'm1',
@@ -300,6 +338,30 @@ describe('calcTournamentScores — auto-results integration', () => {
     expect(alice.points).toBe(RULES.pointsPerWin + RULES.winnerBonus);
     // Bob: Argentina at final bonus (20)
     expect(bob.points).toBe(RULES.finalBonus);
+  });
+
+  it('FIX 8: owned team earns win points against unowned opponent in calc', () => {
+    const effectiveMatches = buildEffectiveMatches(
+      TEAMS,
+      [],
+      [{
+        providerMatchId: 300,
+        homeTeamId: 5,   // Brazil (t1, owned by p1)
+        awayTeamId: 99,  // not in pool
+        scoreHome: 3,
+        scoreAway: 0,
+        status: 'finished' as const,
+        isManualOverride: false,
+      }],
+      true,
+    );
+    const teamStages = buildEffectiveTeamStages(TEAMS, []);
+    const scores = calcTournamentScores(PARTICIPANTS, TEAMS, effectiveMatches, teamStages, RULES);
+    const alice = scores.find(s => s.participant.id === 'p1')!;
+    expect(alice.wins).toBe(1);
+    expect(alice.points).toBe(RULES.pointsPerWin);
+    const bob = scores.find(s => s.participant.id === 'p2')!;
+    expect(bob.points).toBe(0);
   });
 
   it('failed/empty WC data does not crash — falls back to pool-only', () => {

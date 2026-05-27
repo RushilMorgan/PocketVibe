@@ -148,10 +148,22 @@ function applyAdminAction(
     const changeRequests = ((content.changeRequests as any[]) ?? []);
     const req = changeRequests.find((r: any) => r.id === requestId && r.status === 'pending');
     if (!req) return { ok: false, reason: 'Change request not found or already resolved' };
-    const newRequests = changeRequests.map((r: any) =>
+
+    let updatedContent = { ...content };
+
+    // For structured requests, apply the embedded action first.
+    if (req.actionType && req.actionType !== 'free_text' && req.payload) {
+      const actionResult = applyAdminAction(req.actionType, req.payload, updatedContent);
+      if (!actionResult.ok) {
+        return { ok: false, reason: `Could not apply structured change: ${actionResult.reason}` };
+      }
+      updatedContent = actionResult.content!;
+    }
+
+    const newRequests = ((updatedContent.changeRequests as any[]) ?? []).map((r: any) =>
       r.id === requestId ? { ...r, status: 'approved', resolvedAt: Date.now() } : r,
     );
-    return { ok: true, content: { ...content, changeRequests: newRequests } };
+    return { ok: true, content: { ...updatedContent, changeRequests: newRequests } };
   }
 
   if (action === 'decline_change_request') {
@@ -285,21 +297,27 @@ function applyParticipantAction(
     if (creationType !== 'tournament_pool_tracker') {
       return { ok: false, reason: 'create_change_request is only valid for tournament_pool_tracker' };
     }
-    const { description } = payload;
+    const { description, actionType, payload: reqPayload } = payload;
     if (!description || String(description).trim().length === 0) {
       return { ok: false, reason: 'description is required' };
     }
+    const VALID_ACTION_TYPES = new Set(['free_text', 'add_result', 'edit_participant_name', 'update_team_status', 'correct_team_assignment']);
+    const resolvedActionType = actionType && VALID_ACTION_TYPES.has(actionType as string) ? actionType : 'free_text';
     const participants = (content.participants as any[]) ?? [];
     const participant = participants.find((p: any) => p.id === participantRef);
-    const changeRequest = {
+    const changeRequest: any = {
       id: generateId('cr'),
       participantId: participantRef,
       participantName: participant?.name ?? 'Participant',
       description: String(description).trim().slice(0, 500),
-      actionType: 'free_text',
+      actionType: resolvedActionType,
       status: 'pending',
       createdAt: Date.now(),
     };
+    // Attach structured payload for non-free_text requests
+    if (resolvedActionType !== 'free_text' && reqPayload && typeof reqPayload === 'object') {
+      changeRequest.payload = reqPayload;
+    }
     const changeRequests = [...((content.changeRequests as any[]) ?? []), changeRequest];
     return { ok: true, content: { ...content, changeRequests } };
   }

@@ -76,6 +76,11 @@ Deno.serve(async (req: Request) => {
     shareSlug = generateSlug();
   }
 
+  const PUBLIC_VIEW_BY_DEFAULT = new Set([
+    'tournament_pool_tracker', // World Cup Pool is public-viewable by default
+  ]);
+  const publicView = PUBLIC_VIEW_BY_DEFAULT.has(creationType as string);
+
   const adminToken = crypto.randomUUID();
   const ownerTokenHash = await sha256Hex(adminToken);
 
@@ -85,6 +90,7 @@ Deno.serve(async (req: Request) => {
     creation_type: creationType,
     content,
     owner_token_hash: ownerTokenHash,
+    public_view: publicView,
     version: 1,
   });
 
@@ -93,11 +99,11 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Failed to save shared creation' }, 500);
   }
 
-  const origin = req.headers.get('origin') ?? 'https://pocketvibe.app';
+  const origin = req.headers.get('origin') ?? 'https://heytoolie.com';
   const viewUrl = `${origin}/s/${shareSlug}`;
   const adminUrl = `${origin}/s/${shareSlug}?admin=${adminToken}`;
 
-  // Log creation event
+  // Return publicView in result so client knows if view link is active
   const { data: row } = await supabase
     .from('shared_creations')
     .select('id')
@@ -114,5 +120,5 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  return json({ shareSlug, viewUrl, adminUrl, adminToken });
+  return json({ shareSlug, viewUrl, adminUrl, adminToken, publicView });
 });

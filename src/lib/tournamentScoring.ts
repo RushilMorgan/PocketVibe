@@ -169,18 +169,19 @@ export function buildEffectiveMatches(
         scoreB:  override.scoreB,
         isManualOverride: true,
       });
-    } else if (teamAId && teamBId) {
-      // Both teams are in this pool
+    } else {
+      // Include matches where at least one team is in the pool.
+      // Unowned opponents use a sentinel ID (no participant owns it, so scoring is correct).
+      const resolvedA = teamAId ?? `__ext_${wcm.homeTeamId}`;
+      const resolvedB = teamBId ?? `__ext_${wcm.awayTeamId}`;
       result.push({
-        teamAId,
-        teamBId,
+        teamAId: resolvedA,
+        teamBId: resolvedB,
         scoreA: wcm.scoreHome,
         scoreB: wcm.scoreAway,
         isManualOverride: false,
       });
     }
-    // If only one team is from this pool: cross-pool match — skip for scoring
-    // (the match still affects team stage but not head-to-head within this pool)
   }
 
   // Include pool matches that don't correspond to any canonical match

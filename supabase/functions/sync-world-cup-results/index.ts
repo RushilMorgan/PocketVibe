@@ -25,6 +25,13 @@ const API_BASE = 'https://v3.football.api-sports.io';
 const WC_LEAGUE_ID = 1;
 const WC_SEASON = 2026;
 
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // ── API-Football status → our status ─────────────────────────────────────────
 
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN', 'AWD', 'WO']);
@@ -86,6 +93,22 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'POST only' }), {
       status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // ── Auth: require either the sync secret header or a service role bearer ──
+  const syncSecret = Deno.env.get('WORLD_CUP_SYNC_SECRET');
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const requestSecret = req.headers.get('x-sync-secret');
+  const authHeader = req.headers.get('authorization') ?? '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  const hasValidSecret = syncSecret && requestSecret && safeCompare(requestSecret, syncSecret);
+  const hasServiceRole = serviceRole && bearerToken && safeCompare(bearerToken, serviceRole);
+
+  if (!hasValidSecret && !hasServiceRole) {
+    return new Response(JSON.stringify({ error: 'Unauthorized — missing or invalid sync secret' }), {
+      status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
 

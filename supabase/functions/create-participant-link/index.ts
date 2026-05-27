@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Failed to create participant link' }, 500);
   }
 
-  const origin = req.headers.get('origin') ?? 'https://pocketvibe.app';
+  const origin = req.headers.get('origin') ?? 'https://heytoolie.com';
   const participantUrl = `${origin}/s/${shareSlug}?p=${participantToken}`;
 
   return json({ participantUrl, participantToken });

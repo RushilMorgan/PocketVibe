@@ -1,5 +1,5 @@
 ﻿// Supabase Edge Function — pocketvibe-generate
-// 7-Step Pipeline: Intent → Type Selector → Content Spec → Builder → QA → Repair → Final
+// Pipeline: Intent → UX Designer → Builder → Validation → QA → Repair → Final
 // Deploy: supabase functions deploy pocketvibe-generate
 // Secret: supabase secrets set GEMINI_API_KEY=your-key
 
@@ -162,8 +162,64 @@ function buildIntentPrompt(body: Record<string, unknown>, today: string): string
 }
 
 /**
- * Step 3+4: Content Spec + Builder
- * Full system-prompted content generation with intent context injected.
+ * Step 3: UI/UX Designer Agent
+ * Converts the intent into a mobile-first UX plan before anything is built.
+ * Rules:
+ *   - User must never guess what to tap
+ *   - Daily action must be above the fold
+ *   - Every editable field needs an obvious control
+ *   - Prefer cards, chips, progress bars — never tiny tables
+ *   - Plain human language only
+ */
+function buildUxDesignerPrompt(
+  intent: Record<string, unknown>,
+  body: Record<string, unknown>,
+  today: string,
+): string {
+  const userRequest = body.userRequest as string;
+  const mode = (body.mode as string) ?? 'new';
+  const creationType = intent.creationType as string;
+  const keyRequirements = (intent.keyRequirements as string[] ?? []).join(', ');
+  const tone = (intent.tone as string) ?? 'practical';
+
+  return [
+    'You are a mobile UX designer. Your tools are used by everyday people on a phone, not by developers.',
+    '',
+    'Design rules you must follow:',
+    '- Every important action must be visible without hunting — no hidden menus or swipe gestures',
+    '- If the tool is meant for daily use, the primary action must be reachable without scrolling',
+    '- If the user may want to change names, targets, rules, or settings later, an Edit button is required',
+    '- Avoid tiny tables on mobile — use cards, chips, progress bars, and clear labelled buttons',
+    '- All labels must be plain human language — never use words like config, payload, schema, or render',
+    '- The empty state must be welcoming and tell the user exactly what to tap first',
+    '- If multiple people share the tool, each person must be identifiable',
+    '- If scoring or calculation rules exist, they must be editable and their effect must be visible immediately',
+    '',
+    `Today: ${today}`,
+    `User request: "${userRequest}"`,
+    `Resolved type: ${creationType}`,
+    `Key requirements: ${keyRequirements || userRequest}`,
+    `Tone: ${tone}`,
+    `Mode: ${mode}`,
+    '',
+    'Return ONLY valid JSON (no markdown fences, no explanation):',
+    '{',
+    '  "primaryAction": "The single most common thing the user taps (e.g. Log today, Add expense, Check off item)",',
+    '  "secondaryActions": ["other common actions in priority order"],',
+    '  "aboveFold": ["what the user sees first without scrolling — list 2-4 items"],',
+    '  "editControls": ["every field or rule the user might want to rename or change later"],',
+    '  "emptyState": "Friendly short message shown when there is no data yet",',
+    '  "dailyUseFlow": "One sentence describing the daily interaction: open → tap X → see Y",',
+    '  "trustRisks": ["things that could confuse or mislead the user"],',
+    '  "requiredFields": ["content field names that must exist in the data to support this UX"],',
+    '  "labels": { "primaryButton": "short label", "editButton": "short label", "emptyTitle": "short title" }',
+    '}',
+  ].join('\n');
+}
+
+/**
+ * Step 4+5: Content Spec + Builder
+ * Full system-prompted content generation with intent + UX plan injected.
  */
 function buildSystemPrompt(today: string): string {
   return `You are PocketVibe, an AI that turns everyday ideas into useful tools and mini-applications. You help normal people — not developers — create things they can actually use right now.
@@ -210,7 +266,11 @@ RULES:
 - Never return raw HTML — always use a structured creationType from the list above`;
 }
 
-function buildBuilderMessage(body: Record<string, unknown>, intent: Record<string, unknown>): string {
+function buildBuilderMessage(
+  body: Record<string, unknown>,
+  intent: Record<string, unknown>,
+  uxPlan: Record<string, unknown>,
+): string {
   const parts: string[] = [];
   const mode = (body.mode as string) ?? 'new';
   const userRequest = body.userRequest as string;
@@ -220,6 +280,28 @@ function buildBuilderMessage(body: Record<string, unknown>, intent: Record<strin
 
   parts.push(`INTENT ANALYSIS: Use type="${creationType}". Key requirements: ${keyRequirements || userRequest}.`);
   parts.push('');
+
+  // ── Inject UX plan so the Builder builds content that supports the UX ──────
+  const primaryAction = uxPlan.primaryAction as string | undefined;
+  const aboveFold = (uxPlan.aboveFold as string[] | undefined) ?? [];
+  const editControls = (uxPlan.editControls as string[] | undefined) ?? [];
+  const requiredFields = (uxPlan.requiredFields as string[] | undefined) ?? [];
+  const dailyUseFlow = uxPlan.dailyUseFlow as string | undefined;
+  const emptyState = uxPlan.emptyState as string | undefined;
+  const trustRisks = (uxPlan.trustRisks as string[] | undefined) ?? [];
+
+  if (primaryAction || editControls.length > 0 || requiredFields.length > 0) {
+    parts.push('UX DESIGN REQUIREMENTS — build content that directly supports this UX:');
+    if (primaryAction) parts.push(`  Primary user action: ${primaryAction}`);
+    if (aboveFold.length) parts.push(`  Above the fold: ${aboveFold.join(', ')}`);
+    if (editControls.length) parts.push(`  Edit controls required: ${editControls.join(', ')}`);
+    if (requiredFields.length) parts.push(`  Required content fields: ${requiredFields.join(', ')}`);
+    if (dailyUseFlow) parts.push(`  Daily use flow: ${dailyUseFlow}`);
+    if (emptyState) parts.push(`  Empty state: "${emptyState}"`);
+    if (trustRisks.length) parts.push(`  Trust risks to avoid: ${trustRisks.join('; ')}`);
+    parts.push('  Include ALL required fields. If edit controls need participant names, add a participants array. If scoring rules must be editable, add a scoringRules field. Match the schema to the user needs.');
+    parts.push('');
+  }
 
   if (mode === 'new' || !current) {
     parts.push(`User request: ${userRequest}`);
@@ -368,14 +450,31 @@ Deno.serve(async (req: Request) => {
     // Intent step failed — fall through with defaults; builder will handle it
   }
 
-  // ── Step 3+4: Content Spec + Builder ──────────────────────────────────────
-  // Main content generation with intent context injected into the user message.
+  // ── Step 3: UI/UX Designer Agent ─────────────────────────────────────────
+  // Designs the mobile UX before content is built so the Builder knows exactly
+  // what actions, fields, and controls are needed for a trustworthy experience.
+  const uxModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  let uxPlan: Record<string, unknown> = {};
+  try {
+    const uxResult = await uxModel.generateContent(buildUxDesignerPrompt(intent, body, today));
+    const uxRaw = uxResult.response.text();
+    const uxParsed = parseJson(uxRaw) as Record<string, unknown>;
+    // Only use the plan if it has at least one actionable field
+    if (uxParsed.primaryAction || uxParsed.requiredFields) {
+      uxPlan = uxParsed;
+    }
+  } catch {
+    // UX step failed — builder continues with defaults; no user impact
+  }
+
+  // ── Step 4+5: Content Spec + Builder ──────────────────────────────────────
+  // Main content generation with intent + UX plan injected into the user message.
   const builderModel = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
     systemInstruction: buildSystemPrompt(today),
   });
 
-  const builderMessage = buildBuilderMessage(body, intent);
+  const builderMessage = buildBuilderMessage(body, intent, uxPlan);
   let parsed: Record<string, unknown>;
 
   try {

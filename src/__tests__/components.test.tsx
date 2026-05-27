@@ -861,6 +861,10 @@ describe('edge function file integrity', () => {
   it('does not contain generative_html in the server file', () => {
     expect(content).not.toContain('generative_html');
   });
+
+  it('contains buildUxDesignerPrompt function for the UX Designer Agent', () => {
+    expect(content).toContain('buildUxDesignerPrompt');
+  });
 });
 
 // ── Visible signature — expanded fields ──────────────────────────────────────

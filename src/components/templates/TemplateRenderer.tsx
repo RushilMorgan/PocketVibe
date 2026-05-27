@@ -15,10 +15,12 @@ import { TournamentPoolRenderer } from './TournamentPoolRenderer';
 interface TemplateRendererProps {
   creation: Creation;
   onContentChange: (id: string, content: CreationContent) => void;
+  onShare?: () => void;
 }
 
-export function TemplateRenderer({ creation, onContentChange }: TemplateRendererProps) {
+export function TemplateRenderer({ creation, onContentChange, onShare }: TemplateRendererProps) {
   const { content } = creation;
+  const hasShareLink = !!creation.shareSlug;
 
   function handleChange(updated: CreationContent) {
     onContentChange(creation.id, updated);
@@ -59,7 +61,7 @@ export function TemplateRenderer({ creation, onContentChange }: TemplateRenderer
         return <MealPlannerRenderer content={content} onChange={handleChange} />;
 
       case 'workout_tracker':
-        return <WorkoutTrackerRenderer content={content} onChange={handleChange} />;
+        return <WorkoutTrackerRenderer content={content} onChange={handleChange} onShare={onShare} hasShareLink={hasShareLink} />;
 
       case 'task_planner':
         return <TaskPlannerRenderer content={content} onChange={handleChange} />;
@@ -68,7 +70,7 @@ export function TemplateRenderer({ creation, onContentChange }: TemplateRenderer
         return <PriceCalculatorRenderer content={content} onChange={handleChange} />;
 
       case 'tournament_pool_tracker':
-        return <TournamentPoolRenderer content={content} onChange={handleChange} />;
+        return <TournamentPoolRenderer content={content} onChange={handleChange} onShare={onShare} hasShareLink={hasShareLink} />;
 
       default:
         return (

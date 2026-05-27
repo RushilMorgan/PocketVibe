@@ -131,6 +131,7 @@ export default function App() {
                 <TemplateRenderer
                   creation={activeCreation}
                   onContentChange={updateCreationContent}
+                  onShare={() => setSharePanelOpen(true)}
                 />
               </div>
             ) : !isGenerating && (

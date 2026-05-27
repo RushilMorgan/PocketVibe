@@ -5,11 +5,17 @@ import type {
   TournamentTeam,
   TournamentMatch,
   TournamentScoringRules,
+  ColourTheme,
 } from '../../types';
+import { SmartGuidance } from '../SmartGuidance';
+import { computePoolGuidance } from '../../lib/guidance';
+import { THEMES, getPoolGradient } from '../../lib/themes';
 
 interface Props {
   content: TournamentPoolTrackerContent;
   onChange: (updated: TournamentPoolTrackerContent) => void;
+  onShare?: () => void;
+  hasShareLink?: boolean;
 }
 
 // ── Score calculation ─────────────────────────────────────────────────────────
@@ -86,12 +92,13 @@ function uid(prefix: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TournamentPoolRenderer({ content, onChange }: Props) {
+export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLink = false }: Props) {
   const update = (patch: Partial<TournamentPoolTrackerContent>) =>
     onChange({ ...content, ...patch });
 
   // ── Edit panel ──
   const [editMode, setEditMode] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
 
   // Pool setup
   const [editPoolName, setEditPoolName] = useState(content.poolName);
@@ -370,6 +377,22 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
 
   const MEDAL = ['🥇', '🥈', '🥉'];
 
+  // ── Smart Guidance ────────────────────────────────────────────────────────
+  const poolGuidance = computePoolGuidance(content, hasShareLink);
+
+  function handleAction(id: string) {
+    switch (id) {
+      case 'add-people':      openEditMode(); break;
+      case 'run-draw-all':    drawAll();      break;
+      case 'run-draw-by-pot': drawByPot();   break;
+      case 'lock-draw':       lockDraw();    break;
+      case 'edit-scoring':    openEditMode(); break;
+      case 'change-theme':    setThemePickerOpen(true); break;
+      case 'share':           onShare?.();   break;
+      default: break;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Derived setup checklist state
@@ -379,7 +402,7 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
     <div className="flex flex-col gap-4 p-4 relative">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl p-5 text-white">
+      <div className={`bg-gradient-to-br ${getPoolGradient(content.colourTheme)} rounded-2xl p-5 text-white`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h2 className="text-xl font-bold truncate">{content.poolName}</h2>
@@ -403,81 +426,30 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
         )}
       </div>
 
-      {/* ── Setup checklist (visible until draw is locked) ────────────────── */}
-      {!content.drawLocked && (
-        <div data-testid="setup-checklist" className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">
-            Get your pool ready
-          </p>
-          <div className="flex flex-col gap-2.5">
-            {([
-              {
-                done: content.participants.length > 0,
-                label: 'Add people',
-                sub: content.participants.length > 0
-                  ? `${content.participants.length} participant${content.participants.length !== 1 ? 's' : ''} added`
-                  : 'Tap "Edit pool" → Participants',
-              },
-              {
-                done: content.teams.length > 0,
-                label: 'Teams loaded',
-                sub: content.teams.length > 0
-                  ? `${content.teams.length} teams across ${new Set(content.teams.map(t => t.pot)).size} pots`
-                  : 'No teams — use Edit pool to add teams',
-              },
-              {
-                done: allTeamsAssigned,
-                label: 'Run the draw',
-                sub: allTeamsAssigned
-                  ? 'All teams assigned'
-                  : content.participants.length === 0
-                    ? 'Add people first'
-                    : unassignedTeams.length > 0
-                      ? `${unassignedTeams.length} team${unassignedTeams.length !== 1 ? 's' : ''} remaining — use draw buttons below`
-                      : null,
-              },
-              {
-                done: false,
-                label: 'Lock draw & share',
-                sub: allTeamsAssigned ? 'Tap "🔒 Lock draw" when ready' : null,
-              },
-            ] as { done: boolean; label: string; sub: string | null }[]).map(({ done, label, sub }, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
-                  ${done ? 'bg-green-500 text-white' : 'border-2 border-amber-200 bg-white text-transparent'}`}>
-                  ✓
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className={`text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-800 font-medium'}`}>
-                    {label}
-                  </span>
-                  {sub && (
-                    <p className="text-xs text-gray-500 mt-0.5">{sub}</p>
-                  )}
-                </div>
-              </div>
+      {/* ── Smart Guidance ────────────────────────────────────────────────── */}
+      <SmartGuidance guidance={poolGuidance} onAction={handleAction} />
+
+      {/* ── Theme picker (opens via quick action) ────────────────────────── */}
+      {themePickerOpen && (
+        <div data-testid="theme-picker" className="bg-white rounded-2xl border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-800">Choose a theme</h3>
+            <button onClick={() => setThemePickerOpen(false)} className="text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            {THEMES.map(theme => (
+              <button
+                key={theme.id}
+                data-testid={`theme-${theme.id}`}
+                onClick={() => { update({ colourTheme: theme.id as ColourTheme }); setThemePickerOpen(false); }}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${theme.gradient}
+                  ${content.colourTheme === theme.id ? 'ring-2 ring-offset-2 ring-gray-800' : ''}`} />
+                <span className="text-xs text-gray-600">{theme.label}</span>
+              </button>
             ))}
           </div>
-          {content.participants.length === 0 && (
-            <button
-              data-testid="checklist-add-people-btn"
-              onClick={openEditMode}
-              className="mt-3 text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1.5 rounded-full active:bg-amber-200"
-            >
-              + Add people now
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Teams-source info banner ──────────────────────────────────────── */}
-      {content.teamsSource === 'local_fallback' && !content.drawLocked && (
-        <div data-testid="teams-source-banner" className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
-          <span className="text-sm flex-shrink-0 leading-none mt-0.5">ℹ️</span>
-          <p className="text-xs text-blue-700 leading-relaxed">
-            Using built-in team list — live results sync isn't connected yet.
-            Teams and scores can still be tracked manually.
-          </p>
         </div>
       )}
 

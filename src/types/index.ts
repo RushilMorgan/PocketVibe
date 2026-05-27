@@ -308,6 +308,8 @@ export interface WorkoutTrackerContent {
   scoringRules?: ChallengeScoringRules;
   // Legacy basic mode
   days?: WorkoutDay[];
+  /** Visual colour theme for the header and cards. Does not affect data. */
+  colourTheme?: ColourTheme;
 }
 
 // ── Price calculator ──────────────────────────────────────────────────────────
@@ -397,6 +399,10 @@ export interface TournamentScoringRules {
   winnerBonus: number;
 }
 
+// ── Colour themes ───────────────────────────────────────────────────────────
+
+export type ColourTheme = 'classic' | 'bold' | 'fun' | 'dark' | 'team-colours';
+
 // ── World Cup canonical data types ──────────────────────────────────────────
 // Used on the client when loading canonical results for auto-leaderboard.
 
@@ -475,6 +481,8 @@ export interface TournamentPoolTrackerContent {
   autoSettings?: TournamentAutoSettings;
   /** Where the teams came from: 'api' = live DB, 'local_fallback' = hardcoded built-in list. */
   teamsSource?: 'api' | 'local_fallback';
+  /** Visual colour theme for the header and cards. Does not affect data. */
+  colourTheme?: ColourTheme;
 }
 
 // ── Content union ─────────────────────────────────────────────────────────────

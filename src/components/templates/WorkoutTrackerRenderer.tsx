@@ -6,11 +6,17 @@ import type {
   ActivityLog,
   ChallengeScoringRules,
   ActivityType,
+  ColourTheme,
 } from '../../types';
+import { SmartGuidance } from '../SmartGuidance';
+import { computeWorkoutGuidance } from '../../lib/guidance';
+import { THEMES, getWorkoutGradient } from '../../lib/themes';
 
 interface WorkoutTrackerRendererProps {
   content: WorkoutTrackerContent;
   onChange: (updated: WorkoutTrackerContent) => void;
+  onShare?: () => void;
+  hasShareLink?: boolean;
 }
 
 // ── Score calculation — pure, never stored ────────────────────────────────────
@@ -294,9 +300,10 @@ function BasicWorkoutRenderer({ content, onChange }: WorkoutTrackerRendererProps
 
 // ── Challenge mode renderer ────────────────────────────────────────────────────
 
-export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRendererProps) {
+export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLink = false }: WorkoutTrackerRendererProps) {
   const [editMode, setEditMode] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [logParticipantId, setLogParticipantId] = useState('');
   const [logActivity, setLogActivity] = useState<ActivityType>('walk');
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -408,10 +415,25 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
     update({ scoringRules: { ...rules, [key]: value } });
   }
 
+  // ── Smart Guidance ────────────────────────────────────────────────────────
+  const workoutGuidance = computeWorkoutGuidance(content, hasShareLink);
+
+  function handleAction(id: string) {
+    switch (id) {
+      case 'add-partner':  setEditMode(true);  break;
+      case 'log-activity': openLog();          break;
+      case 'set-target':   setEditMode(true);  break;
+      case 'edit-points':  setEditMode(true);  break;
+      case 'change-theme': setThemePickerOpen(true); break;
+      case 'share':        onShare?.();        break;
+      default: break;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4">
       {/* ── Header ── */}
-      <div className="bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl p-5 text-white">
+      <div className={`bg-gradient-to-br ${getWorkoutGradient(content.colourTheme)} rounded-2xl p-5 text-white`}>
         <h2 className="text-xl font-bold">{content.planName}</h2>
         <p className="text-sm opacity-90 mt-1">
           Target: {weeklyTarget} session{weeklyTarget !== 1 ? 's' : ''}/week · {rules.pointsPerActivity} pts each
@@ -420,6 +442,33 @@ export function WorkoutTrackerRenderer({ content, onChange }: WorkoutTrackerRend
           Run bonus: +{rules.runningBonus} pts · Hit target: +{rules.weeklyTargetBonus} pts
         </p>
       </div>
+
+      {/* ── Smart Guidance ── */}
+      <SmartGuidance guidance={workoutGuidance} onAction={handleAction} />
+
+      {/* ── Theme picker (opens via quick action) ── */}
+      {themePickerOpen && (
+        <div data-testid="theme-picker" className="bg-white rounded-2xl border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-800">Choose a theme</h3>
+            <button onClick={() => setThemePickerOpen(false)} className="text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            {THEMES.map(theme => (
+              <button
+                key={theme.id}
+                data-testid={`theme-${theme.id}`}
+                onClick={() => { update({ colourTheme: theme.id as ColourTheme }); setThemePickerOpen(false); }}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${theme.gradient}
+                  ${content.colourTheme === theme.id ? 'ring-2 ring-offset-2 ring-gray-800' : ''}`} />
+                <span className="text-xs text-gray-600">{theme.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Log Activity Form (inline) ── */}
       {logOpen && (

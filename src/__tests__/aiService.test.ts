@@ -424,3 +424,23 @@ describe('getAIConnectionStatus', () => {
     expect(status.reason).toBe('missing_supabase_url');
   });
 });
+
+// ── generateOfflineFallback — tournament_pool_tracker ─────────────────────────
+
+describe('generateOfflineFallback — tournament_pool_tracker', () => {
+  it('maps world cup pool request to tournament_pool_tracker', () => {
+    const result = generateOfflineFallback('My family is doing a World Cup draw with seeded pots and a prize');
+    expect(result.creationType).toBe('tournament_pool_tracker');
+  });
+
+  it('maps sweepstake request to tournament_pool_tracker', () => {
+    const result = generateOfflineFallback('office sweepstake for the tournament');
+    expect(result.creationType).toBe('tournament_pool_tracker');
+  });
+
+  it('tournament check runs before workout check', () => {
+    const result = generateOfflineFallback('World Cup pool draw with prize');
+    expect(result.creationType).toBe('tournament_pool_tracker');
+    expect(result.creationType).not.toBe('workout_tracker');
+  });
+});

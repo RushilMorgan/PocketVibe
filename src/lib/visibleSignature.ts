@@ -21,6 +21,7 @@ import type {
   MealPlannerContent,
   WorkoutTrackerContent,
   TaskPlannerContent,
+  TournamentPoolTrackerContent,
 } from '../types';
 
 export function getCreationVisibleSignature(creation: Creation): string {
@@ -49,6 +50,8 @@ export function getContentVisibleSignature(content: CreationContent): string {
       return workoutSignature(content as WorkoutTrackerContent);
     case 'task_planner':
       return taskSignature(content as TaskPlannerContent);
+    case 'tournament_pool_tracker':
+      return tournamentSignature(content as TournamentPoolTrackerContent);
     default:
       // For all other types use full content serialization
       return JSON.stringify(content);
@@ -175,5 +178,17 @@ function taskSignature(c: TaskPlannerContent): string {
       title: s.title,
       tasks: s.tasks.map(t => ({ label: t.label, priority: t.priority, done: t.done, dueDate: t.dueDate ?? '' })),
     })),
+  });
+}
+
+function tournamentSignature(c: TournamentPoolTrackerContent): string {
+  return JSON.stringify({
+    poolName: c.poolName,
+    tournamentName: c.tournamentName,
+    participants: c.participants.map(p => ({ name: p.name, emoji: p.emoji ?? '' })),
+    teams: c.teams.map(t => ({ name: t.name, pot: t.pot, status: t.status, assignedTo: t.assignedTo ?? '' })),
+    matches: c.matches.map(m => ({ teamAId: m.teamAId, teamBId: m.teamBId, scoreA: m.scoreA ?? '', scoreB: m.scoreB ?? '' })),
+    drawLocked: c.drawLocked,
+    scoringRules: c.scoringRules,
   });
 }

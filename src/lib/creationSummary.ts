@@ -10,6 +10,7 @@ import type {
   WorkoutTrackerContent,
   PriceCalculatorContent,
   TaskPlannerContent,
+  TournamentPoolTrackerContent,
 } from '../types';
 
 function fmtCurrency(currency: string, amount: number): string {
@@ -124,6 +125,17 @@ function formatTaskPlanner(c: TaskPlannerContent): string {
     .join('\n');
 }
 
+function formatTournamentPool(c: TournamentPoolTrackerContent): string {
+  const lines = [`Pool: ${c.poolName}`, `Tournament: ${c.tournamentName}`];
+  if (c.prizeNote) lines.push(`Prize: ${c.prizeNote}`);
+  lines.push(`Participants: ${c.participants.map(p => p.name).join(', ')}`);
+  const assigned = c.teams.filter(t => t.assignedTo);
+  if (assigned.length > 0) lines.push(`Teams drawn: ${assigned.length} of ${c.teams.length}`);
+  if (c.matches.length > 0) lines.push(`Results entered: ${c.matches.length}`);
+  if (c.drawLocked) lines.push('Draw: Locked');
+  return lines.join('\n');
+}
+
 export function formatCreationSummary(creation: Creation): string {
   const { title, creationType, content } = creation;
   let body = '';
@@ -158,6 +170,9 @@ export function formatCreationSummary(creation: Creation): string {
       break;
     case 'task_planner':
       body = formatTaskPlanner(content as TaskPlannerContent);
+      break;
+    case 'tournament_pool_tracker':
+      body = formatTournamentPool(content as TournamentPoolTrackerContent);
       break;
     default:
       body = creation.description;

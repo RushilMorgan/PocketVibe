@@ -10,6 +10,7 @@ import { MealPlannerRenderer } from './MealPlannerRenderer';
 import { WorkoutTrackerRenderer } from './WorkoutTrackerRenderer';
 import { TaskPlannerRenderer } from './TaskPlannerRenderer';
 import { PriceCalculatorRenderer } from './PriceCalculatorRenderer';
+import { TournamentPoolRenderer } from './TournamentPoolRenderer';
 
 interface TemplateRendererProps {
   creation: Creation;
@@ -65,6 +66,9 @@ export function TemplateRenderer({ creation, onContentChange }: TemplateRenderer
 
       case 'price_calculator':
         return <PriceCalculatorRenderer content={content} onChange={handleChange} />;
+
+      case 'tournament_pool_tracker':
+        return <TournamentPoolRenderer content={content} onChange={handleChange} />;
 
       default:
         return (

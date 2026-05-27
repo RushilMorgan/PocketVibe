@@ -110,6 +110,18 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     ],
   },
   {
+    id: 'fun',
+    emoji: '🎉',
+    name: 'Fun & Challenges',
+    tagline: 'Pools, draws & friendly competitions',
+    starters: [
+      { label: 'World Cup pool', prompt: 'My family is doing a World Cup draw. We are putting money together, each person draws teams from seeded pots, and whoever has the winning team gets the prize.', creationType: 'tournament_pool_tracker' },
+      { label: 'Office sweepstake', prompt: 'Create an office sweepstake for the football tournament with 8 participants drawing teams from seeded pots and a prize for the winner', creationType: 'tournament_pool_tracker' },
+      { label: 'Family draw', prompt: 'Set up a friendly family tournament pool with 4 participants drawing teams from seeded pots and tracking results', creationType: 'tournament_pool_tracker' },
+      { label: 'Friends pool', prompt: 'Create a friends tournament pool with pots, a draw, and a leaderboard to track who wins', creationType: 'tournament_pool_tracker' },
+    ],
+  },
+  {
     id: 'surprise',
     emoji: '🎲',
     name: 'Surprise me',

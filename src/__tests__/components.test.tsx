@@ -1,8 +1,9 @@
 ﻿import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import type { HabitTrackerContent, WorkoutTrackerContent } from '../types';
+import type { HabitTrackerContent, WorkoutTrackerContent, TournamentPoolTrackerContent } from '../types';
 import { HabitTrackerRenderer } from '../components/templates/HabitTrackerRenderer';
 import { WorkoutTrackerRenderer } from '../components/templates/WorkoutTrackerRenderer';
+import { TournamentPoolRenderer } from '../components/templates/TournamentPoolRenderer';
 import AppShell from '../components/AppShell';
 import PVHeader from '../components/PVHeader';
 import { HomeScreen } from '../components/HomeScreen';
@@ -1125,6 +1126,217 @@ describe('production Gemini guard', () => {
     const devGuardIdx = src.indexOf('import.meta.env.DEV');
     const geminiCallIdx = src.indexOf('return generateViaGemini');
     expect(devGuardIdx).toBeLessThan(geminiCallIdx);
+  });
+});
+
+// ── TournamentPoolRenderer ────────────────────────────────────────────────────
+
+function makePool(overrides?: Partial<TournamentPoolTrackerContent>): TournamentPoolTrackerContent {
+  return {
+    type: 'tournament_pool_tracker',
+    poolName: 'Family Pool',
+    tournamentName: 'Test Cup',
+    prizeNote: 'Bragging rights',
+    participants: [
+      { id: 'p1', name: 'Alice', emoji: '⭐' },
+      { id: 'p2', name: 'Bob', emoji: '🎯' },
+    ],
+    teams: [
+      { id: 't1', name: 'Brazil', pot: 1, status: 'active' },
+      { id: 't2', name: 'France', pot: 1, status: 'active' },
+      { id: 't3', name: 'Germany', pot: 2, status: 'active' },
+      { id: 't4', name: 'Spain', pot: 2, status: 'active' },
+    ],
+    matches: [],
+    drawLocked: false,
+    scoringRules: {
+      pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5,
+      quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50,
+    },
+    ...overrides,
+  };
+}
+
+describe('TournamentPoolRenderer', () => {
+  it('renders pool name and tournament name', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    expect(screen.getByText('Family Pool')).toBeInTheDocument();
+    expect(screen.getByText('Test Cup')).toBeInTheDocument();
+  });
+
+  it('adds a participant', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('add-participant-btn'));
+    fireEvent.change(screen.getByTestId('new-participant-name'), { target: { value: 'Charlie' } });
+    fireEvent.click(screen.getByTestId('save-participant-btn'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        participants: expect.arrayContaining([expect.objectContaining({ name: 'Charlie' })]),
+      }),
+    );
+  });
+
+  it('edits a participant name', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('edit-participant-btn-p1'));
+    fireEvent.change(screen.getByTestId('edit-participant-name-p1'), { target: { value: 'Alice Updated' } });
+    fireEvent.click(screen.getByTestId('save-participant-p1'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        participants: expect.arrayContaining([expect.objectContaining({ id: 'p1', name: 'Alice Updated' })]),
+      }),
+    );
+  });
+
+  it('adds a team into a pot', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('add-team-btn'));
+    fireEvent.change(screen.getByTestId('new-team-name'), { target: { value: 'Argentina' } });
+    fireEvent.change(screen.getByTestId('new-team-pot'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('save-team-btn'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teams: expect.arrayContaining([expect.objectContaining({ name: 'Argentina', pot: 1 })]),
+      }),
+    );
+  });
+
+  it('draws one team for the next participant', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('draw-one-btn'));
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    const assigned = updated.teams.filter(t => t.assignedTo !== undefined);
+    expect(assigned.length).toBe(1);
+  });
+
+  it('draws all teams with no duplicates', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    const assignedTeamIds = updated.teams.filter(t => t.assignedTo).map(t => t.id);
+    expect(assignedTeamIds.length).toBe(4);
+    expect(new Set(assignedTeamIds).size).toBe(assignedTeamIds.length);
+  });
+
+  it('does not assign the same team twice', () => {
+    const alreadyAssigned = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active' },
+        { id: 't3', name: 'Germany', pot: 2, status: 'active' },
+        { id: 't4', name: 'Spain', pot: 2, status: 'active' },
+      ],
+    });
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={alreadyAssigned} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('draw-one-btn'));
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    const brazil = updated.teams.find(t => t.id === 't1')!;
+    expect(brazil.assignedTo).toBe('p1');
+  });
+
+  it('locks the draw', () => {
+    const onChange = vi.fn();
+    const withAssignments = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active', assignedTo: 'p2' },
+        { id: 't3', name: 'Germany', pot: 2, status: 'active', assignedTo: 'p1' },
+        { id: 't4', name: 'Spain', pot: 2, status: 'active', assignedTo: 'p2' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={withAssignments} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('lock-draw-btn'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ drawLocked: true }));
+  });
+
+  it('enters a manual match result', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active', assignedTo: 'p2' },
+        { id: 't3', name: 'Germany', pot: 2, status: 'active', assignedTo: 'p1' },
+        { id: 't4', name: 'Spain', pot: 2, status: 'active', assignedTo: 'p2' },
+      ],
+      drawLocked: true,
+    });
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={content} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('add-match-btn'));
+    fireEvent.change(screen.getByTestId('match-team-a-select'), { target: { value: 't1' } });
+    fireEvent.change(screen.getByTestId('match-team-b-select'), { target: { value: 't2' } });
+    fireEvent.change(screen.getByTestId('match-score-a-input'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('match-score-b-input'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('save-match-btn'));
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    expect(updated.matches.length).toBe(1);
+    expect(updated.matches[0].scoreA).toBe(3);
+    expect(updated.matches[0].scoreB).toBe(0);
+  });
+
+  it('leaderboard updates after match result is entered', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active', assignedTo: 'p2' },
+      ],
+      drawLocked: true,
+    });
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={content} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('add-match-btn'));
+    fireEvent.change(screen.getByTestId('match-team-a-select'), { target: { value: 't1' } });
+    fireEvent.change(screen.getByTestId('match-team-b-select'), { target: { value: 't2' } });
+    fireEvent.change(screen.getByTestId('match-score-a-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('match-score-b-input'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('save-match-btn'));
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    expect(updated.matches.length).toBe(1);
+  });
+
+  it('changes the scoring rules', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.change(screen.getByTestId('points-per-win-input'), { target: { value: '5' } });
+    fireEvent.click(screen.getByTestId('save-scoring-btn'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scoringRules: expect.objectContaining({ pointsPerWin: 5 }),
+      }),
+    );
+  });
+
+  it('leaderboard recalculates when scoring changes', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active', assignedTo: 'p2' },
+      ],
+      matches: [{ id: 'm1', teamAId: 't1', teamBId: 't2', scoreA: 1, scoreB: 0 }],
+      drawLocked: true,
+    });
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={content} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.change(screen.getByTestId('points-per-win-input'), { target: { value: '10' } });
+    fireEvent.click(screen.getByTestId('save-scoring-btn'));
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    expect(updated.scoringRules.pointsPerWin).toBe(10);
+  });
+
+  it('tournament_pool_tracker is in Fun & Challenges category', () => {
+    const fun = TEMPLATE_CATEGORIES.find(c => c.id === 'fun');
+    expect(fun).toBeDefined();
+    expect(fun!.starters.some(s => s.creationType === 'tournament_pool_tracker')).toBe(true);
   });
 });
 

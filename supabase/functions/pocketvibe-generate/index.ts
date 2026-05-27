@@ -34,7 +34,7 @@ function isRateLimited(ip: string): boolean {
 const SUPPORTED_TYPES = [
   'checklist', 'habit_tracker', 'budget_calculator', 'savings_tracker',
   'landing_page', 'event_planner', 'meal_planner', 'workout_tracker',
-  'price_calculator', 'task_planner',
+  'price_calculator', 'task_planner', 'tournament_pool_tracker',
 ] as const;
 type SupportedType = typeof SUPPORTED_TYPES[number];
 
@@ -93,6 +93,16 @@ function getVisibleSignature(content: Record<string, unknown>): string {
   }
   if (type === 'task_planner') {
     return JSON.stringify({ planTitle: content.planTitle, sections: (content.sections as Array<{title:string;tasks:Array<{label:string}>}> ?? []).map(s => ({ title: s.title, tasks: s.tasks.map(t => t.label) })) });
+  }
+  if (type === 'tournament_pool_tracker') {
+    return JSON.stringify({
+      poolName: content.poolName,
+      participants: (content.participants as Array<{name:string;emoji?:string}> ?? []).map(p => ({ name: p.name, emoji: p.emoji ?? '' })),
+      teams: (content.teams as Array<{name:string;pot:number;status:string;assignedTo?:string}> ?? []).map(t => ({ name: t.name, pot: t.pot, status: t.status, assignedTo: t.assignedTo ?? '' })),
+      matches: (content.matches as Array<{teamAId:string;teamBId:string;scoreA?:number;scoreB?:number}> ?? []).map(m => ({ teamAId: m.teamAId, teamBId: m.teamBId, scoreA: m.scoreA ?? '', scoreB: m.scoreB ?? '' })),
+      drawLocked: content.drawLocked,
+      scoringRules: content.scoringRules,
+    });
   }
   return JSON.stringify(content);
 }
@@ -164,7 +174,8 @@ function buildIntentPrompt(body: Record<string, unknown>, today: string): string
 - meal_planner: meal prep, weekly meals, grocery planning
 - workout_tracker: gym plans, exercise routines, fitness goals
 - price_calculator: quotes, estimates, invoices, price lists, service calculators
-- task_planner: project management, work tasks, weekly or daily planning`;
+- task_planner: project management, work tasks, weekly or daily planning
+- tournament_pool_tracker: private family/friend/office tournament pools and draws, World Cup sweepstakes, team draws with seeded pots`;
 
   const parts: string[] = [];
   parts.push(`Today: ${today}`);
@@ -256,7 +267,7 @@ Use this exact structure:
 
 SUPPORTED CREATION TYPES:
 checklist, habit_tracker, budget_calculator, savings_tracker, landing_page,
-event_planner, meal_planner, workout_tracker, price_calculator, task_planner
+event_planner, meal_planner, workout_tracker, price_calculator, task_planner, tournament_pool_tracker
 
 CONTENT FORMATS:
 checklist: { "type":"checklist","sections":[{"id":"s1","title":"Section Name","items":[{"id":"i1","label":"Item","checked":false}]}] }
@@ -270,6 +281,7 @@ workout_tracker (challenge mode): { "type":"workout_tracker","planName":"Partner
 workout_tracker (basic plan): { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
 price_calculator: { "type":"price_calculator","title":"Service Quote","currency":"R","description":"Quote for services","lineItems":[{"id":"li1","label":"Service name","quantity":1,"unitPrice":500,"category":"Services"},{"id":"li2","label":"Additional item","quantity":2,"unitPrice":150,"category":"Materials"}],"taxRate":15,"notes":"" }
 task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"sec1","title":"This week","tasks":[{"id":"t1","label":"Task","priority":"medium","done":false,"dueDate":""}]}] }
+tournament_pool_tracker: { "type":"tournament_pool_tracker","poolName":"World Cup Family Pool","tournamentName":"FIFA World Cup 2026","prizeNote":"Winner gets bragging rights!","adminName":"You","rulesNote":"Each person draws one team from each pot","participants":[{"id":"p1","name":"Alice","emoji":"⭐"},{"id":"p2","name":"Bob","emoji":"🎯"},{"id":"p3","name":"Carol","emoji":"🌟"},{"id":"p4","name":"Dave","emoji":"⚡"}],"teams":[{"id":"t1","name":"Brazil","pot":1,"group":"D","flagEmoji":"🇧🇷","status":"active"},{"id":"t2","name":"France","pot":1,"group":"A","flagEmoji":"🇫🇷","status":"active"},{"id":"t3","name":"Argentina","pot":1,"group":"C","flagEmoji":"🇦🇷","status":"active"},{"id":"t4","name":"England","pot":1,"group":"B","flagEmoji":"🏴","status":"active"},{"id":"t5","name":"Netherlands","pot":2,"group":"E","flagEmoji":"🇳🇱","status":"active"},{"id":"t6","name":"Portugal","pot":2,"group":"H","flagEmoji":"🇵🇹","status":"active"},{"id":"t7","name":"Belgium","pot":2,"group":"F","flagEmoji":"🇧🇪","status":"active"},{"id":"t8","name":"Spain","pot":2,"group":"G","flagEmoji":"🇪🇸","status":"active"}],"matches":[],"drawLocked":false,"scoringRules":{"pointsPerWin":3,"pointsPerDraw":1,"knockoutBonus":5,"quarterFinalBonus":10,"semiFinalBonus":15,"finalBonus":20,"winnerBonus":50} }
 
 RULES:
 - Use practical realistic defaults, not fake values
@@ -283,7 +295,9 @@ RULES:
 - IMPORTANT: For improve/add, you MUST visibly change the content from what was provided — do not return the same data
 - If the user asks for a website or landing page, use landing_page
 - If the user asks for an app or tool, pick the closest structured type
-- Never return raw HTML — always use a structured creationType from the list above`;
+- Never return raw HTML — always use a structured creationType from the list above
+- If the user mentions World Cup, tournament pool, sweepstake, seeded pots, or team draw, use tournament_pool_tracker
+- For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.`;
 }
 
 function buildBuilderMessage(

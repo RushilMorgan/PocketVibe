@@ -123,7 +123,8 @@ export type CreationType =
   | 'meal_planner'
   | 'workout_tracker'
   | 'price_calculator'
-  | 'task_planner';
+  | 'task_planner'
+  | 'tournament_pool_tracker';
 
 export type CreationStatus = 'generating' | 'ready' | 'error';
 
@@ -351,6 +352,60 @@ export interface TaskPlannerContent {
   sections: TaskSection[];
 }
 
+// ── Tournament Pool Tracker ──────────────────────────────────────────────────
+
+export type TournamentTeamStatus = 'active' | 'eliminated' | 'winner';
+
+export interface TournamentTeam {
+  id: string;
+  name: string;
+  pot: number;
+  group?: string;
+  flagEmoji?: string;
+  status: TournamentTeamStatus;
+  assignedTo?: string;  // participantId
+}
+
+export interface TournamentParticipant {
+  id: string;
+  name: string;
+  emoji?: string;
+}
+
+export interface TournamentMatch {
+  id: string;
+  teamAId: string;
+  teamBId: string;
+  scoreA?: number;
+  scoreB?: number;
+  date?: string;
+  stage?: string;
+}
+
+export interface TournamentScoringRules {
+  pointsPerWin: number;
+  pointsPerDraw: number;
+  knockoutBonus: number;
+  quarterFinalBonus: number;
+  semiFinalBonus: number;
+  finalBonus: number;
+  winnerBonus: number;
+}
+
+export interface TournamentPoolTrackerContent {
+  type: 'tournament_pool_tracker';
+  poolName: string;
+  tournamentName: string;
+  prizeNote?: string;
+  adminName?: string;
+  rulesNote?: string;
+  participants: TournamentParticipant[];
+  teams: TournamentTeam[];
+  matches: TournamentMatch[];
+  drawLocked: boolean;
+  scoringRules: TournamentScoringRules;
+}
+
 // ── Content union ─────────────────────────────────────────────────────────────
 
 export type CreationContent =
@@ -363,7 +418,8 @@ export type CreationContent =
   | MealPlannerContent
   | WorkoutTrackerContent
   | PriceCalculatorContent
-  | TaskPlannerContent;
+  | TaskPlannerContent
+  | TournamentPoolTrackerContent;
 
 // ── Creation entity ────────────────────────────────────────────────────────────
 

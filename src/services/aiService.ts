@@ -60,6 +60,7 @@ SUPPORTED CREATION TYPES — always choose the most useful one:
 - workout_tracker: gym plans, exercise routines, fitness goals
 - price_calculator: quotes, estimates, invoices, price lists, service calculators
 - task_planner: project management, work tasks, weekly or daily planning
+- tournament_pool_tracker: private family/friend/office tournament pools and draws, World Cup sweepstakes, team draws with seeded pots
 
 CONTENT FORMATS:
 
@@ -83,6 +84,8 @@ price_calculator: { "type":"price_calculator","title":"Service Quote","currency"
 
 task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"sec1","title":"This week","tasks":[{"id":"t1","label":"Task name","priority":"medium","done":false,"dueDate":""}]}] }
 
+tournament_pool_tracker: { "type":"tournament_pool_tracker","poolName":"World Cup Family Pool","tournamentName":"FIFA World Cup 2026","prizeNote":"Winner gets bragging rights and pizza!","adminName":"You","rulesNote":"Each person draws one team from each pot","participants":[{"id":"p1","name":"Alice","emoji":"⭐"},{"id":"p2","name":"Bob","emoji":"🎯"},{"id":"p3","name":"Carol","emoji":"🌟"},{"id":"p4","name":"Dave","emoji":"⚡"}],"teams":[{"id":"t1","name":"Brazil","pot":1,"group":"D","flagEmoji":"🇧🇷","status":"active"},{"id":"t2","name":"France","pot":1,"group":"A","flagEmoji":"🇫🇷","status":"active"},{"id":"t3","name":"Argentina","pot":1,"group":"C","flagEmoji":"🇦🇷","status":"active"},{"id":"t4","name":"England","pot":1,"group":"B","flagEmoji":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","status":"active"},{"id":"t5","name":"Netherlands","pot":2,"group":"E","flagEmoji":"🇳🇱","status":"active"},{"id":"t6","name":"Portugal","pot":2,"group":"H","flagEmoji":"🇵🇹","status":"active"},{"id":"t7","name":"Belgium","pot":2,"group":"F","flagEmoji":"🇧🇪","status":"active"},{"id":"t8","name":"Spain","pot":2,"group":"G","flagEmoji":"🇪🇸","status":"active"}],"matches":[],"drawLocked":false,"scoringRules":{"pointsPerWin":3,"pointsPerDraw":1,"knockoutBonus":5,"quarterFinalBonus":10,"semiFinalBonus":15,"finalBonus":20,"winnerBonus":50} }
+
 RULES:
 - Use practical realistic defaults, not fake values like "John Doe" or "$99"
 - All labels must be plain friendly English — no technical jargon
@@ -94,7 +97,9 @@ RULES:
 - Always make something USEFUL and functional, not decorative or fake
 - If the user asks for a website or landing page, use landing_page
 - If the user asks for an app or custom tool, pick the closest structured template
-- Never return raw HTML — always use a structured creationType from the list above`;
+- Never return raw HTML — always use a structured creationType from the list above
+- If the user mentions World Cup, tournament pool, sweepstake, seeded pots, or team draw, use tournament_pool_tracker
+- For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.`;
 }
 
 function buildUserMessage(req: GenerateRequest): string {
@@ -355,7 +360,44 @@ export function getAIConnectionStatus(): AIConnectionStatus {
 export function generateOfflineFallback(userRequest: string): GenerateResponse {
   const lower = userRequest.toLowerCase();
 
-  // Challenge / workout check runs FIRST — before habit_tracker, since "run/walk/track" could overlap
+  // Tournament pool check runs FIRST — before workout, since "pool/draw" can overlap
+  if (/world.?cup|tournament.*pool|pool.*draw|sweepstake|sweepstakes|office.?draw|family.?draw|seeded.?pot|pot.*draw|draw.*team|prize.*pool|friendly.*draw|team.*pool/.test(lower)) {
+    return {
+      title: 'Tournament Pool',
+      creationType: 'tournament_pool_tracker',
+      description: 'A friendly draw with teams, participants, and a leaderboard',
+      summary: 'Here is your tournament pool! Add participants, draw teams, and track results.',
+      content: {
+        type: 'tournament_pool_tracker',
+        poolName: 'Tournament Pool',
+        tournamentName: 'Tournament',
+        prizeNote: 'Winner gets the prize!',
+        participants: [
+          { id: 'p1', name: 'Player 1', emoji: '⭐' },
+          { id: 'p2', name: 'Player 2', emoji: '🎯' },
+        ],
+        teams: [
+          { id: 't1', name: 'Team A', pot: 1, status: 'active' as const },
+          { id: 't2', name: 'Team B', pot: 1, status: 'active' as const },
+          { id: 't3', name: 'Team C', pot: 2, status: 'active' as const },
+          { id: 't4', name: 'Team D', pot: 2, status: 'active' as const },
+        ],
+        matches: [],
+        drawLocked: false,
+        scoringRules: {
+          pointsPerWin: 3,
+          pointsPerDraw: 1,
+          knockoutBonus: 5,
+          quarterFinalBonus: 10,
+          semiFinalBonus: 15,
+          finalBonus: 20,
+          winnerBonus: 50,
+        },
+      },
+    };
+  }
+
+  // Challenge / workout check runs before habit_tracker, since "run/walk/track" could overlap
   if (/walk|walking|run|running|partner|leaderboard|score|points|challenge|compete|competition|workout|gym|exercise|fitness|training/.test(lower)) {
     return {
       title: 'Partner Challenge',

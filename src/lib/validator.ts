@@ -11,6 +11,7 @@ const SUPPORTED_TYPES = new Set<CreationType>([
   'workout_tracker',
   'price_calculator',
   'task_planner',
+  'tournament_pool_tracker',
   // generative_html is intentionally excluded — AI must not return raw HTML
 ]);
 
@@ -82,6 +83,12 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       break;
     case 'task_planner':
       if (!Array.isArray(content.sections)) errors.push('Task planner requires a sections array');
+      break;
+    case 'tournament_pool_tracker':
+      if (typeof content.poolName !== 'string') errors.push('Tournament pool requires poolName');
+      if (!Array.isArray(content.participants)) errors.push('Tournament pool requires participants array');
+      if (!Array.isArray(content.teams)) errors.push('Tournament pool requires teams array');
+      if (!Array.isArray(content.matches)) errors.push('Tournament pool requires matches array');
       break;
   }
   return errors;

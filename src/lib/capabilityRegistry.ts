@@ -91,6 +91,7 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
   ],
   task_planner: ['edit_labels', 'add_items', 'delete_items', 'toggle_items'],
   landing_page: ['edit_page_fields', 'edit_labels'],
+  tournament_pool_tracker: ['edit_labels', 'add_items', 'delete_items', 'log_activity', 'edit_participants', 'edit_scoring_rules'],
 };
 
 export function getSupportedCapabilities(type: CreationType): CreationCapability[] {
@@ -133,6 +134,7 @@ export function isRendererAlreadyEditable(
     'task_planner',
     'landing_page',
     'checklist',
+    'tournament_pool_tracker',
   ];
   if (!fullyEditable.includes(creationType)) return false;
   if (supported.length < 3) return false;

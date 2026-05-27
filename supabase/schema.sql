@@ -87,3 +87,45 @@ CREATE POLICY "no_direct_anon_event_read"
   ON shared_creation_events FOR SELECT
   USING (false);
 
+-- ── Auth: owner_user_id + claim function ──────────────────────────────────────
+-- Requires pgcrypto for SHA-256 hashing in the claim function.
+-- gen_random_uuid() already uses pgcrypto, so this is a no-op in most projects.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Add owner_user_id to shared_creations (nullable; set when user registers/claims).
+ALTER TABLE shared_creations
+  ADD COLUMN IF NOT EXISTS owner_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- Add user_id to shared_participants (for future participant claiming).
+ALTER TABLE shared_participants
+  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- Authenticated users can read their own shared creations (My Tools page).
+CREATE POLICY IF NOT EXISTS "owner_can_read_own"
+  ON shared_creations FOR SELECT
+  TO authenticated
+  USING (owner_user_id = auth.uid());
+
+-- ── claim_creation DB function ────────────────────────────────────────────────
+-- Called from the client via supabase.rpc('claim_creation', ...) after the user
+-- registers/signs in. Verifies the raw admin token by comparing its SHA-256 hash
+-- to the stored owner_token_hash, then sets owner_user_id = auth.uid().
+-- SECURITY DEFINER: runs with the privileges of the function owner so it can
+-- write owner_user_id even though the row is owned by service role.
+CREATE OR REPLACE FUNCTION claim_creation(p_share_slug TEXT, p_admin_token TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_hash TEXT;
+  v_id   UUID;
+BEGIN
+  v_hash := encode(digest(p_admin_token::bytea, 'sha256'), 'hex');
+  UPDATE shared_creations
+  SET    owner_user_id = auth.uid()
+  WHERE  share_slug        = p_share_slug
+    AND  owner_token_hash  = v_hash
+    AND  (owner_user_id IS NULL OR owner_user_id = auth.uid())
+  RETURNING id INTO v_id;
+  RETURN v_id IS NOT NULL;
+END;
+$$;
+

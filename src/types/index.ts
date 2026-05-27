@@ -517,6 +517,8 @@ export interface Creation {
   isFavorite?: boolean;
   sourceTemplate?: string;
   shareSlug?: string;      // set once the creation has been shared
+  /** Supabase user ID of the owner. Set client-side after auth + share. */
+  ownerUserId?: string;
 }
 
 // ── Sharing ───────────────────────────────────────────────────────────────────
@@ -590,7 +592,7 @@ export interface ValidationResult {
 
 // ── App navigation ────────────────────────────────────────────────────────────
 
-export type AppView = 'home' | 'creation' | 'my-creations';
+export type AppView = 'home' | 'creation' | 'my-creations' | 'my-tools';
 
 // ── Chat message ──────────────────────────────────────────────────────────────
 

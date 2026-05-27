@@ -202,6 +202,10 @@ export function usePocketVibe() {
     dispatch({ type: 'SET_VIEW', payload: 'my-creations' });
   }, []);
 
+  const goToMyTools = useCallback(() => {
+    dispatch({ type: 'SET_VIEW', payload: 'my-tools' });
+  }, []);
+
   // ── Core generation ───────────────────────────────────────────────────────────
 
   /** Maps errors to short, safe, user-facing messages. Never exposes HTML or technical details. */
@@ -688,6 +692,7 @@ export function usePocketVibe() {
     openCreation,
     goHome,
     goToMyCreations,
+    goToMyTools,
     startNewCreation,
     improveCreation,
     confirmNewCreation,

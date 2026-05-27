@@ -7,6 +7,12 @@ interface PVHeaderProps {
   accentColor: string;
   onBack: () => void;
   onGoMyCreations: () => void;
+  /** Shown when user is logged in — navigates to My Tools page. */
+  onGoMyTools?: () => void;
+  /** Email of the logged-in user (first letter used as avatar). */
+  userEmail?: string;
+  /** Shown when user is not logged in and auth is available. */
+  onSignIn?: () => void;
 }
 
 export default function PVHeader({
@@ -16,6 +22,9 @@ export default function PVHeader({
   accentColor,
   onBack,
   onGoMyCreations,
+  onGoMyTools,
+  userEmail,
+  onSignIn,
 }: PVHeaderProps) {
   const showBack = view === 'creation' || view === 'my-creations';
   const title = view === 'creation' && activeCreation
@@ -62,7 +71,7 @@ export default function PVHeader({
       </div>
 
       {/* My things link */}
-      {creationsCount > 0 && view !== 'my-creations' && (
+      {creationsCount > 0 && view !== 'my-creations' && view !== 'my-tools' && (
         <button
           onClick={onGoMyCreations}
           className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 active:bg-gray-200 transition-colors"
@@ -74,6 +83,25 @@ export default function PVHeader({
           </span>
         </button>
       )}
+
+      {/* User avatar (logged in) or Sign in button */}
+      {userEmail && onGoMyTools ? (
+        <button
+          onClick={onGoMyTools}
+          title={userEmail}
+          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold active:opacity-80"
+          style={{ background: accentColor }}
+        >
+          {userEmail[0].toUpperCase()}
+        </button>
+      ) : onSignIn ? (
+        <button
+          onClick={onSignIn}
+          className="flex-shrink-0 text-xs font-semibold text-gray-500 px-3 py-1.5 rounded-full bg-gray-100 active:bg-gray-200"
+        >
+          Sign in
+        </button>
+      ) : null}
     </div>
   );
 }

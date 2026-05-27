@@ -9,6 +9,7 @@ import type {
   SharedCreationResponse,
   ParticipantLinkResult,
 } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 // ── Env helpers (read lazily so tests can stub before import side-effects) ────
 
@@ -153,6 +154,24 @@ export async function createParticipantLink(
 /** Returns true if the Supabase credentials are present in the environment. */
 export function isShareAvailable(): boolean {
   return Boolean(getSupabaseUrl() && getSupabaseAnonKey());
+}
+
+/**
+ * After sharing, call this when the user is signed in to associate their account
+ * as the owner. Non-blocking; silently no-ops when Supabase is unavailable.
+ * The DB function verifies the admin token hash server-side (SECURITY DEFINER).
+ */
+export async function claimCreation(shareSlug: string, adminToken: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.rpc('claim_creation', {
+      p_share_slug: shareSlug,
+      p_admin_token: adminToken,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }
 
 /**

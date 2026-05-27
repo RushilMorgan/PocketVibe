@@ -6,7 +6,11 @@ import { MyCreations } from './components/MyCreations';
 import { CreationComposer } from './components/CreationComposer';
 import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
+import { AuthModal } from './components/AuthModal';
+import { MyToolsPage } from './components/MyToolsPage';
 import { usePocketVibe } from './hooks/usePocketVibe';
+import { useAuth } from './hooks/useAuth';
+import type { AuthModalVariant } from './components/AuthModal';
 import { formatCreationSummary } from './lib/creationSummary';
 
 export default function App() {
@@ -16,6 +20,7 @@ export default function App() {
     openCreation,
     goHome,
     goToMyCreations,
+    goToMyTools,
     startNewCreation,
     improveCreation,
     confirmNewCreation,
@@ -28,11 +33,28 @@ export default function App() {
     createWorldCupPool,
   } = usePocketVibe();
 
+  const auth = useAuth();
+
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalVariant, setAuthModalVariant] = useState<AuthModalVariant>('account');
+  const [saveNudgeDismissed, setSaveNudgeDismissed] = useState(
+    () => Boolean(localStorage.getItem('pv_save_nudge_dismissed'))
+  );
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
+
+  function openAuthModal(variant: AuthModalVariant) {
+    setAuthModalVariant(variant);
+    setAuthModalOpen(true);
+  }
+
+  function dismissSaveNudge() {
+    setSaveNudgeDismissed(true);
+    localStorage.setItem('pv_save_nudge_dismissed', '1');
+  }
 
   async function handleNativeShare() {
     if (!activeCreation) return;
@@ -62,6 +84,16 @@ export default function App() {
     }
   }
 
+  /** Whether to show the save nudge banner. */
+  const showSaveNudge =
+    auth.isAvailable &&
+    !auth.user &&
+    !auth.loading &&
+    creations.length >= 1 &&
+    !saveNudgeDismissed &&
+    !isGenerating &&
+    view !== 'my-tools';
+
   return (
     <AppShell>
       {/* Header */}
@@ -72,10 +104,43 @@ export default function App() {
         accentColor={accentColor}
         onBack={goHome}
         onGoMyCreations={goToMyCreations}
+        onGoMyTools={auth.user ? goToMyTools : undefined}
+        userEmail={auth.user?.email}
+        onSignIn={auth.isAvailable && !auth.user ? () => openAuthModal('account') : undefined}
       />
+
+      {/* Save nudge banner */}
+      {showSaveNudge && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border-b border-amber-100">
+          <span className="text-xs text-amber-800 flex-1">
+            💾 <strong>Save this so you don't lose it</strong> — create a free account.
+          </span>
+          <button
+            onClick={() => openAuthModal('save')}
+            className="text-xs font-semibold text-amber-700 px-3 py-1 rounded-lg bg-amber-100 active:bg-amber-200 flex-shrink-0"
+          >
+            Save
+          </button>
+          <button
+            onClick={dismissSaveNudge}
+            className="text-amber-400 hover:text-amber-600 text-sm leading-none flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Main content area */}
       <div className="flex-1 overflow-hidden relative">
+        {view === 'my-tools' && auth.user && (
+          <MyToolsPage
+            user={auth.user}
+            onSignOut={auth.signOut}
+            onBack={goHome}
+          />
+        )}
+
         {view === 'home' && (
           <HomeScreen
             onPrompt={startNewCreation}
@@ -199,6 +264,7 @@ export default function App() {
           </div>
         </div>
       )}
+
       {/* Share panel */}
       {sharePanelOpen && activeCreation && (
         <SharePanel
@@ -207,6 +273,31 @@ export default function App() {
           onCreationShared={(slug) => {
             if (activeCreation) setCreationShareSlug(activeCreation.id, slug);
           }}
+          isLoggedIn={Boolean(auth.user)}
+          onRequestAuth={auth.isAvailable ? () => {
+            setSharePanelOpen(false);
+            openAuthModal('share');
+          } : undefined}
+        />
+      )}
+
+      {/* Auth modal */}
+      {authModalOpen && (
+        <AuthModal
+          variant={authModalVariant}
+          auth={auth}
+          onSuccess={() => {
+            setAuthModalOpen(false);
+            dismissSaveNudge();
+            if (authModalVariant === 'account' || authModalVariant === 'claim') {
+              goToMyTools();
+            }
+          }}
+          onSkip={authModalVariant === 'share' ? () => {
+            setAuthModalOpen(false);
+            setSharePanelOpen(true);
+          } : undefined}
+          onClose={() => setAuthModalOpen(false)}
         />
       )}
     </AppShell>

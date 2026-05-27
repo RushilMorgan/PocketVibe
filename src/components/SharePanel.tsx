@@ -5,12 +5,17 @@ import {
   createParticipantLink,
   getStoredAdminToken,
   isShareAvailable,
+  claimCreation,
 } from '../services/shareService';
 
 interface SharePanelProps {
   creation: Creation;
   onClose: () => void;
   onCreationShared?: (shareSlug: string) => void;
+  /** When true, the auth nudge is hidden (user is already signed in). */
+  isLoggedIn?: boolean;
+  /** Called when the user taps "Create account" in the auth nudge. */
+  onRequestAuth?: () => void;
 }
 
 interface ShareLinks {
@@ -21,11 +26,13 @@ interface ShareLinks {
   publicView: boolean;
 }
 
-export function SharePanel({ creation, onClose, onCreationShared }: SharePanelProps) {
+export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, onRequestAuth }: SharePanelProps) {
   const [phase, setPhase] = useState<'idle' | 'creating' | 'done' | 'error'>('idle');
   const [links, setLinks] = useState<ShareLinks | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  /** Whether the user explicitly chose to continue without an account. */
+  const [skipAuth, setSkipAuth] = useState(false);
 
   // If already shared, show existing links without re-creating
   const existingSlug = creation.shareSlug;
@@ -71,6 +78,10 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
       setLinks({ shareSlug: slug, viewUrl: result.viewUrl, adminUrl: result.adminUrl, participantLinks, publicView: result.publicView ?? false });
       setPhase('done');
       onCreationShared?.(slug);
+      // If the user is logged in, associate this creation with their account (fire-and-forget)
+      if (isLoggedIn) {
+        claimCreation(slug, adminToken).catch(() => { /* non-fatal */ });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setPhase('error');
@@ -172,6 +183,32 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
             <p className="text-sm text-gray-500">
               Create a link so others can view or use this tool — no account needed.
             </p>
+
+            {/* Auth nudge (only shown when not logged in and haven't skipped) */}
+            {!isLoggedIn && !skipAuth && onRequestAuth && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">🔒 Keep your admin link safe</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Create a free account to recover your admin access from any device.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={onRequestAuth}
+                    className="flex-1 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold active:bg-amber-700"
+                  >
+                    Create free account
+                  </button>
+                  <button
+                    onClick={() => setSkipAuth(true)}
+                    className="text-xs text-amber-600 font-medium px-3 py-2 rounded-xl hover:bg-amber-100"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">

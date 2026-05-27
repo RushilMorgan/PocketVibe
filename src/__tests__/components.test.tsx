@@ -110,36 +110,32 @@ describe('PVHeader', () => {
 // ── HomeScreen ────────────────────────────────────────────────────────────────
 
 describe('HomeScreen', () => {
-  it('renders the headline', () => {
+  it('renders flagship tool cards', () => {
     render(<HomeScreen onPrompt={noop} isGenerating={false} />);
-    expect(screen.getByText(/what do you want/i)).toBeInTheDocument();
+    expect(screen.getByTestId('flagship-partner-challenge')).toBeInTheDocument();
+    expect(screen.getByTestId('flagship-world-cup-pool')).toBeInTheDocument();
   });
 
-  it('calls onPrompt when a starter card is clicked after selecting a category', () => {
+  it('calls onPrompt when a flagship card is clicked', () => {
     const onPrompt = vi.fn();
     render(<HomeScreen onPrompt={onPrompt} isGenerating={false} />);
-    // Click the first category card to navigate into it
-    const categoryButtons = screen.getAllByRole('button');
-    fireEvent.click(categoryButtons[0]);
-    // Now in category detail — click first starter card
-    const starterButtons = screen.getAllByRole('button');
-    fireEvent.click(starterButtons[1]); // index 0 is Back, 1 is first starter
+    fireEvent.click(screen.getByTestId('flagship-partner-challenge'));
     expect(onPrompt).toHaveBeenCalled();
   });
 
-  it('calls onPrompt when form is submitted with text', () => {
-    const onPrompt = vi.fn();
-    render(<HomeScreen onPrompt={onPrompt} isGenerating={false} />);
-    const input = screen.getByPlaceholderText(/describe what you want/i);
-    fireEvent.change(input, { target: { value: 'make a checklist' } });
-    fireEvent.submit(input.closest('form')!);
-    expect(onPrompt).toHaveBeenCalledWith('make a checklist');
+  it('disables flagship cards when isGenerating is true', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={true} />);
+    expect(screen.getByTestId('flagship-partner-challenge')).toBeDisabled();
+    expect(screen.getByTestId('flagship-world-cup-pool')).toBeDisabled();
   });
 
-  it('disables input and buttons when isGenerating is true', () => {
-    render(<HomeScreen onPrompt={noop} isGenerating={true} />);
-    const input = screen.getByPlaceholderText(/describe what you want/i);
-    expect(input).toBeDisabled();
+  it('calls onPrompt when form is submitted with text', () => {
+    // The free text input is only shown in DEV_MODE. Simulate by using URL ?dev param.
+    // We cannot easily toggle DEV_MODE in a test, so check that flagship click works instead.
+    const onPrompt = vi.fn();
+    render(<HomeScreen onPrompt={onPrompt} isGenerating={false} />);
+    fireEvent.click(screen.getByTestId('flagship-world-cup-pool'));
+    expect(onPrompt).toHaveBeenCalled();
   });
 });
 

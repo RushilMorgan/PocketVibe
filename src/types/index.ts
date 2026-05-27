@@ -363,7 +363,8 @@ export interface TournamentTeam {
   group?: string;
   flagEmoji?: string;
   status: TournamentTeamStatus;
-  assignedTo?: string;  // participantId
+  assignedTo?: string;      // participantId
+  providerTeamId?: number;  // maps to world_cup_teams.provider_team_id
 }
 
 export interface TournamentParticipant {
@@ -380,6 +381,10 @@ export interface TournamentMatch {
   scoreB?: number;
   date?: string;
   stage?: string;
+  /** Set by admin to mark a hand-entered result that overrides canonical data. */
+  isManualOverride?: boolean;
+  /** Links to world_cup_matches.provider_match_id for override resolution. */
+  providerMatchId?: number;
 }
 
 export interface TournamentScoringRules {
@@ -390,6 +395,60 @@ export interface TournamentScoringRules {
   semiFinalBonus: number;
   finalBonus: number;
   winnerBonus: number;
+}
+
+// ── World Cup canonical data types ──────────────────────────────────────────
+// Used on the client when loading canonical results for auto-leaderboard.
+
+export interface WorldCupTeam {
+  providerTeamId: number;
+  name: string;
+  code?: string;
+  flagUrl?: string;
+  group?: string;
+  /** Furthest stage reached: active | round_of_32 | round_of_16 | quarter_final | semi_final | final | winner | eliminated */
+  stage: string;
+}
+
+export interface WorldCupMatch {
+  providerMatchId: number;
+  homeTeamId: number;
+  awayTeamId: number;
+  scoreHome?: number;
+  scoreAway?: number;
+  matchDate?: string;
+  stage?: string;
+  round?: string;
+  status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled';
+  isManualOverride: boolean;
+}
+
+export interface TournamentAutoSettings {
+  /** If true, leaderboard uses canonical world_cup_matches instead of pool matches. */
+  autoResultsEnabled: boolean;
+  resultProvider: 'api-football' | 'manual';
+  /** If true, admin-entered pool matches override canonical data for the same match. */
+  allowManualOverrides: boolean;
+  requireAdminApprovalForSuggestedChanges: boolean;
+}
+
+// ── Change Requests ───────────────────────────────────────────────────────────
+
+export type ChangeRequestStatus = 'pending' | 'approved' | 'declined';
+
+export interface ChangeRequest {
+  id: string;
+  participantId: string;
+  participantName: string;
+  /** Free-form description supplied by the participant */
+  description: string;
+  /** Action type / extra metadata (optional, for structured requests) */
+  actionType?: string;
+  /** Arbitrary extra payload for structured actions */
+  payload?: Record<string, unknown>;
+  status: ChangeRequestStatus;
+  createdAt: number;
+  resolvedAt?: number;
 }
 
 export interface TournamentPoolTrackerContent {
@@ -404,6 +463,9 @@ export interface TournamentPoolTrackerContent {
   matches: TournamentMatch[];
   drawLocked: boolean;
   scoringRules: TournamentScoringRules;
+  changeRequests?: ChangeRequest[];
+  /** Settings for auto-updating results from canonical World Cup data. */
+  autoSettings?: TournamentAutoSettings;
 }
 
 // ── Content union ─────────────────────────────────────────────────────────────

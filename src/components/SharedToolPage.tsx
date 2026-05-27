@@ -1,11 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import type { AccessMode, SharedCreationData, CreationContent } from '../types';
+import type {
+  AccessMode,
+  SharedCreationData,
+  CreationContent,
+  WorkoutTrackerContent,
+  TournamentPoolTrackerContent,
+  ChangeRequest,
+} from '../types';
 import {
   getSharedCreation,
   updateSharedCreation,
   getStoredAdminToken,
+  applyCreationAction,
 } from '../services/shareService';
 import { TemplateRenderer } from './templates/TemplateRenderer';
+import { PartnerChallengeParticipantView } from './shared/PartnerChallengeParticipantView';
+import { TournamentPoolReadView } from './shared/TournamentPoolReadView';
 
 interface SharedToolPageProps {
   shareSlug: string;
@@ -159,22 +169,109 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
-        <TemplateRenderer
-          creation={{
-            id: shareSlug,
-            title: creation.title,
-            creationType: creation.creationType,
-            description: '',
-            summary: '',
-            originalRequest: '',
-            status: 'ready',
-            version: creation.version,
-            createdAt: creation.createdAt,
-            updatedAt: creation.updatedAt,
-            content: creation.content,
-          }}
-          onContentChange={accessMode !== 'viewer' ? (_id, updated) => handleChange(updated) : () => undefined}
-        />
+        {/* Participant in Partner Challenge → dedicated participant view */}
+        {creation.creationType === 'workout_tracker' && accessMode === 'participant' && participantRef ? (
+          <PartnerChallengeParticipantView
+            content={creation.content as WorkoutTrackerContent}
+            participantRef={participantRef}
+            shareSlug={shareSlug}
+            token={resolvedAdminToken ?? participantToken ?? ''}
+            onUpdate={updatedContent =>
+              setCreation(prev => prev ? { ...prev, content: updatedContent, version: prev.version + 1 } : prev)
+            }
+          />
+        ) : creation.creationType === 'tournament_pool_tracker' && accessMode !== 'admin' ? (
+          /* Viewer or participant in Tournament Pool → read-only view */
+          <TournamentPoolReadView
+            content={creation.content as TournamentPoolTrackerContent}
+            accessMode={accessMode}
+            participantRef={participantRef}
+            shareSlug={shareSlug}
+            token={resolvedAdminToken ?? participantToken}
+            onUpdate={updatedContent =>
+              setCreation(prev => prev ? { ...prev, content: updatedContent, version: prev.version + 1 } : prev)
+            }
+          />
+        ) : (
+          <>
+            {/* Admin change request queue for tournament pool */}
+            {creation.creationType === 'tournament_pool_tracker' && accessMode === 'admin' &&
+              (() => {
+                const pending = ((creation.content as TournamentPoolTrackerContent).changeRequests ?? [])
+                  .filter((r: ChangeRequest) => r.status === 'pending');
+                if (pending.length === 0) return null;
+                const activeToken = resolvedAdminToken ?? participantToken;
+                return (
+                  <div className="px-4 pt-4 space-y-2">
+                    <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                      Change requests ({pending.length})
+                    </p>
+                    {pending.map((req: ChangeRequest) => (
+                      <div
+                        key={req.id}
+                        className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col gap-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-800">{req.participantName}</span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(req.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700">{req.description}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              if (!activeToken) return;
+                              try {
+                                const result = await applyCreationAction(
+                                  shareSlug, activeToken, 'approve_change_request', { requestId: req.id },
+                                );
+                                setCreation(prev => prev ? { ...prev, content: result.content as CreationContent, version: result.version } : prev);
+                              } catch { /* silent */ }
+                            }}
+                            className="flex-1 text-xs bg-green-500 text-white rounded-lg py-1.5 font-semibold active:bg-green-600"
+                          >
+                            ✓ Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!activeToken) return;
+                              try {
+                                const result = await applyCreationAction(
+                                  shareSlug, activeToken, 'decline_change_request', { requestId: req.id },
+                                );
+                                setCreation(prev => prev ? { ...prev, content: result.content as CreationContent, version: result.version } : prev);
+                              } catch { /* silent */ }
+                            }}
+                            className="flex-1 text-xs bg-gray-200 text-gray-600 rounded-lg py-1.5 active:bg-gray-300"
+                          >
+                            ✗ Decline
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
+            }
+            <TemplateRenderer
+              creation={{
+                id: shareSlug,
+                title: creation.title,
+                creationType: creation.creationType,
+                description: '',
+                summary: '',
+                originalRequest: '',
+                status: 'ready',
+                version: creation.version,
+                createdAt: creation.createdAt,
+                updatedAt: creation.updatedAt,
+                content: creation.content,
+              }}
+              onContentChange={accessMode !== 'viewer' ? (_id, updated) => handleChange(updated) : () => undefined}
+            />
+          </>
+        )}
       </main>
     </div>
   );

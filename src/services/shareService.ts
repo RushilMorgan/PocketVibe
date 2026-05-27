@@ -145,3 +145,24 @@ export async function createParticipantLink(
 export function isShareAvailable(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
+
+/**
+ * Apply a named action to a shared creation.
+ * Admin and participant actions are validated server-side.
+ * Returns the new version number and updated content.
+ */
+export async function applyCreationAction(
+  shareSlug: string,
+  token: string,
+  action: string,
+  payload: Record<string, unknown>,
+): Promise<{ version: number; content: CreationContent }> {
+  const res = await fetch(edgeFunctionUrl('apply-creation-action'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ shareSlug, token, action, payload }),
+  });
+  await requireOk(res);
+  return res.json();
+}
+

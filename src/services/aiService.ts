@@ -503,16 +503,6 @@ export function generateOfflineFallback(userRequest: string): GenerateResponse {
   };
 }
 
-// ── Legacy compat exports ─────────────────────────────────────────────────────
-
-export async function generateBlocks(
-  prompt: string,
-  _currentBlocks: unknown[] = [],
-  onUpdateProgress?: (status: string) => void,
-): Promise<unknown[]> {
-  const res = await generateCreation({ userRequest: prompt, mode: 'new' }, onUpdateProgress);
-  return [{ type: 'hero_banner', id: `gen-${Date.now()}`, title: res.title, subtitle: res.description, ctaLabel: 'View' }];
-}
 
 export type { Creation };
 

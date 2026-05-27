@@ -17,6 +17,10 @@ import type {
   SavingsTrackerContent,
   LandingPageContent,
   PriceCalculatorContent,
+  EventPlannerContent,
+  MealPlannerContent,
+  WorkoutTrackerContent,
+  TaskPlannerContent,
 } from '../types';
 
 export function getCreationVisibleSignature(creation: Creation): string {
@@ -37,6 +41,14 @@ export function getContentVisibleSignature(content: CreationContent): string {
       return landingSignature(content as LandingPageContent);
     case 'price_calculator':
       return priceSignature(content as PriceCalculatorContent);
+    case 'event_planner':
+      return eventSignature(content as EventPlannerContent);
+    case 'meal_planner':
+      return mealSignature(content as MealPlannerContent);
+    case 'workout_tracker':
+      return workoutSignature(content as WorkoutTrackerContent);
+    case 'task_planner':
+      return taskSignature(content as TaskPlannerContent);
     default:
       // For all other types use full content serialization
       return JSON.stringify(content);
@@ -70,8 +82,9 @@ function checklistSignature(c: ChecklistContent): string {
 function budgetSignature(c: BudgetCalculatorContent): string {
   return JSON.stringify({
     currency: c.currency,
-    income: c.income.map(l => ({ label: l.label, amount: l.amount })),
-    expenses: c.expenses.map(l => ({ label: l.label, amount: l.amount })),
+    income: c.income.map(l => ({ label: l.label, amount: l.amount, category: l.category ?? '' })),
+    expenses: c.expenses.map(l => ({ label: l.label, amount: l.amount, category: l.category ?? '' })),
+    notes: c.notes ?? '',
   });
 }
 
@@ -80,7 +93,9 @@ function savingsSignature(c: SavingsTrackerContent): string {
     goalName: c.goalName,
     targetAmount: c.targetAmount,
     currentAmount: c.currentAmount,
-    contributionCount: c.contributions.length,
+    currency: c.currency,
+    deadline: c.deadline ?? '',
+    contributions: c.contributions.map(con => ({ date: con.date, amount: con.amount, note: con.note ?? '' })),
   });
 }
 
@@ -89,15 +104,59 @@ function landingSignature(c: LandingPageContent): string {
     businessName: c.businessName,
     tagline: c.tagline,
     description: c.description,
-    featureTitles: c.features.map(f => f.title),
+    features: c.features.map(f => ({ icon: f.icon, title: f.title, description: f.description })),
     ctaLabel: c.ctaLabel,
+    ctaUrl: c.ctaUrl ?? '',
+    contactEmail: c.contactEmail ?? '',
   });
 }
 
 function priceSignature(c: PriceCalculatorContent): string {
   return JSON.stringify({
+    title: c.title,
     currency: c.currency,
+    description: c.description ?? '',
+    lineItems: c.lineItems.map(l => ({ label: l.label, quantity: l.quantity, unitPrice: l.unitPrice, category: l.category ?? '' })),
     taxRate: c.taxRate ?? 0,
-    lineItems: c.lineItems.map(l => ({ label: l.label, quantity: l.quantity, unitPrice: l.unitPrice })),
+    notes: c.notes ?? '',
+  });
+}
+
+function eventSignature(c: EventPlannerContent): string {
+  return JSON.stringify({
+    eventName: c.eventName,
+    eventDate: c.eventDate ?? '',
+    guestCount: c.guestCount ?? 0,
+    notes: c.notes ?? '',
+    tasks: c.tasks.map(t => ({ label: t.label, dueDate: t.dueDate ?? '', done: t.done })),
+  });
+}
+
+function mealSignature(c: MealPlannerContent): string {
+  return JSON.stringify({
+    weekLabel: c.weekLabel,
+    meals: c.meals.map(m => ({ day: m.day, slot: m.slot, name: m.name })),
+    groceryList: c.groceryList,
+  });
+}
+
+function workoutSignature(c: WorkoutTrackerContent): string {
+  return JSON.stringify({
+    planName: c.planName,
+    days: c.days.map(d => ({
+      label: d.label,
+      completed: d.completed,
+      exercises: d.exercises.map(e => ({ name: e.name, sets: e.sets ?? 0, reps: e.reps ?? '', duration: e.duration ?? '' })),
+    })),
+  });
+}
+
+function taskSignature(c: TaskPlannerContent): string {
+  return JSON.stringify({
+    planTitle: c.planTitle,
+    sections: c.sections.map(s => ({
+      title: s.title,
+      tasks: s.tasks.map(t => ({ label: t.label, priority: t.priority, done: t.done, dueDate: t.dueDate ?? '' })),
+    })),
   });
 }

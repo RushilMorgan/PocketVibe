@@ -123,8 +123,7 @@ export type CreationType =
   | 'meal_planner'
   | 'workout_tracker'
   | 'price_calculator'
-  | 'task_planner'
-  | 'generative_html';
+  | 'task_planner';
 
 export type CreationStatus = 'generating' | 'ready' | 'error';
 
@@ -317,13 +316,6 @@ export interface TaskPlannerContent {
   sections: TaskSection[];
 }
 
-// ── Generative HTML (fallback) ─────────────────────────────────────────────────
-
-export interface GenerativeHtmlCreationContent {
-  type: 'generative_html';
-  tailwindMarkup: string;
-}
-
 // ── Content union ─────────────────────────────────────────────────────────────
 
 export type CreationContent =
@@ -336,8 +328,7 @@ export type CreationContent =
   | MealPlannerContent
   | WorkoutTrackerContent
   | PriceCalculatorContent
-  | TaskPlannerContent
-  | GenerativeHtmlCreationContent;
+  | TaskPlannerContent;
 
 // ── Creation entity ────────────────────────────────────────────────────────────
 

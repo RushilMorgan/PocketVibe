@@ -6,6 +6,7 @@ import AppShell from '../components/AppShell';
 import PVHeader from '../components/PVHeader';
 import { HomeScreen } from '../components/HomeScreen';
 import type { Creation } from '../types';
+import { getContentVisibleSignature } from '../lib/visibleSignature';
 
 const noop = vi.fn();
 
@@ -859,6 +860,96 @@ describe('edge function file integrity', () => {
 
   it('does not contain generative_html in the server file', () => {
     expect(content).not.toContain('generative_html');
+  });
+});
+
+// ── Visible signature — expanded fields ──────────────────────────────────────
+
+describe('getContentVisibleSignature — expanded fields', () => {
+  it('budget: changing notes changes the signature', () => {
+    const base = { type: 'budget_calculator' as const, currency: 'R', income: [], expenses: [], notes: '' };
+    const modified = { ...base, notes: 'Updated note' };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('budget: changing expense category changes the signature', () => {
+    const line = { id: 'e1', label: 'Rent', amount: 5000, category: 'housing' };
+    const base = { type: 'budget_calculator' as const, currency: 'R', income: [], expenses: [line] };
+    const modified = { ...base, expenses: [{ ...line, category: 'other' }] };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('savings: changing deadline changes the signature', () => {
+    const base = { type: 'savings_tracker' as const, goalName: 'House', targetAmount: 100000, currentAmount: 0, currency: 'R', contributions: [], deadline: '' };
+    const modified = { ...base, deadline: '2027-01-01' };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('savings: changing contribution note changes the signature', () => {
+    const con = { id: 'c1', date: '2026-01-01', amount: 500, note: '' };
+    const base = { type: 'savings_tracker' as const, goalName: 'House', targetAmount: 100000, currentAmount: 500, currency: 'R', contributions: [con] };
+    const modified = { ...base, contributions: [{ ...con, note: 'Birthday money' }] };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('landing: changing contactEmail changes the signature', () => {
+    const base = { type: 'landing_page' as const, businessName: 'Acme', tagline: 'Tag', description: 'Desc', features: [], ctaLabel: 'Go', contactEmail: '' };
+    const modified = { ...base, contactEmail: 'hello@acme.co' };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('landing: changing feature description changes the signature', () => {
+    const feat = { icon: '⭐', title: 'Fast', description: 'Very fast' };
+    const base = { type: 'landing_page' as const, businessName: 'Acme', tagline: 'Tag', description: 'Desc', features: [feat], ctaLabel: 'Go' };
+    const modified = { ...base, features: [{ ...feat, description: 'Super fast' }] };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('price: changing notes changes the signature', () => {
+    const base = { type: 'price_calculator' as const, title: 'Quote', currency: 'R', lineItems: [], notes: '' };
+    const modified = { ...base, notes: 'Valid 30 days' };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('event: changing eventDate changes the signature', () => {
+    const base = { type: 'event_planner' as const, eventName: 'Party', tasks: [], eventDate: '' };
+    const modified = { ...base, eventDate: '2026-12-31' };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('meal: changing a meal name changes the signature', () => {
+    const meal = { id: 'm1', day: 'Monday', slot: 'lunch' as const, name: 'Salad' };
+    const base = { type: 'meal_planner' as const, weekLabel: 'This week', meals: [meal], groceryList: [] };
+    const modified = { ...base, meals: [{ ...meal, name: 'Wrap' }] };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('workout: changing exercise reps changes the signature', () => {
+    const exercise = { id: 'e1', name: 'Squat', reps: '10' };
+    const day = { id: 'd1', label: 'Monday', completed: false, exercises: [exercise] };
+    const base = { type: 'workout_tracker' as const, planName: 'My Plan', days: [day] };
+    const modified = { ...base, days: [{ ...day, exercises: [{ ...exercise, reps: '12' }] }] };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+
+  it('task: changing task priority changes the signature', () => {
+    const task = { id: 't1', label: 'Write tests', priority: 'low' as const, done: false };
+    const section = { id: 's1', title: 'Todo', tasks: [task] };
+    const base = { type: 'task_planner' as const, planTitle: 'My Plan', sections: [section] };
+    const modified = { ...base, sections: [{ ...section, tasks: [{ ...task, priority: 'high' as const }] }] };
+    expect(getContentVisibleSignature(base)).not.toBe(getContentVisibleSignature(modified));
+  });
+});
+
+// ── Copy text button ──────────────────────────────────────────────────────────
+
+describe('copy-creation-btn testid exists', () => {
+  it('copy-creation-btn testid is referenced in App', () => {
+    // Ensure the data-testid string is present in the source (compile-time guard)
+    const src = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
+    expect(src).toContain('data-testid="copy-creation-btn"');
+    expect(src).toContain('handleCopyText');
+    expect(src).toContain('handleNativeShare');
   });
 });
 

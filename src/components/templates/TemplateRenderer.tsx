@@ -66,19 +66,6 @@ export function TemplateRenderer({ creation, onContentChange }: TemplateRenderer
       case 'price_calculator':
         return <PriceCalculatorRenderer content={content} onChange={handleChange} />;
 
-      case 'generative_html':
-        // generative_html is disabled — the AI should not produce this type.
-        // If an old saved creation has this type, show a helpful fallback instead of raw HTML.
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center gap-3">
-            <span className="text-4xl">🚧</span>
-            <p className="text-sm text-gray-500">
-              This creation was made with an older format that's no longer supported.
-              Ask AI to rebuild it as a new creation.
-            </p>
-          </div>
-        );
-
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center gap-3">

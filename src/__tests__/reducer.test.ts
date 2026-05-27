@@ -338,22 +338,22 @@ describe('trust — visible change verification', () => {
     expect(messages.find(m => /edit habits/i.test(m.text))).toBeDefined();
   });
 
-  it('requesting "editable" on a non-editable type (generative_html) returns honest "not yet" message', async () => {
-    const htmlCreation = {
+  it('requesting "editable" on an unsupported legacy type returns honest "not yet" message', async () => {
+    // Simulate old localStorage data with an unknown type (e.g. from a future migration)
+    const legacyCreation = {
       ...SAMPLE_CREATION,
       id: 'gh-1',
-      creationType: 'generative_html' as const,
+      creationType: 'legacy_html',
       content: {
-        type: 'generative_html' as const,
+        type: 'legacy_html',
         html: '<p>Legacy</p>',
-        tailwindMarkup: '<p>Legacy</p>',
       },
-    };
+    } as unknown as Creation;
 
     const { result } = renderHook(() => usePocketVibe());
 
     act(() => {
-      result.current.dispatch({ type: 'UPSERT_CREATION', payload: htmlCreation });
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: legacyCreation });
       result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'gh-1' });
     });
 
@@ -400,5 +400,72 @@ describe('trust — visible change verification', () => {
     // Must show the "Tap 'Edit budget'" message
     const messages = result.current.state.messages;
     expect(messages.find(m => /edit budget/i.test(m.text))).toBeDefined();
+  });
+});
+
+// ── Fix 2: AI config error does not overwrite existing creations ─────────────
+
+describe('AIConfigError — improve/add never overwrites existing creation', () => {
+  let generateCreationMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    generateCreationMock = vi.mocked(aiServiceModule.generateCreation);
+    // Must throw an actual instance of the mocked AIConfigError for instanceof check
+    generateCreationMock.mockRejectedValue(new aiServiceModule.AIConfigError('AI not configured'));
+  });
+
+  it('improve with AI unavailable keeps existing creation unchanged', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: SAMPLE_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'c-1' });
+    });
+
+    const contentBefore = result.current.state.creations.find(c => c.id === 'c-1')?.content;
+    const versionBefore = result.current.state.creations.find(c => c.id === 'c-1')?.version;
+
+    await act(async () => {
+      result.current.improveCreation('make this better');
+    });
+
+    const after = result.current.state.creations.find(c => c.id === 'c-1');
+    expect(after?.content).toEqual(contentBefore);
+    expect(after?.version).toBe(versionBefore);
+    expect(after?.status).toBe('ready');
+  });
+
+  it('improve with AI unavailable shows honest message', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: SAMPLE_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'c-1' });
+    });
+
+    await act(async () => {
+      result.current.improveCreation('make this better');
+    });
+
+    const messages = result.current.state.messages;
+    expect(messages.find(m => /AI is not connected/i.test(m.text))).toBeDefined();
+  });
+
+  it('new creation with AI unavailable still uses offline fallback', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.startNewCreation('make me a checklist');
+    });
+
+    // Wait for the async generation to complete
+    await waitFor(() => {
+      expect(result.current.state.isGenerating).toBe(false);
+    });
+
+    expect(result.current.state.creations.length).toBeGreaterThan(0);
+    const created = result.current.state.creations[0];
+    expect(created.status).toBe('ready');
   });
 });

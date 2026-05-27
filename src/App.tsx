@@ -26,10 +26,11 @@ export default function App() {
   } = usePocketVibe();
 
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
 
-  async function handleShare() {
+  async function handleNativeShare() {
     if (!activeCreation) return;
     const text = formatCreationSummary(activeCreation);
     if (navigator.share) {
@@ -37,12 +38,24 @@ export default function App() {
         await navigator.share({ title: activeCreation.title, text });
         return;
       } catch {
-        // fall through to clipboard
+        // User cancelled or share failed — fall through to clipboard
       }
     }
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    await handleCopyText();
+  }
+
+  async function handleCopyText() {
+    if (!activeCreation) return;
+    const text = formatCreationSummary(activeCreation);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyError(false);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
+    }
   }
 
   return (
@@ -77,15 +90,24 @@ export default function App() {
               </div>
             )}
 
-            {/* Share / copy button */}
+            {/* Share / copy buttons */}
             {activeCreation?.status === 'ready' && !isGenerating && (
-              <div className="mx-4 mt-2 flex-shrink-0">
+              <div className="mx-4 mt-2 flex-shrink-0 flex gap-2">
+                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                  <button
+                    data-testid="share-creation-btn"
+                    onClick={handleNativeShare}
+                    className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    ↗ Share
+                  </button>
+                )}
                 <button
                   data-testid="copy-creation-btn"
-                  onClick={handleShare}
+                  onClick={handleCopyText}
                   className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  {copied ? '✓ Copied' : '⎘ Copy summary'}
+                  {copyError ? '⚠ Copy failed' : copied ? '✓ Copied' : '⎘ Copy text'}
                 </button>
               </div>
             )}

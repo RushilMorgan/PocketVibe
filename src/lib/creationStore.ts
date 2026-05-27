@@ -16,7 +16,7 @@ export function loadCreations(): Creation[] {
     // Migrate: filter out old generative_html creations that could show raw HTML
     // Migrate: convert legacy survey_form creations to checklist
     return (parsed as Creation[])
-      .filter(c => c.content?.type !== 'generative_html')
+      .filter(c => (c.content?.type as string) !== 'generative_html')
       .map(c => {
         if ((c.content?.type as string) === 'survey_form' || (c.creationType as string) === 'survey_form') {
           return {

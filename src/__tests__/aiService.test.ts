@@ -252,9 +252,9 @@ describe('normalizeGenerateResponse', () => {
   });
 });
 
-// ── Validator rejects generative_html ────────────────────────────────────────
+// ── Validator rejects unsupported types ──────────────────────────────────────
 
-describe('validator — generative_html rejection', () => {
+describe('validator — unsupported type rejection', () => {
   it('rejects generative_html as an unsupported creationType', () => {
     const res = {
       title: 'My Website',

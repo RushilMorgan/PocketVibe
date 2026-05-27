@@ -22,7 +22,6 @@ const TYPE_EMOJI: Record<CreationType, string> = {
   workout_tracker: '💪',
   price_calculator: '🧾',
   task_planner: '📌',
-  generative_html: '🎨',
 };
 
 const TYPE_LABEL: Record<CreationType, string> = {
@@ -36,7 +35,6 @@ const TYPE_LABEL: Record<CreationType, string> = {
   workout_tracker: 'Workout plan',
   price_calculator: 'Price calculator',
   task_planner: 'Task planner',
-  generative_html: 'Custom page',
 };
 
 function timeAgo(ms: number): string {

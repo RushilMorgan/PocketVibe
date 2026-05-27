@@ -376,29 +376,46 @@ export function usePocketVibe() {
       const existing = stateRef.current.creations.find(c => c.id === creationId);
 
       if (isConfig) {
-        const fallback = generateOfflineFallback(req.userRequest);
-        const offlineCreation: Creation = {
-          id: creationId,
-          title: fallback.title,
-          creationType: fallback.creationType,
-          description: fallback.description,
-          summary: `${fallback.summary} (Made offline - set up your AI key for better results.)`,
-          originalRequest: req.userRequest,
-          status: 'ready',
-          version: 1,
-          createdAt: existing?.createdAt ?? Date.now(),
-          updatedAt: Date.now(),
-          content: fallback.content,
-        };
-        dispatch({ type: 'UPSERT_CREATION', payload: offlineCreation });
-        dispatch({
-          type: 'ADD_MESSAGE',
-          payload: {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            text: `${fallback.summary} (AI not connected - showing an example you can edit.)`,
-          },
-        });
+        if (req.mode !== 'new' && existing) {
+          // Never overwrite an existing creation when AI is not configured.
+          // Restore to ready and show an honest message.
+          dispatch({
+            type: 'UPSERT_CREATION',
+            payload: { ...existing, status: 'ready', updatedAt: existing.updatedAt },
+          });
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
+              id: `a-${Date.now()}`,
+              role: 'assistant',
+              text: "AI is not connected right now, but you can still edit this tool directly.",
+            },
+          });
+        } else {
+          const fallback = generateOfflineFallback(req.userRequest);
+          const offlineCreation: Creation = {
+            id: creationId,
+            title: fallback.title,
+            creationType: fallback.creationType,
+            description: fallback.description,
+            summary: `${fallback.summary} (Made offline - set up your AI key for better results.)`,
+            originalRequest: req.userRequest,
+            status: 'ready',
+            version: 1,
+            createdAt: existing?.createdAt ?? Date.now(),
+            updatedAt: Date.now(),
+            content: fallback.content,
+          };
+          dispatch({ type: 'UPSERT_CREATION', payload: offlineCreation });
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
+              id: `a-${Date.now()}`,
+              role: 'assistant',
+              text: `${fallback.summary} (AI not connected - showing an example you can edit.)`,
+            },
+          });
+        }
       } else {
         if (existing) {
           dispatch({

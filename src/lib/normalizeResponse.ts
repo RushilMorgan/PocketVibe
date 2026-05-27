@@ -15,8 +15,10 @@ export function normalizeGenerateResponse(
   res: GenerateResponse,
   _req: GenerateRequest,
 ): GenerateResponse | null {
-  // 1. Reject generative_html — never save raw HTML
-  if (res.creationType === 'generative_html' || res.content.type === 'generative_html') {
+  // 1. Reject unsupported types — generative_html and any other legacy type must never be saved
+  const typeStr = res.creationType as string;
+  const contentTypeStr = (res.content as { type: string }).type;
+  if (typeStr === 'generative_html' || contentTypeStr === 'generative_html') {
     return null;
   }
 

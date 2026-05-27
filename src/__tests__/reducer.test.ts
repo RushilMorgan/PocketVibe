@@ -469,3 +469,237 @@ describe('AIConfigError — improve/add never overwrites existing creation', () 
     expect(created.status).toBe('ready');
   });
 });
+
+// ── FIX 1: Invalid AI response on improve/add does not use offline fallback ──
+
+describe('normalizeResponse null — improve/add does not use offline fallback', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    generateCreationMock.mockReset();
+  });
+
+  it('when AI returns generative_html for improve, restores existing and shows honest message (NOT offline fallback)', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: SAMPLE_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'c-1' });
+    });
+
+    generateCreationMock.mockResolvedValue({
+      title: 'HTML Page',
+      creationType: 'generative_html' as never,
+      description: '',
+      summary: '',
+      content: { type: 'generative_html', tailwindMarkup: '<div>Hello</div>' } as never,
+    });
+
+    await act(async () => {
+      result.current.improveCreation('improve the layout');
+    });
+
+    await waitFor(() => expect(result.current.state.isGenerating).toBe(false));
+
+    // Offline fallback must NOT be called for improve mode
+    expect(vi.mocked(aiServiceModule.generateOfflineFallback)).not.toHaveBeenCalled();
+
+    // Existing creation must be unchanged
+    const creation = result.current.state.creations.find(c => c.id === 'c-1');
+    expect(creation?.version).toBe(1);
+    expect(creation?.content).toEqual(SAMPLE_CREATION.content);
+    expect(creation?.status).toBe('ready');
+
+    // Must show honest message
+    expect(result.current.state.messages.find(m => /couldn't update that properly/i.test(m.text))).toBeDefined();
+  });
+
+  it('when AI returns generative_html for new, DOES use offline fallback', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+
+    generateCreationMock.mockResolvedValue({
+      title: 'HTML Page',
+      creationType: 'generative_html' as never,
+      description: '',
+      summary: '',
+      content: { type: 'generative_html', tailwindMarkup: '<div>Hello</div>' } as never,
+    });
+
+    act(() => {
+      result.current.startNewCreation('make a checklist');
+    });
+
+    await waitFor(() => expect(result.current.state.isGenerating).toBe(false));
+
+    // Offline fallback MUST be called for new mode
+    expect(vi.mocked(aiServiceModule.generateOfflineFallback)).toHaveBeenCalled();
+    expect(result.current.state.creations.length).toBeGreaterThan(0);
+  });
+});
+
+// ── FIX 2/3: Local update handlers — tournament pool ─────────────────────────
+
+const TOURNAMENT_CREATION: Creation = {
+  id: 'tc-1',
+  title: 'Family Pool',
+  creationType: 'tournament_pool_tracker',
+  description: '',
+  summary: '',
+  originalRequest: 'world cup pool',
+  status: 'ready',
+  version: 1,
+  createdAt: 1000,
+  updatedAt: 1000,
+  content: {
+    type: 'tournament_pool_tracker',
+    poolName: 'Family Pool',
+    tournamentName: 'World Cup',
+    participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+    teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'active' }],
+    matches: [],
+    drawLocked: false,
+    scoringRules: {
+      pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5,
+      quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50,
+    },
+  },
+};
+
+describe('local update handlers — tournament pool', () => {
+  beforeEach(() => { vi.clearAllMocks(); generateCreationMock.mockReset(); });
+
+  it('rename pool: updates poolName, increments version, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: TOURNAMENT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'tc-1' });
+    });
+    await act(async () => { result.current.improveCreation('rename this to Morgan Family Pool'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'tc-1')!;
+    expect((creation.content as any).poolName).toBe('Morgan Family Pool');
+    expect(creation.version).toBe(2);
+  });
+
+  it('add participant: adds participant, increments version, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: TOURNAMENT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'tc-1' });
+    });
+    await act(async () => { result.current.improveCreation('add Sarah'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'tc-1')!;
+    expect((creation.content as any).participants).toHaveLength(2);
+    expect((creation.content as any).participants[1].name).toBe('Sarah');
+    expect(creation.version).toBe(2);
+  });
+
+  it('change points per win: updates scoringRules.pointsPerWin, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: TOURNAMENT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'tc-1' });
+    });
+    await act(async () => { result.current.improveCreation('make points per win 5'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'tc-1')!;
+    expect((creation.content as any).scoringRules.pointsPerWin).toBe(5);
+    expect(creation.version).toBe(2);
+  });
+
+  it('change winner bonus: updates scoringRules.winnerBonus, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: TOURNAMENT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'tc-1' });
+    });
+    await act(async () => { result.current.improveCreation('make winner bonus 100'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'tc-1')!;
+    expect((creation.content as any).scoringRules.winnerBonus).toBe(100);
+    expect(creation.version).toBe(2);
+  });
+
+  it('add team to pot: adds team with correct pot, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: TOURNAMENT_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'tc-1' });
+    });
+    await act(async () => { result.current.improveCreation('add Japan to pot 2'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'tc-1')!;
+    expect((creation.content as any).teams).toHaveLength(2);
+    expect((creation.content as any).teams[1].name).toBe('Japan');
+    expect((creation.content as any).teams[1].pot).toBe(2);
+    expect(creation.version).toBe(2);
+  });
+});
+
+// ── FIX 2/4: Local update handlers — workout challenge ───────────────────────
+
+const WORKOUT_CHALLENGE_CREATION: Creation = {
+  id: 'wc-1',
+  title: 'Summer Challenge',
+  creationType: 'workout_tracker',
+  description: '',
+  summary: '',
+  originalRequest: 'walking challenge',
+  status: 'ready',
+  version: 1,
+  createdAt: 1000,
+  updatedAt: 1000,
+  content: {
+    type: 'workout_tracker',
+    planName: 'Summer Challenge',
+    challengeMode: true,
+    participants: [{ id: 'p1', name: 'Alice', emoji: '🏃' }],
+    weeklyTarget: 3,
+    logs: [],
+    scoringRules: { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 },
+  },
+};
+
+describe('local update handlers — workout challenge', () => {
+  beforeEach(() => { vi.clearAllMocks(); generateCreationMock.mockReset(); });
+
+  it('change points per activity: updates scoringRules.pointsPerActivity, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: WORKOUT_CHALLENGE_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'wc-1' });
+    });
+    await act(async () => { result.current.improveCreation('change points per activity to 15'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'wc-1')!;
+    expect((creation.content as any).scoringRules.pointsPerActivity).toBe(15);
+    expect(creation.version).toBe(2);
+  });
+
+  it('change weekly target: updates weeklyTarget, does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: WORKOUT_CHALLENGE_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'wc-1' });
+    });
+    await act(async () => { result.current.improveCreation('make weekly target 4'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'wc-1')!;
+    expect((creation.content as any).weeklyTarget).toBe(4);
+    expect(creation.version).toBe(2);
+  });
+
+  it('add participant to workout challenge: does not call AI', async () => {
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => {
+      result.current.dispatch({ type: 'UPSERT_CREATION', payload: WORKOUT_CHALLENGE_CREATION });
+      result.current.dispatch({ type: 'SET_ACTIVE_CREATION', payload: 'wc-1' });
+    });
+    await act(async () => { result.current.improveCreation('add Sarah'); });
+    expect(generateCreationMock).not.toHaveBeenCalled();
+    const creation = result.current.state.creations.find(c => c.id === 'wc-1')!;
+    expect((creation.content as any).participants).toHaveLength(2);
+    expect((creation.content as any).participants[1].name).toBe('Sarah');
+    expect(creation.version).toBe(2);
+  });
+});

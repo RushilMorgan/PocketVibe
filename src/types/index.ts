@@ -354,7 +354,7 @@ export interface TaskPlannerContent {
 
 // ── Tournament Pool Tracker ──────────────────────────────────────────────────
 
-export type TournamentTeamStatus = 'active' | 'eliminated' | 'winner';
+export type TournamentTeamStatus = 'active' | 'round_of_16' | 'quarter_final' | 'semi_final' | 'final' | 'winner' | 'eliminated';
 
 export interface TournamentTeam {
   id: string;

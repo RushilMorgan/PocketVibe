@@ -1,9 +1,10 @@
 ﻿import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import type { HabitTrackerContent, WorkoutTrackerContent, TournamentPoolTrackerContent } from '../types';
 import { HabitTrackerRenderer } from '../components/templates/HabitTrackerRenderer';
 import { WorkoutTrackerRenderer } from '../components/templates/WorkoutTrackerRenderer';
 import { TournamentPoolRenderer } from '../components/templates/TournamentPoolRenderer';
+import { CreationComposer } from '../components/CreationComposer';
 import AppShell from '../components/AppShell';
 import PVHeader from '../components/PVHeader';
 import { HomeScreen } from '../components/HomeScreen';
@@ -1337,6 +1338,146 @@ describe('TournamentPoolRenderer', () => {
     const fun = TEMPLATE_CATEGORIES.find(c => c.id === 'fun');
     expect(fun).toBeDefined();
     expect(fun!.starters.some(s => s.creationType === 'tournament_pool_tracker')).toBe(true);
+  });
+});
+
+// ── FIX 5: Tournament scoring with expanded statuses ─────────────────────────
+
+describe('TournamentPoolRenderer — scoring with expanded statuses', () => {
+  it('team with round_of_16 status earns knockoutBonus', () => {
+    const content = makePool({
+      participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+      teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'round_of_16', assignedTo: 'p1' }],
+      drawLocked: true,
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    expect(screen.getByTestId('leaderboard-row-p1')).toHaveTextContent('5');
+  });
+
+  it('team with quarter_final status earns quarterFinalBonus', () => {
+    const content = makePool({
+      participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+      teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'quarter_final', assignedTo: 'p1' }],
+      drawLocked: true,
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    expect(screen.getByTestId('leaderboard-row-p1')).toHaveTextContent('10');
+  });
+
+  it('team with semi_final status earns semiFinalBonus', () => {
+    const content = makePool({
+      participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+      teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'semi_final', assignedTo: 'p1' }],
+      drawLocked: true,
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    expect(screen.getByTestId('leaderboard-row-p1')).toHaveTextContent('15');
+  });
+
+  it('team with winner status earns winnerBonus', () => {
+    const content = makePool({
+      participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+      teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'winner', assignedTo: 'p1' }],
+      drawLocked: true,
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    expect(screen.getByTestId('leaderboard-row-p1')).toHaveTextContent('50');
+  });
+
+  it('changing quarterFinalBonus re-scores quarter-final teams correctly', () => {
+    const base = makePool({
+      participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+      teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'quarter_final', assignedTo: 'p1' }],
+      drawLocked: true,
+    });
+    const updated = { ...base, scoringRules: { ...base.scoringRules, quarterFinalBonus: 25 } };
+    const { rerender } = render(<TournamentPoolRenderer content={base} onChange={vi.fn()} />);
+    expect(screen.getByTestId('leaderboard-row-p1')).toHaveTextContent('10');
+    rerender(<TournamentPoolRenderer content={updated} onChange={vi.fn()} />);
+    expect(screen.getByTestId('leaderboard-row-p1')).toHaveTextContent('25');
+  });
+});
+
+// ── FIX 6: Team inline editing ───────────────────────────────────────────────
+
+describe('TournamentPoolRenderer — team inline editing', () => {
+  it('can edit an existing team name', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
+    fireEvent.change(screen.getByTestId('edit-team-name-t1'), { target: { value: 'Portugal' } });
+    fireEvent.click(screen.getByTestId('save-team-edit-t1'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teams: expect.arrayContaining([expect.objectContaining({ id: 't1', name: 'Portugal' })]),
+      }),
+    );
+  });
+
+  it('can change team pot via inline edit', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
+    fireEvent.change(screen.getByTestId('edit-team-pot-t1'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('save-team-edit-t1'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teams: expect.arrayContaining([expect.objectContaining({ id: 't1', pot: 3 })]),
+      }),
+    );
+  });
+
+  it('can change team status to quarter_final via inline edit', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('edit-pool-btn'));
+    fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
+    fireEvent.change(screen.getByTestId('edit-team-status-t1'), { target: { value: 'quarter_final' } });
+    fireEvent.click(screen.getByTestId('save-team-edit-t1'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teams: expect.arrayContaining([expect.objectContaining({ id: 't1', status: 'quarter_final' })]),
+      }),
+    );
+  });
+});
+
+// ── FIX 7: AI status banner ───────────────────────────────────────────────────
+
+describe('CreationComposer — AI status banner', () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('shows ai-status-banner when AI is not connected', () => {
+    // In test environment no Supabase/Gemini vars are set — AI is not connected
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
+    const creation: Creation = {
+      id: 'c-1', title: 'Family Pool', creationType: 'tournament_pool_tracker',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: {
+        type: 'tournament_pool_tracker',
+        poolName: 'Test', tournamentName: 'Cup',
+        participants: [], teams: [], matches: [], drawLocked: false,
+        scoringRules: { pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5, quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50 },
+      },
+    };
+    render(
+      <CreationComposer
+        activeCreation={creation}
+        messages={[]}
+        isGenerating={false}
+        processingStatus={null}
+        onNew={noop}
+        onImprove={noop}
+        onAdd={noop}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(/chat with AI/i));
+    expect(screen.getByTestId('ai-status-banner')).toBeInTheDocument();
   });
 });
 

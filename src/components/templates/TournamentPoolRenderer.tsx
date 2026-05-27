@@ -44,7 +44,13 @@ function calcScores(content: TournamentPoolTrackerContent): ParticipantScore[] {
         }
       }
       for (const team of myTeams) {
-        if (team.status === 'winner') points += r.winnerBonus;
+        switch (team.status) {
+          case 'round_of_16': points += r.knockoutBonus; break;
+          case 'quarter_final': points += r.quarterFinalBonus; break;
+          case 'semi_final': points += r.semiFinalBonus; break;
+          case 'final': points += r.finalBonus; break;
+          case 'winner': points += r.winnerBonus; break;
+        }
       }
       return { participant: p, teams: myTeams, points, wins, draws };
     })
@@ -108,6 +114,12 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
   const [newTeamPot, setNewTeamPot] = useState('1');
   const [newTeamGroup, setNewTeamGroup] = useState('');
   const [newTeamFlag, setNewTeamFlag] = useState('');
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamPot, setEditTeamPot] = useState('1');
+  const [editTeamGroup, setEditTeamGroup] = useState('');
+  const [editTeamFlag, setEditTeamFlag] = useState('');
+  const [editTeamStatus, setEditTeamStatus] = useState<TournamentTeam['status']>('active');
 
   // Scoring
   const [editScoring, setEditScoring] = useState<TournamentScoringRules>({ ...content.scoringRules });
@@ -142,6 +154,7 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
     setAddingParticipant(false);
     setAddingTeam(false);
     setEditingParticipantId(null);
+    setEditingTeamId(null);
     setEditMode(true);
   }
 
@@ -284,6 +297,35 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
 
   function updateTeamStatus(id: string, status: TournamentTeam['status']) {
     update({ teams: content.teams.map(t => (t.id === id ? { ...t, status } : t)) });
+  }
+
+  function openEditTeam(t: TournamentTeam) {
+    setEditingTeamId(t.id);
+    setEditTeamName(t.name);
+    setEditTeamPot(String(t.pot));
+    setEditTeamGroup(t.group ?? '');
+    setEditTeamFlag(t.flagEmoji ?? '');
+    setEditTeamStatus(t.status);
+  }
+
+  function saveTeamEdit() {
+    const name = editTeamName.trim();
+    if (!name || !editingTeamId) return;
+    update({
+      teams: content.teams.map(t =>
+        t.id === editingTeamId
+          ? {
+              ...t,
+              name,
+              pot: parseInt(editTeamPot) || t.pot,
+              group: editTeamGroup.trim() || undefined,
+              flagEmoji: editTeamFlag.trim() || undefined,
+              status: editTeamStatus,
+            }
+          : t,
+      ),
+    });
+    setEditingTeamId(null);
   }
 
   // ── Matches ──
@@ -840,32 +882,113 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
                       <p className="text-xs text-gray-400 mb-1">Pot {pot}</p>
                       {content.teams
                         .filter(t => t.pot === pot)
-                        .map(team => (
-                          <div key={team.id} className="flex items-center gap-2 py-1">
-                            {team.flagEmoji && <span>{team.flagEmoji}</span>}
-                            <span className="flex-1 text-sm text-gray-800">{team.name}</span>
-                            <select
-                              data-testid={`team-status-${team.id}`}
-                              value={team.status}
-                              onChange={e =>
-                                updateTeamStatus(team.id, e.target.value as TournamentTeam['status'])
-                              }
-                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white"
-                            >
-                              <option value="active">Active</option>
-                              <option value="eliminated">Eliminated</option>
-                              <option value="winner">Winner 🏆</option>
-                            </select>
-                            <button
-                              data-testid={`delete-team-${team.id}`}
-                              onClick={() => deleteTeam(team.id)}
-                              className="text-red-400 hover:text-red-600 text-lg leading-none p-1"
-                              aria-label="Delete team"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
+                        .map(team =>
+                          editingTeamId === team.id ? (
+                            <div key={team.id} className="flex flex-col gap-2 py-1 border border-blue-100 rounded-xl p-2">
+                              <div className="flex gap-2">
+                                <input
+                                  data-testid={`edit-team-name-${team.id}`}
+                                  value={editTeamName}
+                                  onChange={e => setEditTeamName(e.target.value)}
+                                  placeholder="Team name"
+                                  className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5"
+                                />
+                                <input
+                                  data-testid={`edit-team-flag-${team.id}`}
+                                  value={editTeamFlag}
+                                  onChange={e => setEditTeamFlag(e.target.value)}
+                                  placeholder="🏳️"
+                                  className="w-12 text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center"
+                                />
+                              </div>
+                              <div className="flex gap-2 flex-wrap items-center">
+                                <label className="text-xs text-gray-500">Pot</label>
+                                <input
+                                  data-testid={`edit-team-pot-${team.id}`}
+                                  type="number"
+                                  min="1"
+                                  max="8"
+                                  value={editTeamPot}
+                                  onChange={e => setEditTeamPot(e.target.value)}
+                                  className="w-14 text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center"
+                                />
+                                <label className="text-xs text-gray-500">Group</label>
+                                <input
+                                  data-testid={`edit-team-group-${team.id}`}
+                                  value={editTeamGroup}
+                                  onChange={e => setEditTeamGroup(e.target.value)}
+                                  placeholder="A"
+                                  className="w-12 text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center uppercase"
+                                />
+                                <select
+                                  data-testid={`edit-team-status-${team.id}`}
+                                  value={editTeamStatus}
+                                  onChange={e => setEditTeamStatus(e.target.value as TournamentTeam['status'])}
+                                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+                                >
+                                  <option value="active">Active</option>
+                                  <option value="round_of_16">Round of 16</option>
+                                  <option value="quarter_final">Quarter-final</option>
+                                  <option value="semi_final">Semi-final</option>
+                                  <option value="final">Final</option>
+                                  <option value="winner">Winner 🏆</option>
+                                  <option value="eliminated">Eliminated</option>
+                                </select>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  data-testid={`save-team-edit-${team.id}`}
+                                  onClick={saveTeamEdit}
+                                  className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingTeamId(null)}
+                                  className="text-xs text-gray-500 px-2 py-1.5 rounded-lg border border-gray-200"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={team.id} className="flex items-center gap-2 py-1">
+                              {team.flagEmoji && <span>{team.flagEmoji}</span>}
+                              <span className="flex-1 text-sm text-gray-800">{team.name}</span>
+                              <select
+                                data-testid={`team-status-${team.id}`}
+                                value={team.status}
+                                onChange={e =>
+                                  updateTeamStatus(team.id, e.target.value as TournamentTeam['status'])
+                                }
+                                className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white"
+                              >
+                                <option value="active">Active</option>
+                                <option value="round_of_16">Round of 16</option>
+                                <option value="quarter_final">Quarter-final</option>
+                                <option value="semi_final">Semi-final</option>
+                                <option value="final">Final</option>
+                                <option value="winner">Winner 🏆</option>
+                                <option value="eliminated">Eliminated</option>
+                              </select>
+                              <button
+                                data-testid={`edit-team-btn-${team.id}`}
+                                onClick={() => openEditTeam(team)}
+                                className="text-xs text-blue-500 px-2 py-1 rounded-lg active:bg-blue-50"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                data-testid={`delete-team-${team.id}`}
+                                onClick={() => deleteTeam(team.id)}
+                                className="text-red-400 hover:text-red-600 text-lg leading-none p-1"
+                                aria-label="Delete team"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )
+                        )}
                     </div>
                   ))}
 

@@ -11,6 +11,7 @@ import type {
 } from '../types';
 import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
+import { tryApplyLocalUpdate } from '../lib/localUpdater';
 import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableRedirectMessage } from '../lib/capabilityRegistry';
 import { normalizeGenerateResponse } from '../lib/normalizeResponse';
 import { containsHtmlLikeText } from '../lib/htmlGuard';
@@ -252,15 +253,30 @@ export function usePocketVibe() {
       });
 
       // ── Normalize: reject generative_html, strip HTML from text fields ────
+      const existing = stateRef.current.creations.find(c => c.id === creationId);
       const safeRes = normalizeGenerateResponse(res, req);
       if (!safeRes) {
-        // AI returned an unsupported or HTML type — use offline fallback silently
+        if (req.mode !== 'new' && existing) {
+          // For improve/add: restore existing creation unchanged, show honest message
+          dispatch({
+            type: 'UPSERT_CREATION',
+            payload: { ...existing, status: 'ready', updatedAt: existing.updatedAt },
+          });
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
+              id: `a-${Date.now()}`,
+              role: 'assistant',
+              text: "I couldn't update that properly. Your tool is unchanged.",
+            },
+          });
+          return;
+        }
+        // 'new' mode — use offline fallback silently
         res = generateOfflineFallback(req.userRequest);
       } else {
         res = safeRes;
       }
-
-      const existing = stateRef.current.creations.find(c => c.id === creationId);
 
       // ── Trust: visible-change verification for improve/add ────────────────
       if (req.mode !== 'new' && existing) {
@@ -509,7 +525,25 @@ export function usePocketVibe() {
       return;
     }
     // ── End capability gate ───────────────────────────────────────────────────
-
+    // ── Local update shortcut ────────────────────────────────────────────────
+    const localResult = tryApplyLocalUpdate(userRequest, current);
+    if (localResult.handled && localResult.updatedContent) {
+      dispatch({
+        type: 'UPSERT_CREATION',
+        payload: {
+          ...current,
+          content: localResult.updatedContent,
+          version: current.version + 1,
+          updatedAt: Date.now(),
+          status: 'ready',
+        },
+      });
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: { id: `a-${Date.now()}`, role: 'assistant', text: localResult.message ?? 'Done.' },
+      });
+      return;
+    }
     const locale = {
       date: new Date().toISOString().slice(0, 10),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

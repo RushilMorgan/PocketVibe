@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ChatMessage, Creation } from '../types';
+import { getAIConnectionStatus } from '../services/aiService';
 
 interface CreationComposerProps {
   activeCreation: Creation | null;
@@ -25,6 +26,10 @@ export function CreationComposer({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const hasActive = Boolean(activeCreation);
+  const aiStatus = getAIConnectionStatus();
+  if (isOpen && !aiStatus.connected) {
+    console.log('[PocketVibe] AI not connected:', aiStatus.reason);
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -91,6 +96,19 @@ export function CreationComposer({
               <div className="mx-4 mb-2 px-4 py-2 bg-violet-50 rounded-xl flex items-center gap-2 flex-shrink-0">
                 <span className="text-base animate-spin">⚙️</span>
                 <span className="text-sm text-violet-700 font-medium">{processingStatus}</span>
+              </div>
+            )}
+
+            {/* AI status banner */}
+            {!aiStatus.connected && (
+              <div
+                data-testid="ai-status-banner"
+                className="mx-4 mb-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 flex-shrink-0"
+              >
+                <span className="text-base">⚠️</span>
+                <span className="text-sm text-amber-700">
+                  AI updates are not connected yet. You can still edit this tool directly.
+                </span>
               </div>
             )}
 

@@ -55,7 +55,6 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (error || !row) return json({ error: 'Shared creation not found' }, 404);
-  if (!row.public_view) return json({ error: 'This creation is private' }, 403);
 
   let accessMode: 'admin' | 'participant' | 'viewer' = 'viewer';
   let participantRef: string | undefined;
@@ -83,6 +82,11 @@ Deno.serve(async (req: Request) => {
         }
       }
     }
+  }
+
+  // If no valid token resolved and the creation is private, deny access.
+  if (accessMode === 'viewer' && !row.public_view) {
+    return json({ error: 'This creation is private' }, 403);
   }
 
   return json({

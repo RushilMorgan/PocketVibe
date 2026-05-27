@@ -20,8 +20,8 @@ const FLAGSHIP_TOOLS = [
     id: 'world-cup-pool',
     emoji: '🏆',
     name: 'World Cup / Tournament Pool',
-    description: 'Put money in the pot, draw teams, track results and see who takes the prize.',
-    prompt: 'My family is doing a World Cup draw. We are putting money together, each person draws teams from seeded pots, and whoever has the winning team gets the prize.',
+    description: 'Run a friendly team draw for your family or office. Pick teams, track results, and follow the leaderboard together.',
+    prompt: 'Create a friendly World Cup pool for my family. Add participants, draw teams from seeded pots, track results, and show a leaderboard.',
     gradient: 'from-yellow-500 to-orange-500',
   },
 ] as const;

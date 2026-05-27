@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS shared_participants (
 CREATE INDEX IF NOT EXISTS shared_participants_creation_idx
   ON shared_participants (shared_creation_id);
 
+-- Ensure upsert on (creation, participant_ref) works correctly.
+-- create-participant-link uses onConflict: 'shared_creation_id,participant_ref'
+ALTER TABLE shared_participants
+  ADD CONSTRAINT IF NOT EXISTS shared_participants_creation_ref_unique
+  UNIQUE (shared_creation_id, participant_ref);
+
 -- ── shared_creation_events ────────────────────────────────────────────────────
 -- Audit log of every write action performed through the API.
 

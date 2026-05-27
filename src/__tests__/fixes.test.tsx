@@ -185,6 +185,7 @@ describe('FIX 9 — SharePanel shows existing shared link', () => {
 
     expect(screen.getByText(/already shared/i)).toBeInTheDocument();
     expect(screen.getByTestId('copy-existing-admin-link')).toBeInTheDocument();
+    // tournament_pool_tracker is public → view link shown
     expect(screen.getByTestId('copy-existing-view-link')).toBeInTheDocument();
     expect(screen.queryByTestId('create-share-link-btn')).not.toBeInTheDocument();
   });
@@ -207,5 +208,150 @@ describe('FIX 9 — SharePanel shows existing shared link', () => {
 
     expect(screen.getByTestId('create-share-link-btn')).toBeInTheDocument();
     expect(screen.queryByText(/already shared/i)).not.toBeInTheDocument();
+  });
+});
+
+// ── NEW FIX: get-shared-creation access control ───────────────────────────────
+
+describe('get-shared-creation — access control', () => {
+  it('source checks token BEFORE checking public_view', () => {
+    const src = readEdgeFn('get-shared-creation');
+    // The public_view guard must come AFTER the token-resolution block
+    const tokenCheckIdx = src.indexOf('if (token)');
+    const publicViewGuardIdx = src.indexOf('accessMode === \'viewer\' && !row.public_view');
+    expect(tokenCheckIdx).toBeGreaterThan(-1);
+    expect(publicViewGuardIdx).toBeGreaterThan(-1);
+    expect(publicViewGuardIdx).toBeGreaterThan(tokenCheckIdx);
+  });
+
+  it('private creation with no token returns 403', () => {
+    const src = readEdgeFn('get-shared-creation');
+    expect(src).toContain("accessMode === 'viewer' && !row.public_view");
+    expect(src).toContain('This creation is private');
+    expect(src).toContain('403');
+  });
+
+  it('source no longer has early public_view guard before token check', () => {
+    const src = readEdgeFn('get-shared-creation');
+    // The broken early-return must not exist
+    expect(src).not.toContain('if (!row.public_view) return json');
+  });
+
+  it('admin access flows through token check before privacy check', () => {
+    const src = readEdgeFn('get-shared-creation');
+    // Must set accessMode = 'admin' in token block
+    expect(src).toContain("accessMode = 'admin'");
+    expect(src).toContain("accessMode = 'participant'");
+  });
+});
+
+// ── NEW FIX: SharePanel publicView respects privacy ───────────────────────────
+
+describe('SharePanel — publicView privacy', () => {
+  function makeWorkoutCreation(overrides: Partial<Creation> = {}): Creation {
+    return {
+      id: 'c2',
+      title: 'Partner Challenge',
+      creationType: 'workout_tracker',
+      description: '',
+      summary: '',
+      originalRequest: '',
+      status: 'ready',
+      version: 1,
+      createdAt: 0,
+      updatedAt: 0,
+      content: {
+        type: 'workout_tracker',
+        planName: 'Partner Challenge',
+        challengeMode: true,
+        participants: [],
+        weeklyTarget: 3,
+        scoringRules: { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 },
+        logs: [],
+      },
+      ...overrides,
+    };
+  }
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('Partner Challenge (private): existing share does not show view link', async () => {
+    const slug = 'privateslug';
+    localStorage.setItem('pv_admin_tokens', JSON.stringify({ [slug]: 'admintoken' }));
+    const { SharePanel } = await import('../components/SharePanel');
+    const creation = makeWorkoutCreation({ shareSlug: slug });
+    render(<SharePanel creation={creation} onClose={vi.fn()} />);
+    expect(screen.queryByTestId('copy-existing-view-link')).not.toBeInTheDocument();
+    expect(screen.getByTestId('copy-existing-admin-link')).toBeInTheDocument();
+    expect(screen.getByText(/Only people with their own link/i)).toBeInTheDocument();
+  });
+
+  it('World Cup Pool (public): existing share shows view link', async () => {
+    const slug = 'publicslug';
+    localStorage.setItem('pv_admin_tokens', JSON.stringify({ [slug]: 'admintoken' }));
+    const { SharePanel } = await import('../components/SharePanel');
+    const creation = makePoolCreation({ shareSlug: slug });
+    render(<SharePanel creation={creation} onClose={vi.fn()} />);
+    expect(screen.getByTestId('copy-existing-view-link')).toBeInTheDocument();
+    expect(screen.getByTestId('copy-existing-admin-link')).toBeInTheDocument();
+  });
+});
+
+// ── NEW FIX 6: No duplicate JSX props ─────────────────────────────────────────
+
+describe('SharePanel — no duplicate JSX props', () => {
+  it('SharePanel source has no duplicate onCopy prop on the same element', () => {
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '../components/SharePanel.tsx'),
+      'utf8',
+    );
+    // Split into JSX elements and check no element has onCopy twice
+    // Simple heuristic: no run of lines inside a <LinkRow has two onCopy= occurrences
+    const elements = src.split('<LinkRow');
+    for (const el of elements.slice(1)) {
+      const closingIdx = el.indexOf('/>');
+      const elementSrc = el.slice(0, closingIdx);
+      const count = (elementSrc.match(/onCopy=/g) ?? []).length;
+      expect(count).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// ── NEW FIX 5: No gambling/money wording in HomeScreen ────────────────────────
+
+describe('HomeScreen — no gambling wording in public copy', () => {
+  it('does not contain money-in-the-pot phrasing', () => {
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '../components/HomeScreen.tsx'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/put money in the pot/i);
+    expect(src).not.toMatch(/whoever wins gets the money/i);
+    expect(src).not.toMatch(/putting money together/i);
+  });
+
+  it('uses friendly pool / leaderboard language', () => {
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '../components/HomeScreen.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/friendly/i);
+    expect(src).toMatch(/leaderboard/i);
+  });
+});
+
+// ── Schema — unique constraint ────────────────────────────────────────────────
+
+describe('schema.sql — participant unique constraint', () => {
+  it('defines unique constraint on (shared_creation_id, participant_ref)', () => {
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '../../supabase/schema.sql'),
+      'utf8',
+    );
+    expect(src).toContain('shared_participants_creation_ref_unique');
+    expect(src).toContain('UNIQUE (shared_creation_id, participant_ref)');
   });
 });

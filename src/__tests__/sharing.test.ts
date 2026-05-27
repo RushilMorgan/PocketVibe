@@ -392,16 +392,13 @@ describe('shareService', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    // Set env vars expected by shareService
-    (import.meta as any).env = {
-      ...(import.meta as any).env,
-      VITE_SUPABASE_URL: 'https://test.supabase.co',
-      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-    };
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key');
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 

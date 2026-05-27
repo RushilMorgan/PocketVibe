@@ -18,6 +18,7 @@ interface ShareLinks {
   viewUrl: string;
   adminUrl: string;
   participantLinks: { name: string; emoji: string; url: string }[];
+  publicView: boolean;
 }
 
 export function SharePanel({ creation, onClose, onCreationShared }: SharePanelProps) {
@@ -33,6 +34,8 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
 
   const isWorkout = creation.creationType === 'workout_tracker';
   const isTournament = creation.creationType === 'tournament_pool_tracker';
+  // Mirror server-side privacy defaults: only tournament_pool_tracker is public by default
+  const isPublicByDefault = isTournament;
 
   const participants: { id: string; name: string; emoji?: string }[] =
     isWorkout
@@ -65,7 +68,7 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
         }
       }
 
-      setLinks({ shareSlug: slug, viewUrl: result.viewUrl, adminUrl: result.adminUrl, participantLinks });
+      setLinks({ shareSlug: slug, viewUrl: result.viewUrl, adminUrl: result.adminUrl, participantLinks, publicView: result.publicView ?? false });
       setPhase('done');
       onCreationShared?.(slug);
     } catch (err) {
@@ -112,14 +115,21 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
 
             {existingAdminToken ? (
               <>
-                <LinkRow
-                  label="View link"
-                  url={`${typeof window !== 'undefined' ? window.location.origin : 'https://heytoolie.com'}/s/${existingSlug}`}
-                  copiedKey={copiedKey}
-                  myKey="existing-view"
-                  onCopy={copy}
-                  testId="copy-existing-view-link"
-                />
+                {isPublicByDefault && (
+                  <LinkRow
+                    label="Anyone with this link can view"
+                    url={`${typeof window !== 'undefined' ? window.location.origin : 'https://heytoolie.com'}/s/${existingSlug}`}
+                    copiedKey={copiedKey}
+                    myKey="existing-view"
+                    onCopy={copy}
+                    testId="copy-existing-view-link"
+                  />
+                )}
+                {!isPublicByDefault && (
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-600">
+                    🔒 Only people with their own link can open this.
+                  </div>
+                )}
                 <LinkRow
                   label="Admin link (keep private)"
                   sublabel="Lets you edit everything"
@@ -189,15 +199,21 @@ export function SharePanel({ creation, onClose, onCreationShared }: SharePanelPr
         {/* ── Done — show links ── */}
         {phase === 'done' && links && (
           <div className="space-y-3">
-            {/* View link */}
-            <LinkRow
-              label="Anyone with this link can view"
-              url={links.viewUrl}
-              copiedKey={copiedKey}
-              myKey="view"
-              onCopy={copy}
-              testId="copy-view-link-btn"
-            />
+            {/* View link — only shown for public tools */}
+            {links.publicView ? (
+              <LinkRow
+                label="Anyone with this link can view"
+                url={links.viewUrl}
+                copiedKey={copiedKey}
+                myKey="view"
+                onCopy={copy}
+                testId="copy-view-link-btn"
+              />
+            ) : (
+              <div className="px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-600">
+                🔒 Only people with their own link can open this.
+              </div>
+            )}
 
             {/* Admin link */}
             <LinkRow

@@ -5,6 +5,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { MyCreations } from './components/MyCreations';
 import { CreationComposer } from './components/CreationComposer';
 import { TemplateRenderer } from './components/templates/TemplateRenderer';
+import { SharePanel } from './components/SharePanel';
 import { usePocketVibe } from './hooks/usePocketVibe';
 import { formatCreationSummary } from './lib/creationSummary';
 
@@ -27,6 +28,7 @@ export default function App() {
 
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [sharePanelOpen, setSharePanelOpen] = useState(false);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
 
@@ -93,15 +95,13 @@ export default function App() {
             {/* Share / copy buttons */}
             {activeCreation?.status === 'ready' && !isGenerating && (
               <div className="mx-4 mt-2 flex-shrink-0 flex gap-2">
-                {typeof navigator !== 'undefined' && 'share' in navigator && (
-                  <button
-                    data-testid="share-creation-btn"
-                    onClick={handleNativeShare}
-                    className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    ↗ Share
-                  </button>
-                )}
+                <button
+                  data-testid="share-creation-btn"
+                  onClick={() => setSharePanelOpen(true)}
+                  className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  ✨ Share link
+                </button>
                 <button
                   data-testid="copy-creation-btn"
                   onClick={handleCopyText}
@@ -194,6 +194,17 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+      {/* Share panel */}
+      {sharePanelOpen && activeCreation && (
+        <SharePanel
+          creation={activeCreation}
+          onClose={() => setSharePanelOpen(false)}
+          onCreationShared={(slug) => {
+            // Mark creation as shared in local state (no-op if hook doesn't support it)
+            setSharePanelOpen(false);
+          }}
+        />
       )}
     </AppShell>
   );

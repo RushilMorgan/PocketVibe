@@ -384,6 +384,7 @@ export function usePocketVibe() {
         workout_tracker: '#ef4444',
         price_calculator: '#8b5cf6',
         task_planner: '#6366f1',
+        tournament_pool_tracker: '#f59e0b',
       };
       dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
     } catch (err) {

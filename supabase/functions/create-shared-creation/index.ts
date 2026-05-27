@@ -1,0 +1,118 @@
+// Supabase Edge Function — create-shared-creation
+// Creates a new shared tool record and returns the slug + tokens.
+// Deploy: supabase functions deploy create-shared-creation
+
+// @ts-nocheck
+// deno-lint-ignore-file
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
+};
+
+const SLUG_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789'; // unambiguous chars
+
+function generateSlug(len = 8): string {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map(b => SLUG_CHARS[b % SLUG_CHARS.length]).join('');
+}
+
+async function sha256Hex(token: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  });
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
+  let body: { title?: string; creationType?: string; content?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: 'Invalid JSON' }, 400);
+  }
+
+  const { title, creationType, content } = body;
+  if (!title || !creationType || !content) {
+    return json({ error: 'title, creationType, and content are required' }, 400);
+  }
+
+  const SUPPORTED_TYPES = [
+    'checklist', 'habit_tracker', 'budget_calculator', 'savings_tracker',
+    'landing_page', 'event_planner', 'meal_planner', 'workout_tracker',
+    'price_calculator', 'task_planner', 'tournament_pool_tracker',
+  ];
+  if (!SUPPORTED_TYPES.includes(creationType)) {
+    return json({ error: `Unsupported creationType: ${creationType}` }, 400);
+  }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  // Generate unique slug (retry on collision — very unlikely)
+  let shareSlug = generateSlug();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data } = await supabase
+      .from('shared_creations')
+      .select('id')
+      .eq('share_slug', shareSlug)
+      .maybeSingle();
+    if (!data) break;
+    shareSlug = generateSlug();
+  }
+
+  const adminToken = crypto.randomUUID();
+  const ownerTokenHash = await sha256Hex(adminToken);
+
+  const { error } = await supabase.from('shared_creations').insert({
+    share_slug: shareSlug,
+    title: String(title).slice(0, 200),
+    creation_type: creationType,
+    content,
+    owner_token_hash: ownerTokenHash,
+    version: 1,
+  });
+
+  if (error) {
+    console.error('[create-shared-creation] DB error:', error.message);
+    return json({ error: 'Failed to save shared creation' }, 500);
+  }
+
+  const origin = req.headers.get('origin') ?? 'https://pocketvibe.app';
+  const viewUrl = `${origin}/s/${shareSlug}`;
+  const adminUrl = `${origin}/s/${shareSlug}?admin=${adminToken}`;
+
+  // Log creation event
+  const { data: row } = await supabase
+    .from('shared_creations')
+    .select('id')
+    .eq('share_slug', shareSlug)
+    .single();
+
+  if (row) {
+    await supabase.from('shared_creation_events').insert({
+      shared_creation_id: row.id,
+      actor_type: 'admin',
+      actor_ref: 'admin',
+      event_type: 'create',
+      payload: { creationType },
+    });
+  }
+
+  return json({ shareSlug, viewUrl, adminUrl, adminToken });
+});

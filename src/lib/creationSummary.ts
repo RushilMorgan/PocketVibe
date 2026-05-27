@@ -89,20 +89,153 @@ function formatMealPlanner(c: MealPlannerContent): string {
   return lines.join('\n');
 }
 
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function weekKey(dateStr: string): string {
+  return getMonday(new Date(dateStr + 'T12:00:00')).toISOString().slice(0, 10);
+}
+
 function formatWorkoutTracker(c: WorkoutTrackerContent): string {
   if (c.challengeMode || (c.participants && c.participants.length > 0)) {
-    const names = (c.participants ?? []).map(p => p.name).join(', ');
-    const lines = [`Challenge: ${c.planName}`, `Participants: ${names}`];
-    if (c.weeklyTarget) lines.push(`Weekly target: ${c.weeklyTarget} sessions`);
-    if (c.logs && c.logs.length > 0) lines.push(`Total logs: ${c.logs.length}`);
+    const participants = c.participants ?? [];
+    const logs = c.logs ?? [];
+    const rules = c.scoringRules ?? { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 };
+    const weeklyTarget = c.weeklyTarget ?? 3;
+
+    // Calculate scores
+    const thisWeekKey = weekKey(new Date().toISOString().slice(0, 10));
+
+    type Score = { participant: { id: string; name: string; emoji?: string }; points: number; sessionsThisWeek: number };
+    const scores: Score[] = participants.map(p => {
+      const pLogs = logs.filter(l => l.participantId === p.id);
+      const points = pLogs.reduce((sum, l) => {
+        let pts = rules.pointsPerActivity;
+        if (l.activityType === 'run') pts += rules.runningBonus;
+        return sum + pts;
+      }, 0);
+      // Weekly target bonus
+      const weekCounts: Record<string, number> = {};
+      for (const l of pLogs) {
+        const wk = weekKey(l.date);
+        weekCounts[wk] = (weekCounts[wk] ?? 0) + 1;
+      }
+      let bonusPoints = 0;
+      for (const count of Object.values(weekCounts)) {
+        if (count >= weeklyTarget) bonusPoints += rules.weeklyTargetBonus;
+      }
+      const sessionsThisWeek = weekCounts[thisWeekKey] ?? 0;
+      return { participant: p, points: points + bonusPoints, sessionsThisWeek };
+    });
+    scores.sort((a, b) => b.points - a.points);
+
+    const lines = [`${c.planName}`, '', 'Leaderboard:'];
+    scores.forEach((s, i) => {
+      lines.push(`${i + 1}. ${s.participant.emoji ?? '🏃'} ${s.participant.name} — ${s.points} pts — ${s.sessionsThisWeek}/${weeklyTarget} this week`);
+    });
+
+    // Recent logs (last 3)
+    const recent = [...logs]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 3);
+    if (recent.length > 0) {
+      lines.push('', 'Recent:');
+      for (const l of recent) {
+        const p = participants.find(p => p.id === l.participantId);
+        const name = p?.name ?? 'Someone';
+        const when = l.date === new Date().toISOString().slice(0, 10) ? 'today' : l.date;
+        lines.push(`- ${name} logged ${l.activityType} ${when}`);
+      }
+    }
+
     return lines.join('\n');
   }
+
   return (c.days ?? [])
     .map(d => {
       const exs = d.exercises.map(e => `${e.name} ${e.sets}×${e.reps}`).join(', ');
       return `${d.label}: ${exs}`;
     })
     .join('\n');
+}
+
+function formatTournamentPool(c: TournamentPoolTrackerContent): string {
+  const participants = c.participants;
+  const teams = c.teams;
+  const matches = c.matches;
+  const rules = c.scoringRules;
+
+  // Calculate leaderboard
+  type LBEntry = { participant: { id: string; name: string; emoji?: string }; points: number; teamNames: string[] };
+  const leaderboard: LBEntry[] = participants.map(p => {
+    const myTeams = teams.filter(t => t.assignedTo === p.id);
+    let points = 0;
+    for (const team of myTeams) {
+      // Points from matches won
+      for (const match of matches) {
+        const isA = match.teamAId === team.id;
+        const isB = match.teamBId === team.id;
+        if (!isA && !isB) continue;
+        const sa = match.scoreA ?? 0;
+        const sb = match.scoreB ?? 0;
+        if (sa === sb) points += rules.pointsPerDraw;
+        else if ((isA && sa > sb) || (isB && sb > sa)) points += rules.pointsPerWin;
+      }
+      // Status bonuses
+      const statusBonus: Partial<Record<string, number>> = {
+        round_of_16: rules.knockoutBonus,
+        quarter_final: rules.quarterFinalBonus,
+        semi_final: rules.semiFinalBonus,
+        final: rules.finalBonus,
+        winner: rules.winnerBonus,
+      };
+      points += statusBonus[team.status] ?? 0;
+    }
+    return { participant: p, points, teamNames: myTeams.map(t => t.name) };
+  });
+  leaderboard.sort((a, b) => b.points - a.points);
+
+  const lines = [`${c.poolName}`, ''];
+
+  if (leaderboard.length > 0) {
+    lines.push('Leaderboard:');
+    leaderboard.forEach((e, i) => {
+      const teamStr = e.teamNames.length > 0 ? ` — ${e.teamNames.join(', ')}` : '';
+      lines.push(`${i + 1}. ${e.participant.emoji ?? '👤'} ${e.participant.name} — ${e.points} pts${teamStr}`);
+    });
+    lines.push('');
+  }
+
+  const assigned = teams.filter(t => t.assignedTo).length;
+  const drawStatus = c.drawLocked
+    ? `Draw locked — ${assigned}/${teams.length} teams assigned`
+    : assigned > 0
+      ? `Draw in progress — ${assigned}/${teams.length} teams assigned`
+      : 'Draw not started';
+  lines.push(drawStatus);
+
+  // Latest results (last 2 matches)
+  const latestMatches = [...matches]
+    .filter(m => m.scoreA !== undefined)
+    .slice(-2)
+    .reverse();
+  if (latestMatches.length > 0) {
+    const resultLines = latestMatches.map(m => {
+      const tA = teams.find(t => t.id === m.teamAId)?.name ?? '?';
+      const tB = teams.find(t => t.id === m.teamBId)?.name ?? '?';
+      return `${tA} ${m.scoreA}–${m.scoreB} ${tB}`;
+    });
+    lines.push(`Latest results: ${resultLines.join(', ')}`);
+  }
+
+  if (c.prizeNote) lines.push(`Prize: ${c.prizeNote}`);
+
+  return lines.join('\n');
 }
 
 function formatPriceCalculator(c: PriceCalculatorContent): string {
@@ -123,17 +256,6 @@ function formatTaskPlanner(c: TaskPlannerContent): string {
       return `${s.title}: ${tasks}`;
     })
     .join('\n');
-}
-
-function formatTournamentPool(c: TournamentPoolTrackerContent): string {
-  const lines = [`Pool: ${c.poolName}`, `Tournament: ${c.tournamentName}`];
-  if (c.prizeNote) lines.push(`Prize: ${c.prizeNote}`);
-  lines.push(`Participants: ${c.participants.map(p => p.name).join(', ')}`);
-  const assigned = c.teams.filter(t => t.assignedTo);
-  if (assigned.length > 0) lines.push(`Teams drawn: ${assigned.length} of ${c.teams.length}`);
-  if (c.matches.length > 0) lines.push(`Results entered: ${c.matches.length}`);
-  if (c.drawLocked) lines.push('Draw: Locked');
-  return lines.join('\n');
 }
 
 export function formatCreationSummary(creation: Creation): string {

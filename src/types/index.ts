@@ -437,7 +437,41 @@ export interface Creation {
   content: CreationContent;
   isFavorite?: boolean;
   sourceTemplate?: string;
+  shareSlug?: string;      // set once the creation has been shared
 }
+
+// ── Sharing ───────────────────────────────────────────────────────────────────
+
+export type AccessMode = 'admin' | 'participant' | 'viewer';
+
+export interface SharedCreationData {
+  shareSlug: string;
+  title: string;
+  creationType: CreationType;
+  content: CreationContent;
+  version: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SharedCreationResponse {
+  creation: SharedCreationData;
+  accessMode: AccessMode;
+  participantRef?: string;   // set when accessMode === 'participant'
+}
+
+export interface CreateSharedResult {
+  shareSlug: string;
+  viewUrl: string;
+  adminUrl: string;
+  adminToken: string;
+}
+
+export interface ParticipantLinkResult {
+  participantUrl: string;
+  participantToken: string;
+}
+
 
 // ── Generation ────────────────────────────────────────────────────────────────
 

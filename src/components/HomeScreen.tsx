@@ -5,6 +5,7 @@ import { DEV_MODE } from '../lib/featureFlags';
 interface HomeScreenProps {
   onPrompt: (prompt: string) => void;
   isGenerating: boolean;
+  onCreateWorldCupPool?: () => void;
 }
 
 const FLAGSHIP_TOOLS = [
@@ -26,7 +27,7 @@ const FLAGSHIP_TOOLS = [
   },
 ] as const;
 
-export function HomeScreen({ onPrompt, isGenerating }: HomeScreenProps) {
+export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: HomeScreenProps) {
   const [input, setInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -141,7 +142,13 @@ export function HomeScreen({ onPrompt, isGenerating }: HomeScreenProps) {
             <button
               key={tool.id}
               data-testid={`flagship-${tool.id}`}
-              onClick={() => handleStarter(tool.prompt)}
+              onClick={() => {
+                if (tool.id === 'world-cup-pool' && onCreateWorldCupPool) {
+                  onCreateWorldCupPool();
+                } else {
+                  handleStarter(tool.prompt);
+                }
+              }}
               disabled={isGenerating}
               className="text-left rounded-2xl overflow-hidden border border-gray-100 shadow-sm active:scale-[0.98] transition-transform disabled:opacity-50"
             >

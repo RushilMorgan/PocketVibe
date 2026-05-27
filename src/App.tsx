@@ -25,6 +25,7 @@ export default function App() {
     renameCreation,
     updateCreationContent,
     setCreationShareSlug,
+    createWorldCupPool,
   } = usePocketVibe();
 
   const [copied, setCopied] = useState(false);
@@ -79,6 +80,7 @@ export default function App() {
           <HomeScreen
             onPrompt={startNewCreation}
             isGenerating={isGenerating}
+            onCreateWorldCupPool={createWorldCupPool}
           />
         )}
 

@@ -8,8 +8,11 @@ import type {
   ChatMessage,
   GenerationMode,
   GenerateRequest,
+  TournamentTeam,
 } from '../types';
 import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
+import { getWorldCupData } from '../services/worldCupService';
+import { WC2026_FALLBACK_TEAMS, WC2026_SCORING_RULES, toPoolTeams } from '../lib/worldCupTeams';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
 import { tryApplyLocalUpdate } from '../lib/localUpdater';
 import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableRedirectMessage } from '../lib/capabilityRegistry';
@@ -619,6 +622,65 @@ export function usePocketVibe() {
     dispatch({ type: 'SET_CREATION_SHARE_SLUG', payload: { id, shareSlug } });
   }, []);
 
+  // ── One-click World Cup Pool creation ─────────────────────────────────────────
+
+  const createWorldCupPool = useCallback(async () => {
+    if (stateRef.current.isGenerating) return;
+
+    dispatch({ type: 'CLEAR_MESSAGES' });
+    dispatch({ type: 'SET_GENERATING', payload: true });
+    dispatch({ type: 'SET_PROCESSING_STATUS', payload: 'Loading World Cup teams…' });
+
+    let teams: TournamentTeam[];
+    let teamsSource: 'api' | 'local_fallback';
+
+    try {
+      const { teams: wcTeams } = await getWorldCupData();
+      if (wcTeams.length > 0) {
+        teams = toPoolTeams(wcTeams);
+        teamsSource = 'api';
+      } else {
+        teams = WC2026_FALLBACK_TEAMS.map(t => ({ ...t }));
+        teamsSource = 'local_fallback';
+      }
+    } catch {
+      teams = WC2026_FALLBACK_TEAMS.map(t => ({ ...t }));
+      teamsSource = 'local_fallback';
+    }
+
+    const now = Date.now();
+    const creationId = `c-${now}`;
+    const creation: Creation = {
+      id: creationId,
+      title: 'World Cup 2026 Pool',
+      creationType: 'tournament_pool_tracker',
+      description: '',
+      summary: `${teams.length} teams across 4 pots, ready to draw.`,
+      originalRequest: 'World Cup Pool',
+      status: 'ready',
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      content: {
+        type: 'tournament_pool_tracker',
+        poolName: 'World Cup 2026 Pool',
+        tournamentName: 'FIFA World Cup 2026',
+        participants: [],
+        teams,
+        matches: [],
+        drawLocked: false,
+        scoringRules: WC2026_SCORING_RULES,
+        teamsSource,
+      },
+    };
+
+    dispatch({ type: 'UPSERT_CREATION', payload: creation });
+    dispatch({ type: 'SET_ACTIVE_CREATION', payload: creationId });
+    dispatch({ type: 'SET_VIEW', payload: 'creation' });
+    dispatch({ type: 'SET_GENERATING', payload: false });
+    dispatch({ type: 'SET_PROCESSING_STATUS', payload: null });
+  }, []);
+
   return {
     state,
     dispatch,
@@ -636,5 +698,6 @@ export function usePocketVibe() {
     updateCreationContent,
     toggleFavorite,
     setCreationShareSlug,
+    createWorldCupPool,
   };
 }

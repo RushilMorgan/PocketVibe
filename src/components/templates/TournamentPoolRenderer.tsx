@@ -371,6 +371,10 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
   const MEDAL = ['🥇', '🥈', '🥉'];
 
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // Derived setup checklist state
+  const allTeamsAssigned = content.teams.length > 0 && unassignedTeams.length === 0 && content.participants.length > 0;
+
   return (
     <div className="flex flex-col gap-4 p-4 relative">
 
@@ -398,6 +402,84 @@ export function TournamentPoolRenderer({ content, onChange }: Props) {
           </span>
         )}
       </div>
+
+      {/* ── Setup checklist (visible until draw is locked) ────────────────── */}
+      {!content.drawLocked && (
+        <div data-testid="setup-checklist" className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">
+            Get your pool ready
+          </p>
+          <div className="flex flex-col gap-2.5">
+            {([
+              {
+                done: content.participants.length > 0,
+                label: 'Add people',
+                sub: content.participants.length > 0
+                  ? `${content.participants.length} participant${content.participants.length !== 1 ? 's' : ''} added`
+                  : 'Tap "Edit pool" → Participants',
+              },
+              {
+                done: content.teams.length > 0,
+                label: 'Teams loaded',
+                sub: content.teams.length > 0
+                  ? `${content.teams.length} teams across ${new Set(content.teams.map(t => t.pot)).size} pots`
+                  : 'No teams — use Edit pool to add teams',
+              },
+              {
+                done: allTeamsAssigned,
+                label: 'Run the draw',
+                sub: allTeamsAssigned
+                  ? 'All teams assigned'
+                  : content.participants.length === 0
+                    ? 'Add people first'
+                    : unassignedTeams.length > 0
+                      ? `${unassignedTeams.length} team${unassignedTeams.length !== 1 ? 's' : ''} remaining — use draw buttons below`
+                      : null,
+              },
+              {
+                done: false,
+                label: 'Lock draw & share',
+                sub: allTeamsAssigned ? 'Tap "🔒 Lock draw" when ready' : null,
+              },
+            ] as { done: boolean; label: string; sub: string | null }[]).map(({ done, label, sub }, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
+                  ${done ? 'bg-green-500 text-white' : 'border-2 border-amber-200 bg-white text-transparent'}`}>
+                  ✓
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-800 font-medium'}`}>
+                    {label}
+                  </span>
+                  {sub && (
+                    <p className="text-xs text-gray-500 mt-0.5">{sub}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {content.participants.length === 0 && (
+            <button
+              data-testid="checklist-add-people-btn"
+              onClick={openEditMode}
+              className="mt-3 text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1.5 rounded-full active:bg-amber-200"
+            >
+              + Add people now
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Teams-source info banner ──────────────────────────────────────── */}
+      {content.teamsSource === 'local_fallback' && !content.drawLocked && (
+        <div data-testid="teams-source-banner" className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+          <span className="text-sm flex-shrink-0 leading-none mt-0.5">ℹ️</span>
+          <p className="text-xs text-blue-700 leading-relaxed">
+            Using built-in team list — live results sync isn't connected yet.
+            Teams and scores can still be tracked manually.
+          </p>
+        </div>
+      )}
 
       {/* ── Draw section ──────────────────────────────────────────────────── */}
       {!content.drawLocked && content.participants.length > 0 && content.teams.length > 0 && (

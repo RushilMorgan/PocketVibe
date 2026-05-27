@@ -473,6 +473,8 @@ export interface TournamentPoolTrackerContent {
   changeRequests?: ChangeRequest[];
   /** Settings for auto-updating results from canonical World Cup data. */
   autoSettings?: TournamentAutoSettings;
+  /** Where the teams came from: 'api' = live DB, 'local_fallback' = hardcoded built-in list. */
+  teamsSource?: 'api' | 'local_fallback';
 }
 
 // ── Content union ─────────────────────────────────────────────────────────────

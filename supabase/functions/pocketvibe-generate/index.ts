@@ -3,6 +3,8 @@
 // Deploy: supabase functions deploy pocketvibe-generate
 // Secret: supabase secrets set GEMINI_API_KEY=your-key
 
+// @ts-nocheck — Deno runtime file; VS Code TS errors here are false positives.
+// deno-lint-ignore-file
 import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.24.1';
 
 const CORS_HEADERS = {

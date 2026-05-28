@@ -10,12 +10,14 @@ interface CreationComposerProps {
   onNew: (request: string) => void;
   onImprove: (request: string) => void;
   onAdd: (request: string) => void;
+  onToolAction?: (actionId: string) => void;
 }
 
 interface ContextSuggestion {
   id: string;
   label: string;
   prompt: string;
+  localActionId?: string;
 }
 
 function buildPoolSuggestions(creation: Creation): ContextSuggestion[] {
@@ -34,19 +36,19 @@ function buildPoolSuggestions(creation: Creation): ContextSuggestion[] {
 
   if (!content.drawLocked || unassignedTeams > 0) {
     return [
-      { id: 'run-draw', label: 'Run the draw', prompt: 'Run the draw and reveal the teams in a fun step-by-step way.' },
+      { id: 'run-draw', label: 'Run the draw', prompt: 'Run the draw and reveal the teams in a fun step-by-step way.', localActionId: 'run-draw-all' },
       { id: 'show-teams', label: 'Show me my teams', prompt: 'Show me my teams and the pots they came from.' },
-      { id: 'share', label: shared ? 'Copy share link' : 'Share this pool', prompt: shared ? 'Copy share link for this pool.' : 'Share this pool with everyone.' },
+      { id: 'share', label: shared ? 'Copy share link' : 'Share this pool', prompt: shared ? 'Copy share link for this pool.' : 'Share this pool with everyone.', localActionId: 'share' },
     ];
   }
 
   return [
     { id: 'show-teams', label: 'Show me my teams', prompt: 'Show me my teams and explain why I am in this position.' },
-    { id: 'add-result', label: hasMatches ? 'Add another result' : 'Add a result', prompt: 'Add a result to this pool.' },
-    { id: 'scoring', label: 'Change scoring', prompt: 'Change scoring for this pool.' },
+    { id: 'add-result', label: hasMatches ? 'Add another result' : 'Add a result', prompt: 'Add a result to this pool.', localActionId: 'add-result' },
+    { id: 'scoring', label: 'Change scoring', prompt: 'Change scoring for this pool.', localActionId: 'edit-scoring' },
     { id: 'leaderboard', label: 'Explain the leaderboard', prompt: 'Explain the leaderboard for this pool.' },
-    { id: 'share', label: shared ? 'Copy share link' : 'Share this pool', prompt: shared ? 'Copy share link for this pool.' : 'Share this pool with everyone.' },
-    { id: 'colours', label: 'Change colours', prompt: 'Change colours for this pool.' },
+    { id: 'share', label: shared ? 'Copy share link' : 'Share this pool', prompt: shared ? 'Copy share link for this pool.' : 'Share this pool with everyone.', localActionId: 'share' },
+    { id: 'colours', label: 'Change colours', prompt: 'Change colours for this pool.', localActionId: 'change-theme' },
   ];
 }
 
@@ -124,6 +126,7 @@ export function CreationComposer({
   onNew,
   onImprove,
   onAdd: _onAdd,
+  onToolAction,
 }: CreationComposerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -215,7 +218,14 @@ export function CreationComposer({
                   <button
                     key={suggestion.id}
                     data-testid={`context-suggestion-${suggestion.id}`}
-                    onClick={() => sendPrompt(suggestion.prompt)}
+                    onClick={() => {
+                      if (suggestion.localActionId) {
+                        onToolAction?.(suggestion.localActionId);
+                        setIsOpen(false);
+                      } else {
+                        sendPrompt(suggestion.prompt);
+                      }
+                    }}
                     className="flex-shrink-0 whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100"
                   >
                     {suggestion.label}

@@ -43,6 +43,7 @@ export default function App() {
   const [saveNudgeDismissed, setSaveNudgeDismissed] = useState(
     () => Boolean(localStorage.getItem('pv_save_nudge_dismissed'))
   );
+  const [pendingToolAction, setPendingToolAction] = useState<string | null>(null);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
 
@@ -197,6 +198,8 @@ export default function App() {
                   creation={activeCreation}
                   onContentChange={updateCreationContent}
                   onShare={() => setSharePanelOpen(true)}
+                  pendingLocalAction={pendingToolAction}
+                  onLocalActionConsumed={() => setPendingToolAction(null)}
                 />
               </div>
             ) : !isGenerating && (
@@ -221,6 +224,7 @@ export default function App() {
               onNew={startNewCreation}
               onImprove={(req) => improveCreation(req, 'improve')}
               onAdd={(req) => improveCreation(req, 'add')}
+              onToolAction={setPendingToolAction}
             />
           </div>
         )}

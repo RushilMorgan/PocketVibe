@@ -16,9 +16,11 @@ interface TemplateRendererProps {
   creation: Creation;
   onContentChange: (id: string, content: CreationContent) => void;
   onShare?: () => void;
+  pendingLocalAction?: string | null;
+  onLocalActionConsumed?: () => void;
 }
 
-export function TemplateRenderer({ creation, onContentChange, onShare }: TemplateRendererProps) {
+export function TemplateRenderer({ creation, onContentChange, onShare, pendingLocalAction, onLocalActionConsumed }: TemplateRendererProps) {
   const { content } = creation;
   const hasShareLink = !!creation.shareSlug;
 
@@ -70,7 +72,7 @@ export function TemplateRenderer({ creation, onContentChange, onShare }: Templat
         return <PriceCalculatorRenderer content={content} onChange={handleChange} />;
 
       case 'tournament_pool_tracker':
-        return <TournamentPoolRenderer content={content} onChange={handleChange} onShare={onShare} hasShareLink={hasShareLink} />;
+        return <TournamentPoolRenderer content={content} onChange={handleChange} onShare={onShare} hasShareLink={hasShareLink} pendingLocalAction={pendingLocalAction} onLocalActionConsumed={onLocalActionConsumed} />;
 
       default:
         return (

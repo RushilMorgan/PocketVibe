@@ -1004,6 +1004,7 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     const onChange = vi.fn();
     render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.click(screen.getByTestId('participants-nav-btn'));
     fireEvent.change(screen.getByTestId('participant-name-input-p1'), { target: { value: 'Alicia' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1040,6 +1041,7 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     const onChange = vi.fn();
     render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.click(screen.getByTestId('scoring-nav-btn'));
     fireEvent.change(screen.getByTestId('points-per-activity-input'), { target: { value: '15' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ scoringRules: expect.objectContaining({ pointsPerActivity: 15 }) }),
@@ -1106,6 +1108,15 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ logs: expect.arrayContaining([expect.objectContaining({ id: 'l1', activityType: 'run' })]) }),
     );
+  });
+
+  it('Partner Challenge colours does not open behind Manage Challenge', () => {
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
+    fireEvent.click(screen.getByTestId('colours-nav-btn'));
+    expect(screen.getByTestId('manage-challenge-sheet')).toBeInTheDocument();
+    expect(screen.getAllByTestId('manage-challenge-sheet')).toHaveLength(1);
+    expect(screen.getByTestId('challenge-colours-view')).toBeInTheDocument();
   });
 });
 
@@ -1188,6 +1199,7 @@ describe('TournamentPoolRenderer', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('people-nav-btn'));
     fireEvent.click(screen.getByTestId('add-participant-btn'));
     fireEvent.change(screen.getByTestId('new-participant-name'), { target: { value: 'Charlie' } });
     fireEvent.click(screen.getByTestId('save-participant-btn'));
@@ -1202,6 +1214,7 @@ describe('TournamentPoolRenderer', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('people-nav-btn'));
     fireEvent.click(screen.getByTestId('edit-participant-btn-p1'));
     fireEvent.change(screen.getByTestId('edit-participant-name-p1'), { target: { value: 'Alice Updated' } });
     fireEvent.click(screen.getByTestId('save-participant-p1'));
@@ -1216,6 +1229,7 @@ describe('TournamentPoolRenderer', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('teams-nav-btn'));
     fireEvent.click(screen.getByTestId('add-team-btn'));
     fireEvent.change(screen.getByTestId('new-team-name'), { target: { value: 'Argentina' } });
     fireEvent.change(screen.getByTestId('new-team-pot'), { target: { value: '1' } });
@@ -1332,6 +1346,7 @@ describe('TournamentPoolRenderer', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('scoring-nav-btn'));
     fireEvent.change(screen.getByTestId('points-per-win-input'), { target: { value: '5' } });
     fireEvent.click(screen.getByTestId('save-scoring-btn'));
     expect(onChange).toHaveBeenCalledWith(
@@ -1353,6 +1368,7 @@ describe('TournamentPoolRenderer', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={content} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('scoring-nav-btn'));
     fireEvent.change(screen.getByTestId('points-per-win-input'), { target: { value: '10' } });
     fireEvent.click(screen.getByTestId('save-scoring-btn'));
     const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
@@ -1402,6 +1418,126 @@ describe('TournamentPoolRenderer', () => {
     expect(screen.getByTestId('next-best-action')).toHaveTextContent('Add people');
     rerender(<TournamentPoolRenderer content={withPeople} onChange={vi.fn()} />);
     expect(screen.getByTestId('next-best-action')).toHaveTextContent('Run the draw');
+  });
+
+  it('Draw all shows draw complete state inside the sheet', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    expect(screen.getByTestId('draw-complete-view')).toBeInTheDocument();
+    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
+  });
+
+  it('Draw complete shows participant team summaries', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active' },
+        { id: 't2', name: 'France', pot: 1, status: 'active' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    expect(screen.getByTestId('draw-complete-participant-p1')).toBeInTheDocument();
+    expect(screen.getByTestId('draw-complete-participant-p2')).toBeInTheDocument();
+  });
+
+  it('View leaderboard button closes the sheet', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('view-leaderboard-btn'));
+    expect(screen.queryByTestId('manage-pool-sheet')).not.toBeInTheDocument();
+  });
+
+  it('Colours picker opens inside the active manage sheet', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('colours-nav-btn'));
+    expect(screen.getByTestId('sheet-colours-view')).toBeInTheDocument();
+    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
+  });
+
+  it('Colour selection navigates back to manage without closing sheet', () => {
+    const onChange = vi.fn();
+    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('colours-nav-btn'));
+    fireEvent.click(screen.getByTestId('theme-classic'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ colourTheme: 'classic' }));
+    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-colours-view')).not.toBeInTheDocument();
+  });
+
+  it('Scoring opens as sub-view with back navigation', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('scoring-nav-btn'));
+    expect(screen.getByTestId('sheet-scoring-view')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('scoring-back-btn'));
+    expect(screen.queryByTestId('sheet-scoring-view')).not.toBeInTheDocument();
+    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
+  });
+
+  it('Only one manage sheet is visible at a time', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('colours-nav-btn'));
+    expect(screen.getAllByTestId('manage-pool-sheet')).toHaveLength(1);
+  });
+});
+
+// ── Phase 4: Match result display + pendingLocalAction ────────────────────────
+
+describe('TournamentPoolRenderer — Phase 4 UX', () => {
+  it('match result rows show team flags and names', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil', pot: 1, status: 'active', flagEmoji: '🇧🇷', assignedTo: 'p1' },
+        { id: 't2', name: 'France', pot: 1, status: 'active', flagEmoji: '🇫🇷', assignedTo: 'p2' },
+      ],
+      matches: [{ id: 'm1', teamAId: 't1', teamBId: 't2', scoreA: 2, scoreB: 1 }],
+      drawLocked: true,
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('add-match-btn'));
+    expect(screen.getByTestId('match-row-m1')).toHaveTextContent('🇧🇷 Brazil');
+    expect(screen.getByTestId('match-row-m1')).toHaveTextContent('🇫🇷 France');
+  });
+
+  it("pendingLocalAction 'change-theme' opens colours sheet without clicking manage", () => {
+    const onConsumed = vi.fn();
+    render(
+      <TournamentPoolRenderer
+        content={makePool()}
+        onChange={vi.fn()}
+        pendingLocalAction="change-theme"
+        onLocalActionConsumed={onConsumed}
+      />,
+    );
+    expect(screen.getByTestId('sheet-colours-view')).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalled();
+  });
+
+  it("pendingLocalAction 'edit-scoring' opens scoring sheet", () => {
+    render(
+      <TournamentPoolRenderer
+        content={makePool()}
+        onChange={vi.fn()}
+        pendingLocalAction="edit-scoring"
+        onLocalActionConsumed={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('sheet-scoring-view')).toBeInTheDocument();
+  });
+
+  it("manage view has people-nav-btn and teams-nav-btn", () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    expect(screen.getByTestId('people-nav-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('teams-nav-btn')).toBeInTheDocument();
   });
 });
 
@@ -1469,6 +1605,7 @@ describe('TournamentPoolRenderer — team inline editing', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('teams-nav-btn'));
     fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
     fireEvent.change(screen.getByTestId('edit-team-name-t1'), { target: { value: 'Portugal' } });
     fireEvent.click(screen.getByTestId('save-team-edit-t1'));
@@ -1483,6 +1620,7 @@ describe('TournamentPoolRenderer — team inline editing', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('teams-nav-btn'));
     fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
     fireEvent.change(screen.getByTestId('edit-team-pot-t1'), { target: { value: '3' } });
     fireEvent.click(screen.getByTestId('save-team-edit-t1'));
@@ -1497,6 +1635,7 @@ describe('TournamentPoolRenderer — team inline editing', () => {
     const onChange = vi.fn();
     render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('teams-nav-btn'));
     fireEvent.click(screen.getByTestId('edit-team-btn-t1'));
     fireEvent.change(screen.getByTestId('edit-team-status-t1'), { target: { value: 'quarter_final' } });
     fireEvent.click(screen.getByTestId('save-team-edit-t1'));
@@ -1577,7 +1716,77 @@ describe('CreationComposer — AI status banner', () => {
     fireEvent.click(screen.getByLabelText(/ask toolie about this pool/i));
     expect(screen.getByTestId('contextual-chat-suggestions')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('context-suggestion-run-draw'));
-    expect(onImprove).toHaveBeenCalledWith(expect.stringMatching(/run the draw/i));
+    expect(onImprove).not.toHaveBeenCalled();
+  });
+
+  it("Chat suggestion 'Run the draw' calls onToolAction not onImprove", () => {
+    const onImprove = vi.fn();
+    const onToolAction = vi.fn();
+    const creation: Creation = {
+      id: 'cp-tool-1', title: 'Family Pool', creationType: 'tournament_pool_tracker',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: {
+        type: 'tournament_pool_tracker',
+        poolName: 'Family Pool',
+        tournamentName: 'Cup',
+        participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+        teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'active' }],
+        matches: [],
+        drawLocked: false,
+        scoringRules: { pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5, quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50 },
+      },
+    };
+    render(
+      <CreationComposer
+        activeCreation={creation}
+        messages={[]}
+        isGenerating={false}
+        processingStatus={null}
+        onNew={noop}
+        onImprove={onImprove}
+        onAdd={noop}
+        onToolAction={onToolAction}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(/ask toolie about this pool/i));
+    fireEvent.click(screen.getByTestId('context-suggestion-run-draw'));
+    expect(onImprove).not.toHaveBeenCalled();
+    expect(onToolAction).toHaveBeenCalledWith('run-draw-all');
+  });
+
+  it("Chat suggestion 'Change colours' calls onToolAction with change-theme", () => {
+    const onToolAction = vi.fn();
+    const creation: Creation = {
+      id: 'cp-tool-2', title: 'Family Pool', creationType: 'tournament_pool_tracker',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: 0, updatedAt: 0,
+      content: {
+        type: 'tournament_pool_tracker',
+        poolName: 'Family Pool',
+        tournamentName: 'Cup',
+        participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
+        teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' }],
+        matches: [],
+        drawLocked: true,
+        scoringRules: { pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5, quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50 },
+      },
+    };
+    render(
+      <CreationComposer
+        activeCreation={creation}
+        messages={[]}
+        isGenerating={false}
+        processingStatus={null}
+        onNew={noop}
+        onImprove={noop}
+        onAdd={noop}
+        onToolAction={onToolAction}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(/ask toolie about this pool/i));
+    fireEvent.click(screen.getByTestId('context-suggestion-colours'));
+    expect(onToolAction).toHaveBeenCalledWith('change-theme');
   });
 
   it('shows challenge contextual chips for workout challenge state', () => {

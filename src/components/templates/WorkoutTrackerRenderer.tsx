@@ -79,12 +79,12 @@ function calcScores(
     .sort((a, b) => b.points - a.points);
 }
 
+type ChallengeSheetView = null | 'logActivity' | 'manage' | 'participants' | 'scoring' | 'colours';
+
 export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLink = false }: WorkoutTrackerRendererProps) {
   const update = (patch: Partial<WorkoutTrackerContent>) => onChange({ ...content, ...patch });
 
-  const [logOpen, setLogOpen] = useState(false);
-  const [manageOpen, setManageOpen] = useState(false);
-  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [sheetView, setSheetView] = useState<ChallengeSheetView>(null);
 
   const [logParticipantId, setLogParticipantId] = useState('');
   const [logActivity, setLogActivity] = useState<ActivityType>('walk');
@@ -136,13 +136,13 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
       case 'add-partner':
       case 'set-target':
       case 'edit-points':
-        setManageOpen(true);
+        setSheetView('manage');
         break;
       case 'log-activity':
         openLog();
         break;
       case 'change-theme':
-        setThemePickerOpen(true);
+        setSheetView('colours');
         break;
       case 'share':
         onShare?.();
@@ -156,7 +156,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
     setLogDate(today);
     setLogDuration('');
     setLogNote('');
-    setLogOpen(true);
+    setSheetView('logActivity');
   }
 
   function submitLog() {
@@ -170,7 +170,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
       note: logNote || undefined,
     };
     update({ logs: [...logs, newLog] });
-    setLogOpen(false);
+    setSheetView(null);
   }
 
   function updateParticipantName(id: string, name: string) {
@@ -229,6 +229,234 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
 
   const recentLogs = [...logs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
 
+  // ── Sheet content renderer ───────────────────────────────────────────────
+
+  function renderSheetContent() {
+    if (sheetView === 'logActivity') {
+      return (
+        <>
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
+          <h3 className="text-sm font-bold text-gray-900">Log activity</h3>
+          <div data-testid="log-activity-form" className="mt-3 space-y-3">
+            <div>
+              <label className="text-xs text-gray-500">Who</label>
+              <select
+                data-testid="log-participant-select"
+                value={logParticipantId}
+                onChange={e => setLogParticipantId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              >
+                {participants.map(p => (
+                  <option key={p.id} value={p.id}>{p.emoji ?? ''} {p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {activityTypes.map(at => (
+                <button
+                  key={at}
+                  data-testid={`log-type-${at}`}
+                  onClick={() => setLogActivity(at as ActivityType)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${logActivity === at ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  {ACTIVITY_ICON[at] ?? '⭐'} {at}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input data-testid="log-date-input" type="date" value={logDate} onChange={e => setLogDate(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+              <input value={logDuration} onChange={e => setLogDuration(e.target.value)} placeholder="Duration (optional)" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+            </div>
+            <input value={logNote} onChange={e => setLogNote(e.target.value)} placeholder="Note (optional)" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+            <div className="flex gap-2">
+              <button data-testid="log-submit-btn" onClick={submitLog} className="flex-1 rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white">Log it</button>
+              <button onClick={() => setSheetView(null)} className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700">Cancel</button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (sheetView === 'manage') {
+      return (
+        <>
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-base font-black text-gray-900">Manage challenge</h3>
+            <button onClick={() => setSheetView(null)} className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700">Done</button>
+          </div>
+
+          <section>
+            <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Challenge name</h4>
+            <input
+              data-testid="challenge-name-input"
+              value={content.planName}
+              onChange={e => update({ planName: e.target.value })}
+              className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+          </section>
+
+          <section className="mt-4">
+            <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Weekly target</h4>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <label className="text-sm text-gray-700">Sessions per week</label>
+              <input
+                data-testid="weekly-target-input"
+                type="number"
+                min={1}
+                max={14}
+                value={weeklyTarget}
+                onChange={e => update({ weeklyTarget: Math.max(1, parseInt(e.target.value) || 1) })}
+                className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
+              />
+            </div>
+          </section>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              data-testid="participants-nav-btn"
+              onClick={() => setSheetView('participants')}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
+            >
+              👥 Participants
+            </button>
+            <button
+              data-testid="scoring-nav-btn"
+              onClick={() => setSheetView('scoring')}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
+            >
+              📊 Scoring
+            </button>
+            <button
+              data-testid="colours-nav-btn"
+              onClick={() => setSheetView('colours')}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
+            >
+              🎨 Colours
+            </button>
+            <button
+              onClick={() => onShare?.()}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
+            >
+              🔗 Share
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    if (sheetView === 'participants') {
+      return (
+        <>
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              onClick={() => setSheetView('manage')}
+              className="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 active:bg-gray-200"
+            >
+              ← Back
+            </button>
+            <h3 className="flex-1 text-base font-black text-gray-900">Participants</h3>
+          </div>
+          <div className="space-y-2">
+            {participants.map(p => (
+              <div key={p.id} className="flex items-center gap-2">
+                <input value={p.emoji ?? ''} onChange={e => updateParticipantEmoji(p.id, e.target.value)} className="w-10 rounded-lg border border-gray-200 px-1 py-1.5 text-center text-sm" />
+                <input data-testid={`participant-name-input-${p.id}`} value={p.name} onChange={e => updateParticipantName(p.id, e.target.value)} className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm" />
+                <button data-testid={`delete-participant-${p.id}`} onClick={() => deleteParticipant(p.id)} className="text-red-500">×</button>
+              </div>
+            ))}
+            <button data-testid="add-participant-btn" onClick={addParticipant} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700">+ Add participant</button>
+          </div>
+        </>
+      );
+    }
+
+    if (sheetView === 'scoring') {
+      return (
+        <>
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              onClick={() => setSheetView('manage')}
+              className="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 active:bg-gray-200"
+            >
+              ← Back
+            </button>
+            <h3 className="flex-1 text-base font-black text-gray-900">Scoring</h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm text-gray-700">Points per activity</label>
+              <input
+                data-testid="points-per-activity-input"
+                type="number"
+                value={rules.pointsPerActivity}
+                onChange={e => updateRule('pointsPerActivity', parseInt(e.target.value) || 0)}
+                className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm text-gray-700">Weekly target bonus</label>
+              <input
+                data-testid="weekly-target-bonus-input"
+                type="number"
+                value={rules.weeklyTargetBonus}
+                onChange={e => updateRule('weeklyTargetBonus', parseInt(e.target.value) || 0)}
+                className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm text-gray-700">Running bonus</label>
+              <input
+                data-testid="running-bonus-input"
+                type="number"
+                value={rules.runningBonus}
+                onChange={e => updateRule('runningBonus', parseInt(e.target.value) || 0)}
+                className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
+              />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (sheetView === 'colours') {
+      return (
+        <>
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              onClick={() => setSheetView('manage')}
+              className="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 active:bg-gray-200"
+            >
+              ← Back
+            </button>
+            <h3 className="flex-1 text-base font-black text-gray-900">Challenge colours</h3>
+          </div>
+          <div data-testid="challenge-colours-view" className="flex flex-wrap gap-3">
+            {THEMES.map(theme => (
+              <button
+                key={theme.id}
+                data-testid={`theme-${theme.id}`}
+                onClick={() => {
+                  update({ colourTheme: theme.id as ColourTheme });
+                  setSheetView('manage');
+                }}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${theme.gradient} ${content.colourTheme === theme.id ? 'ring-2 ring-gray-900 ring-offset-2' : ''}`} />
+                <span className="text-xs text-gray-600">{theme.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    return null;
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className={`rounded-3xl bg-gradient-to-br ${getWorkoutGradient(content.colourTheme)} p-5 text-white shadow-lg`}>
@@ -240,7 +468,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
           </div>
           <button
             data-testid="edit-challenge-btn"
-            onClick={() => setManageOpen(true)}
+            onClick={() => setSheetView('manage')}
             className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/30"
           >
             Manage challenge
@@ -352,171 +580,16 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
         </div>
       )}
 
-      {logOpen && (
-        <div className="fixed inset-0 z-40 flex items-end" onClick={() => setLogOpen(false)}>
+      {/* Single manage sheet — all sub-views rendered here */}
+      {sheetView !== null && (
+        <div className="fixed inset-0 z-40 flex items-end" onClick={() => setSheetView(null)}>
           <div className="absolute inset-0 bg-black/35" />
-          <div data-testid="log-activity-form" className="relative z-10 w-full rounded-t-3xl bg-white p-4" onClick={e => e.stopPropagation()}>
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
-            <h3 className="text-sm font-bold text-gray-900">Log activity</h3>
-            <div className="mt-3 space-y-3">
-              <div>
-                <label className="text-xs text-gray-500">Who</label>
-                <select
-                  data-testid="log-participant-select"
-                  value={logParticipantId}
-                  onChange={e => setLogParticipantId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                >
-                  {participants.map(p => (
-                    <option key={p.id} value={p.id}>{p.emoji ?? ''} {p.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {activityTypes.map(at => (
-                  <button
-                    key={at}
-                    data-testid={`log-type-${at}`}
-                    onClick={() => setLogActivity(at as ActivityType)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium ${logActivity === at ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}
-                  >
-                    {ACTIVITY_ICON[at] ?? '⭐'} {at}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input data-testid="log-date-input" type="date" value={logDate} onChange={e => setLogDate(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                <input value={logDuration} onChange={e => setLogDuration(e.target.value)} placeholder="Duration (optional)" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-              </div>
-              <input value={logNote} onChange={e => setLogNote(e.target.value)} placeholder="Note (optional)" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-              <div className="flex gap-2">
-                <button data-testid="log-submit-btn" onClick={submitLog} className="flex-1 rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white">Log it</button>
-                <button onClick={() => setLogOpen(false)} className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700">Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {themePickerOpen && (
-        <div className="fixed inset-0 z-40 flex items-end" onClick={() => setThemePickerOpen(false)}>
-          <div className="absolute inset-0 bg-black/35" />
-          <div className="relative z-10 w-full rounded-t-3xl bg-white p-4" onClick={e => e.stopPropagation()}>
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
-            <h3 className="text-sm font-bold text-gray-900">Challenge colours</h3>
-            <div className="mt-3 flex flex-wrap gap-3">
-              {THEMES.map(theme => (
-                <button
-                  key={theme.id}
-                  data-testid={`theme-${theme.id}`}
-                  onClick={() => {
-                    update({ colourTheme: theme.id as ColourTheme });
-                    setThemePickerOpen(false);
-                  }}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${theme.gradient} ${content.colourTheme === theme.id ? 'ring-2 ring-gray-900 ring-offset-2' : ''}`} />
-                  <span className="text-xs text-gray-600">{theme.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {manageOpen && (
-        <div className="fixed inset-0 z-40 flex items-end" onClick={() => setManageOpen(false)}>
-          <div className="absolute inset-0 bg-black/35" />
-          <div data-testid="manage-challenge-sheet" className="relative z-10 max-h-[84dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-4" onClick={e => e.stopPropagation()}>
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-black text-gray-900">Manage challenge</h3>
-              <button onClick={() => setManageOpen(false)} className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700">Done</button>
-            </div>
-
-            <section>
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Challenge name</h4>
-              <input
-                data-testid="challenge-name-input"
-                value={content.planName}
-                onChange={e => update({ planName: e.target.value })}
-                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-              />
-            </section>
-
-            <section className="mt-5">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Participants</h4>
-              <div className="mt-2 space-y-2">
-                {participants.map(p => (
-                  <div key={p.id} className="flex items-center gap-2">
-                    <input value={p.emoji ?? ''} onChange={e => updateParticipantEmoji(p.id, e.target.value)} className="w-10 rounded-lg border border-gray-200 px-1 py-1.5 text-center text-sm" />
-                    <input data-testid={`participant-name-input-${p.id}`} value={p.name} onChange={e => updateParticipantName(p.id, e.target.value)} className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm" />
-                    <button data-testid={`delete-participant-${p.id}`} onClick={() => deleteParticipant(p.id)} className="text-red-500">×</button>
-                  </div>
-                ))}
-                <button data-testid="add-participant-btn" onClick={addParticipant} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700">+ Add participant</button>
-              </div>
-            </section>
-
-            <section className="mt-5">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Weekly target</h4>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <label className="text-sm text-gray-700">Sessions per week</label>
-                <input
-                  data-testid="weekly-target-input"
-                  type="number"
-                  min={1}
-                  max={14}
-                  value={weeklyTarget}
-                  onChange={e => update({ weeklyTarget: Math.max(1, parseInt(e.target.value) || 1) })}
-                  className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
-                />
-              </div>
-            </section>
-
-            <section className="mt-5">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Scoring</h4>
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-sm text-gray-700">Points per activity</label>
-                  <input
-                    data-testid="points-per-activity-input"
-                    type="number"
-                    value={rules.pointsPerActivity}
-                    onChange={e => updateRule('pointsPerActivity', parseInt(e.target.value) || 0)}
-                    className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-sm text-gray-700">Weekly target bonus</label>
-                  <input
-                    data-testid="weekly-target-bonus-input"
-                    type="number"
-                    value={rules.weeklyTargetBonus}
-                    onChange={e => updateRule('weeklyTargetBonus', parseInt(e.target.value) || 0)}
-                    className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-sm text-gray-700">Running bonus</label>
-                  <input
-                    data-testid="running-bonus-input"
-                    type="number"
-                    value={rules.runningBonus}
-                    onChange={e => updateRule('runningBonus', parseInt(e.target.value) || 0)}
-                    className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section className="mt-5">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Colours + Share</h4>
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => setThemePickerOpen(true)} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700">Colours</button>
-                <button onClick={() => onShare?.()} className="rounded-xl bg-gray-900 px-3 py-2 text-xs font-semibold text-white">Share</button>
-              </div>
-            </section>
+          <div
+            data-testid="manage-challenge-sheet"
+            className="relative z-10 max-h-[84dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-4"
+            onClick={e => e.stopPropagation()}
+          >
+            {renderSheetContent()}
           </div>
         </div>
       )}

@@ -22,7 +22,7 @@ const VARIANT_COPY: Record<AuthModalVariant, { title: string; subtitle: string; 
     skipLabel: null,
   },
   account: {
-    title: 'Sign in to PocketVibe',
+    title: 'Sign in to Hey Toolie',
     subtitle: 'Access your tools and manage your shared creations.',
     skipLabel: null,
   },

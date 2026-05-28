@@ -34,6 +34,10 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
   /** Whether the user explicitly chose to continue without an account. */
   const [skipAuth, setSkipAuth] = useState(false);
 
+  // Existing-share participant link regeneration
+  const [pLinksPhase, setPLinksPhase] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [pLinks, setPLinks] = useState<{ name: string; emoji: string; url: string }[]>([]);
+
   // If already shared, show existing links without re-creating
   const existingSlug = creation.shareSlug;
   const existingAdminToken = existingSlug ? getStoredAdminToken(existingSlug) : undefined;
@@ -98,6 +102,26 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
     }
   }
 
+  async function handleGetParticipantLinks() {
+    if (!existingSlug || !existingAdminToken || participants.length === 0) return;
+    setPLinksPhase('loading');
+    const result: { name: string; emoji: string; url: string }[] = [];
+    try {
+      for (const p of participants) {
+        try {
+          const pl = await createParticipantLink(existingSlug, existingAdminToken, p.id, p.name, p.emoji);
+          result.push({ name: p.name, emoji: p.emoji ?? '👤', url: pl.participantUrl });
+        } catch {
+          // Non-fatal — continue with remaining participants
+        }
+      }
+      setPLinks(result);
+      setPLinksPhase('done');
+    } catch {
+      setPLinksPhase('error');
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -151,6 +175,46 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
                   testId="copy-existing-admin-link"
                   warn
                 />
+
+                {/* Participant links — shown for workout_tracker; optional for tournament */}
+                {isWorkout && participants.length > 0 && (
+                  <div className="space-y-2">
+                    {pLinksPhase === 'idle' && (
+                      <button
+                        data-testid="get-participant-links-btn"
+                        onClick={handleGetParticipantLinks}
+                        className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium active:bg-gray-50"
+                      >
+                        Get participant links
+                      </button>
+                    )}
+                    {pLinksPhase === 'loading' && (
+                      <p className="text-center text-xs text-gray-400 py-2">Getting links…</p>
+                    )}
+                    {pLinksPhase === 'error' && (
+                      <p className="text-xs text-red-500 py-1">Couldn't get participant links. Try again.</p>
+                    )}
+                    {pLinksPhase === 'done' && pLinks.length > 0 && (
+                      <>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide pt-1">
+                          Participant links
+                        </p>
+                        {pLinks.map((pl, i) => (
+                          <LinkRow
+                            key={pl.name}
+                            label={`${pl.emoji} Send this to ${pl.name}`}
+                            sublabel="Lets them log their own activity"
+                            url={pl.url}
+                            copiedKey={copiedKey}
+                            myKey={`ep-${i}`}
+                            onCopy={copy}
+                            testId={`copy-existing-participant-link-${pl.name.toLowerCase().replace(/\s+/g, '-')}`}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
               <div className="px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">

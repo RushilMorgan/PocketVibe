@@ -54,7 +54,7 @@ export default function PVHeader({
           className="text-sm font-black tracking-tight flex-shrink-0"
           style={{ color: accentColor, transition: 'color 0.3s' }}
         >
-          PocketVibe
+          Hey Toolie
         </span>
       )}
 

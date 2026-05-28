@@ -31,6 +31,7 @@ interface Props {
   shareSlug: string;
   token?: string;
   onUpdate: (updated: TournamentPoolTrackerContent) => void;
+  onRemix?: () => void;
 }
 
 // Score calculation is in src/lib/tournamentScoring.ts
@@ -49,7 +50,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TournamentPoolReadView({ content, accessMode, participantRef, shareSlug, token, onUpdate }: Props) {
+export function TournamentPoolReadView({ content, accessMode, participantRef, shareSlug, token, onUpdate, onRemix }: Props) {
   const [changeRequestOpen, setChangeRequestOpen] = useState(false);
   const [changeDescription, setChangeDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -304,6 +305,23 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
           <p className="mt-2 text-xs text-gray-500 italic">{content.rulesNote}</p>
         )}
       </div>
+
+      {/* Make my own version (viewers only) */}
+      {accessMode === 'viewer' && onRemix && (
+        <div className="bg-violet-50 rounded-2xl border border-violet-100 p-4 flex flex-col gap-2">
+          <p className="text-sm font-semibold text-violet-800">Like this pool?</p>
+          <p className="text-xs text-violet-600">
+            Make your own private copy with the same teams, participants, and scoring rules.
+          </p>
+          <button
+            data-testid="remix-btn"
+            onClick={onRemix}
+            className="w-full bg-violet-600 text-white text-sm font-semibold rounded-xl py-3 active:bg-violet-700"
+          >
+            Make my own version
+          </button>
+        </div>
+      )}
 
       {/* Suggest a change (participant only) */}
       {accessMode === 'participant' && token && (

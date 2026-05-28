@@ -48,7 +48,7 @@ interface DrawCompleteResult {
   }>;
 }
 
-type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'drawOneResult' | 'addResult';
+type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'drawOneResult' | 'addResult' | 'lockConfirm';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -438,12 +438,13 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
   function buildDrawCompleteResult(
     updatedTeams: TournamentTeam[],
-    newlyAssigned: TournamentTeam[],
-    assignment: Map<string, string>,
+    _newlyAssigned: TournamentTeam[],
+    _assignment: Map<string, string>,
   ): DrawCompleteResult {
     const totalAssigned = updatedTeams.filter(t => t.assignedTo).length;
     const summaries = content.participants.map(p => {
-      const myTeams = newlyAssigned.filter(t => assignment.get(t.id) === p.id);
+      // Show ALL teams the participant now holds (not just newly drawn)
+      const myTeams = updatedTeams.filter(t => t.assignedTo === p.id);
       return {
         id: p.id,
         name: p.name,
@@ -565,12 +566,14 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             >
               ⚽ Add result
             </button>
-            <button
-              onClick={() => onShare?.()}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
-            >
-              🔗 Share
-            </button>
+            {onShare && (
+              <button
+                onClick={onShare}
+                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
+              >
+                🔗 Share
+              </button>
+            )}
           </div>
         </>
       );
@@ -768,12 +771,14 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             >
               View leaderboard
             </button>
-            <button
-              onClick={() => onShare?.()}
-              className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
-            >
-              Share pool
-            </button>
+            {onShare && (
+              <button
+                onClick={onShare}
+                className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+              >
+                Share pool
+              </button>
+            )}
             <button
               data-testid="undo-draw-btn"
               onClick={undoDraw}
@@ -928,6 +933,43 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       );
     }
 
+    // ── LOCK CONFIRM ────────────────────────────────────────────────────────────
+    if (sheetView === 'lockConfirm') {
+      return (
+        <>
+          <SheetHeader title="⚠️ Lock draw?" onBack={() => setSheetView('manage')} />
+          <div
+            data-testid="lock-confirm-view"
+            className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2"
+          >
+            <p className="text-sm font-semibold text-amber-900">
+              These teams may not be official yet.
+            </p>
+            <p className="text-xs text-amber-700">
+              {content.teamsSource === 'incomplete_canonical'
+                ? 'World Cup teams are still loading — this pool is using demo teams.'
+                : 'This pool is using a demo team list. Check teams before locking.'}
+            </p>
+          </div>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              data-testid="confirm-lock-btn"
+              onClick={() => { update({ drawLocked: true }); setSheetView(null); }}
+              className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white active:bg-amber-700"
+            >
+              Lock draw anyway
+            </button>
+            <button
+              onClick={() => setSheetView('manage')}
+              className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      );
+    }
+
     return null;
   }
 
@@ -957,6 +999,32 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
           <div className="rounded-xl bg-white/15 p-2.5">Share: <span className="font-bold">{hasShareLink ? 'Live' : 'Not shared'}</span></div>
         </div>
       </div>
+
+      {/* Teams source status banner */}
+      {content.teamsSource === 'official' && (
+        <div
+          data-testid="teams-source-banner"
+          className="rounded-2xl border border-green-200 bg-green-50 px-4 py-2.5 text-xs font-medium text-green-700"
+        >
+          ✅ Official teams loaded
+        </div>
+      )}
+      {content.teamsSource === 'demo_fallback' && (
+        <div
+          data-testid="teams-source-banner"
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-700"
+        >
+          ⚠️ Using demo team list — check teams before locking draw
+        </div>
+      )}
+      {content.teamsSource === 'incomplete_canonical' && (
+        <div
+          data-testid="teams-source-banner"
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-700"
+        >
+          ⏳ World Cup teams are still loading — using demo teams for now
+        </div>
+      )}
 
       {/* SmartGuidance */}
       <SmartGuidance guidance={poolGuidance} onAction={handleAction} />

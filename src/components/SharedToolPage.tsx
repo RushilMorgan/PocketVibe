@@ -6,6 +6,8 @@ import type {
   WorkoutTrackerContent,
   TournamentPoolTrackerContent,
   ChangeRequest,
+  Creation,
+  CreationType,
 } from '../types';
 import {
   getSharedCreation,
@@ -13,9 +15,16 @@ import {
   getStoredAdminToken,
   applyCreationAction,
 } from '../services/shareService';
+import {
+  loadCreations,
+  saveCreations,
+  saveActiveCreationId,
+} from '../lib/creationStore';
+import { remixContent } from '../lib/remixContent';
 import { TemplateRenderer } from './templates/TemplateRenderer';
 import { PartnerChallengeParticipantView } from './shared/PartnerChallengeParticipantView';
 import { TournamentPoolReadView } from './shared/TournamentPoolReadView';
+import { WorkoutTrackerReadView } from './shared/WorkoutTrackerReadView';
 
 interface SharedToolPageProps {
   shareSlug: string;
@@ -75,6 +84,32 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       }
     }
   }, [creation, accessMode, resolvedAdminToken, participantToken, shareSlug]);
+
+  // ── Remix ─────────────────────────────────────────────────────────────────
+
+  const handleRemix = useCallback(() => {
+    if (!creation) return;
+
+    const newId = `remix-${Date.now()}`;
+    const remixedCreation: Creation = {
+      id: newId,
+      title: `${creation.title} (my copy)`,
+      creationType: creation.creationType as CreationType,
+      description: '',
+      summary: '',
+      originalRequest: '',
+      status: 'ready',
+      version: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      content: remixContent(creation.content, creation.creationType),
+    };
+
+    const existing = loadCreations();
+    saveCreations([...existing, remixedCreation]);
+    saveActiveCreationId(newId);
+    window.location.href = '/';
+  }, [creation]);
 
   // ── Badge ─────────────────────────────────────────────────────────────────
 
@@ -162,8 +197,15 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
       {/* Viewer banner */}
       {accessMode === 'viewer' && (
-        <div className="bg-gray-50 border-b border-gray-100 px-4 py-2 text-center">
-          <p className="text-xs text-gray-400">You're viewing a shared tool — changes won't be saved</p>
+        <div className="bg-gray-50 border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-400">View only — changes won't be saved</p>
+          <button
+            data-testid="viewer-remix-btn"
+            onClick={handleRemix}
+            className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-lg active:bg-violet-100 flex-shrink-0"
+          >
+            Make my own version
+          </button>
         </div>
       )}
 
@@ -180,6 +222,12 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
               setCreation(prev => prev ? { ...prev, content: updatedContent, version: prev.version + 1 } : prev)
             }
           />
+        ) : creation.creationType === 'workout_tracker' && accessMode === 'viewer' ? (
+          /* Viewer of a Partner Challenge → read-only leaderboard + remix */
+          <WorkoutTrackerReadView
+            content={creation.content as WorkoutTrackerContent}
+            onRemix={handleRemix}
+          />
         ) : creation.creationType === 'tournament_pool_tracker' && accessMode !== 'admin' ? (
           /* Viewer or participant in Tournament Pool → read-only view */
           <TournamentPoolReadView
@@ -191,6 +239,7 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
             onUpdate={updatedContent =>
               setCreation(prev => prev ? { ...prev, content: updatedContent, version: prev.version + 1 } : prev)
             }
+            onRemix={accessMode === 'viewer' ? handleRemix : undefined}
           />
         ) : (
           <>

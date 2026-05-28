@@ -26,7 +26,7 @@ describe('AppShell', () => {
 // ── PVHeader ─────────────────────────────────────────────────────────────────
 
 describe('PVHeader', () => {
-  it('shows PocketVibe brand on home view', () => {
+  it('shows Hey Toolie brand on home view', () => {
     render(
       <PVHeader
         view="home"
@@ -37,7 +37,7 @@ describe('PVHeader', () => {
         onGoMyCreations={noop}
       />
     );
-    expect(screen.getByText('PocketVibe')).toBeInTheDocument();
+    expect(screen.getByText('Hey Toolie')).toBeInTheDocument();
   });
 
   it('shows creation title in creation view', () => {

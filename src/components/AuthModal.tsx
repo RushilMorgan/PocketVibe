@@ -198,6 +198,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
             Continue with Google
           </button>
 
+          {/* Apple sign-in — hidden until configured
           <button
             data-testid="apple-signin-btn"
             onClick={handleApple}
@@ -208,6 +209,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
             </svg>
             Continue with Apple
           </button>
+          */}
         </div>
 
         {/* Divider */}

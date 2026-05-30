@@ -337,10 +337,9 @@ describe('AuthModal — sign-in options', () => {
     expect(screen.getByText(/Continue with Google/i)).toBeInTheDocument();
   });
 
-  it('Apple sign-in button exists', () => {
+  it('Apple sign-in button is hidden (pending configuration)', () => {
     renderAuthModal();
-    expect(screen.getByTestId('apple-signin-btn')).toBeInTheDocument();
-    expect(screen.getByText(/Continue with Apple/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('apple-signin-btn')).not.toBeInTheDocument();
   });
 
   it('email magic link option exists', () => {
@@ -355,7 +354,7 @@ describe('AuthModal — sign-in options', () => {
     expect(auth.signInWithGoogle).toHaveBeenCalledOnce();
   });
 
-  it('clicking Apple calls signInWithApple', async () => {
+  it.skip('clicking Apple calls signInWithApple — re-enable when Apple auth is configured', async () => {
     const auth = renderAuthModal();
     fireEvent.click(screen.getByTestId('apple-signin-btn'));
     expect(auth.signInWithApple).toHaveBeenCalledOnce();

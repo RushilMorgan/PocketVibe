@@ -159,48 +159,87 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
         {/* ── Main cards ───────────────────────────────────────────────────── */}
         <div className="px-4 flex flex-col gap-4 pb-6">
 
-          {/* World Cup Pool */}
+          {/* World Cup Pool — FIFA dark navy + gold */}
           <button
             data-testid="flagship-world-cup-pool"
             onClick={handleWCPool}
             disabled={isGenerating}
-            className="text-left rounded-3xl overflow-hidden shadow-sm border border-amber-100 active:scale-[0.985] transition-transform disabled:opacity-50 w-full"
+            className="text-left rounded-3xl overflow-hidden shadow-2xl active:scale-[0.985] transition-all disabled:opacity-50 w-full ring-1 ring-yellow-400/40"
           >
-            <div className="bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 px-5 pt-5 pb-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-3xl">🏆</span>
-                <span className="text-xs font-semibold bg-white/25 text-white px-2.5 py-1 rounded-full">
-                  ⚽ 2026
+            {/* ── Dark FIFA navy panel ─────────────────────────────────────── */}
+            <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 px-5 pt-5 pb-6 overflow-hidden">
+
+              {/* Stadium arc decorations */}
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-96 h-48 rounded-t-full border-2 border-white/10 pointer-events-none" />
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-60 h-30 rounded-t-full border border-white/10 pointer-events-none" />
+              {/* Ghost ball watermark */}
+              <div className="absolute -right-6 -top-6 w-36 h-36 rounded-full border-4 border-white/5 pointer-events-none" />
+              <div className="absolute -right-2 top-6 w-16 h-16 rounded-full border-2 border-white/5 pointer-events-none" />
+
+              {/* Top row: host nations + FIFA badge */}
+              <div className="relative z-10 flex items-center justify-between mb-5">
+                <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+                  <span className="text-base leading-none">🇺🇸</span>
+                  <span className="text-base leading-none">🇨🇦</span>
+                  <span className="text-base leading-none">🇲🇽</span>
+                  <span className="text-xs text-white/60 font-semibold ml-1 tracking-wide">2026 Hosts</span>
+                </div>
+                <span className="text-xs font-black bg-yellow-400 text-slate-900 px-3 py-1 rounded-full tracking-widest uppercase">
+                  FIFA 2026
                 </span>
               </div>
-              <h2 className="text-xl font-black text-white leading-tight">World Cup Pool</h2>
-              <p className="text-sm text-white/90 mt-1.5 leading-relaxed">
-                Create a friendly pool with a fair team draw, share it with family or friends, and follow the leaderboard as results come in.
+
+              {/* Trophy + title */}
+              <div className="relative z-10 flex items-center gap-4 mb-3">
+                <span className="text-6xl leading-none">🏆</span>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div className="h-px w-8 bg-yellow-400" />
+                    <div className="h-px w-3 bg-yellow-400/40" />
+                  </div>
+                  <h2 className="text-2xl font-black text-white leading-tight tracking-wide uppercase">World Cup</h2>
+                  <h2 className="text-2xl font-black text-yellow-400 leading-tight tracking-wide uppercase">Pool</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="h-px w-8 bg-yellow-400" />
+                    <div className="h-px w-3 bg-yellow-400/40" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="relative z-10 text-sm text-white/70 leading-relaxed mb-4">
+                Fair seeded draw, results tracking, and a live leaderboard. Share with family or workmates and follow every match together.
               </p>
+
+              {/* Feature chips */}
+              <div className="relative z-10 flex flex-wrap gap-2">
+                {[
+                  { icon: '🎲', label: 'Seeded fair draw' },
+                  { icon: '📊', label: 'Live leaderboard' },
+                  { icon: '🔗', label: 'Share instantly' },
+                  { icon: '⚽', label: 'Results tracking' },
+                ].map(chip => (
+                  <span
+                    key={chip.label}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-300 bg-yellow-400/10 border border-yellow-400/25 px-2.5 py-1 rounded-full"
+                  >
+                    {chip.icon} {chip.label}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="bg-white px-5 py-3 space-y-1.5">
-              {[
-                '🎯 Fair seeded draw — every team assigned',
-                '📊 Live leaderboard',
-                '🔗 Share with family or work friends',
-                '⚽ Results tracking as games happen',
-              ].map(h => (
-                <p key={h} className="text-xs text-gray-600 flex items-start gap-1.5">
-                  <span className="flex-shrink-0">{h.slice(0, 2)}</span>
-                  <span>{h.slice(3)}</span>
-                </p>
-              ))}
-              <div className="pt-2">
-                <span
-                  data-testid="make-world-cup-pool-btn"
-                  className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl w-full justify-center"
-                >
-                  Make a World Cup Pool
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </span>
+
+            {/* ── Gold CTA strip ───────────────────────────────────────────── */}
+            <div
+              data-testid="make-world-cup-pool-btn"
+              className="bg-yellow-400 px-5 py-3.5 flex items-center justify-between"
+            >
+              <span className="text-sm font-black text-slate-900 tracking-tight">Make a World Cup Pool</span>
+              <div className="w-7 h-7 rounded-full bg-slate-900/15 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
               </div>
             </div>
           </button>

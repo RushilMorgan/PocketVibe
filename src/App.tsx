@@ -254,20 +254,22 @@ export default function App() {
                 Something went wrong. Tap ✨ below and try again.
               </div>
             )}
-
-            {/* Composer */}
-            <CreationComposer
-              activeCreation={activeCreation}
-              messages={messages}
-              isGenerating={isGenerating}
-              processingStatus={processingStatus}
-              onNew={startNewCreation}
-              onImprove={(req) => improveCreation(req, 'improve')}
-              onAdd={(req) => improveCreation(req, 'add')}
-              onChat={chatMessage}
-              onToolAction={setPendingToolAction}
-            />
           </div>
+        )}
+
+        {/* Toolie FAB + sheet — shown on home and creation views */}
+        {(view === 'home' || view === 'creation') && (
+          <CreationComposer
+            activeCreation={activeCreation}
+            messages={messages}
+            isGenerating={isGenerating}
+            processingStatus={processingStatus}
+            onNew={startNewCreation}
+            onImprove={(req) => improveCreation(req, 'improve')}
+            onAdd={(req) => improveCreation(req, 'add')}
+            onChat={chatMessage}
+            onToolAction={setPendingToolAction}
+          />
         )}
 
         {view === 'my-creations' && (

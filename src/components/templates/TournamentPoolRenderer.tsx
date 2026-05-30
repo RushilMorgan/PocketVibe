@@ -62,16 +62,17 @@ function uid(prefix: string): string {
 
 function calcScores(content: TournamentPoolTrackerContent): ParticipantScore[] {
   const { participants, teams, matches } = content;
-  // Spread defaults so partially-generated or missing scoringRules never produce NaN.
+  // Use nullish coalescing per-field so partially-generated or missing
+  // scoringRules never produce NaN (avoids TS2783 duplicate-key warning).
+  const sr = content.scoringRules as Partial<TournamentScoringRules> | undefined;
   const r: TournamentScoringRules = {
-    pointsPerWin:      3,
-    pointsPerDraw:     1,
-    knockoutBonus:     5,
-    quarterFinalBonus: 10,
-    semiFinalBonus:    15,
-    finalBonus:        20,
-    winnerBonus:       30,
-    ...(content.scoringRules ?? {}),
+    pointsPerWin:      sr?.pointsPerWin      ?? 3,
+    pointsPerDraw:     sr?.pointsPerDraw     ?? 1,
+    knockoutBonus:     sr?.knockoutBonus     ?? 5,
+    quarterFinalBonus: sr?.quarterFinalBonus ?? 10,
+    semiFinalBonus:    sr?.semiFinalBonus    ?? 15,
+    finalBonus:        sr?.finalBonus        ?? 20,
+    winnerBonus:       sr?.winnerBonus       ?? 30,
   };
   return participants
     .map(p => {

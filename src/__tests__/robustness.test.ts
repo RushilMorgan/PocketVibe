@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import type {
   TournamentPoolTrackerContent,
+  TournamentScoringRules,
   WorkoutTrackerContent,
 } from '../types';
 import { normalizeContentFields } from '../lib/validator';
@@ -22,10 +23,17 @@ import { normalizeContentFields } from '../lib/validator';
  */
 function calcScoresSafe(content: TournamentPoolTrackerContent): Record<string, number> {
   const { participants, teams, matches } = content;
+  // Use per-field nullish coalescing to avoid TS2783 duplicate-key errors
+  // while still defaulting any missing field to a safe value.
+  const sr = content.scoringRules as Partial<TournamentScoringRules> | undefined;
   const r = {
-    pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5,
-    quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 30,
-    ...(content.scoringRules ?? {}),
+    pointsPerWin:      sr?.pointsPerWin      ?? 3,
+    pointsPerDraw:     sr?.pointsPerDraw     ?? 1,
+    knockoutBonus:     sr?.knockoutBonus     ?? 5,
+    quarterFinalBonus: sr?.quarterFinalBonus ?? 10,
+    semiFinalBonus:    sr?.semiFinalBonus    ?? 15,
+    finalBonus:        sr?.finalBonus        ?? 20,
+    winnerBonus:       sr?.winnerBonus       ?? 30,
   };
 
   const scores: Record<string, number> = {};
@@ -36,11 +44,11 @@ function calcScoresSafe(content: TournamentPoolTrackerContent): Record<string, n
     if (!team.assignedTo) continue;
     const base = scores[team.assignedTo] ?? 0;
     let bonus = 0;
-    if (team.status === 'round_of_16') bonus = r.knockoutBonus ?? 0;
-    else if (team.status === 'quarter_final') bonus = r.quarterFinalBonus ?? 0;
-    else if (team.status === 'semi_final') bonus = r.semiFinalBonus ?? 0;
-    else if (team.status === 'finalist') bonus = r.finalBonus ?? 0;
-    else if (team.status === 'winner') bonus = r.winnerBonus ?? 0;
+    if (team.status === 'round_of_16') bonus = r.knockoutBonus;
+    else if (team.status === 'quarter_final') bonus = r.quarterFinalBonus;
+    else if (team.status === 'semi_final') bonus = r.semiFinalBonus;
+    else if (team.status === 'final') bonus = r.finalBonus;
+    else if (team.status === 'winner') bonus = r.winnerBonus;
     scores[team.assignedTo] = base + bonus;
   }
 
@@ -52,7 +60,7 @@ function calcScoresSafe(content: TournamentPoolTrackerContent): Record<string, n
       if (team?.assignedTo) {
         const pts = match.scoreA > match.scoreB ? r.pointsPerWin
           : match.scoreA === match.scoreB ? r.pointsPerDraw : 0;
-        scores[team.assignedTo] = (scores[team.assignedTo] ?? 0) + (pts ?? 0);
+        scores[team.assignedTo] = (scores[team.assignedTo] ?? 0) + pts;
       }
     }
   }
@@ -75,7 +83,7 @@ describe('TournamentPool scoring — no NaN with partial scoringRules', () => {
         { id: 't2', name: 'France', pot: 1, status: 'semi_final', assignedTo: 'p2' },
       ],
       matches: [
-        { id: 'm1', teamAId: 't1', teamBId: 't2', round: 'group', scoreA: 2, scoreB: 0 },
+        { id: 'm1', teamAId: 't1', teamBId: 't2', stage: 'group', scoreA: 2, scoreB: 0 },
       ],
       drawLocked: true,
       scoringRules: scoringRules as TournamentPoolTrackerContent['scoringRules'],

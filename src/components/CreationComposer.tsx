@@ -83,22 +83,61 @@ function buildChallengeSuggestions(creation: Creation): ContextSuggestion[] {
   ];
 }
 
+// ── Home-screen nudges ────────────────────────────────────────────────────────
+// Shown inside the Toolie sheet when no creation is active yet.
+// Ordered from flagship → broad, so users see the best examples first.
+const HOME_SUGGESTIONS: ContextSuggestion[] = [
+  {
+    id: 'home-world-cup',
+    label: '🏆 World Cup Pool',
+    prompt: 'Create a friendly World Cup pool for my family. Add participants, draw teams from seeded pots, track results, and show a leaderboard.',
+  },
+  {
+    id: 'home-partner',
+    label: '🏃 Partner Challenge',
+    prompt: 'Create a walking and running challenge for me and my partner. We want to do 3 sessions per week, earn points, and see a leaderboard.',
+  },
+  {
+    id: 'home-event',
+    label: '🎉 Plan an event',
+    prompt: 'Create an event planner with tasks, a timeline, and a checklist.',
+  },
+  {
+    id: 'home-budget',
+    label: '💰 Budget tracker',
+    prompt: 'Create a simple monthly budget tracker for me.',
+  },
+  {
+    id: 'home-checklist',
+    label: '✅ Checklist',
+    prompt: 'Create a checklist for me.',
+  },
+  {
+    id: 'home-meals',
+    label: '🍽️ Meal planner',
+    prompt: 'Create a weekly meal planner for me.',
+  },
+];
+
 function getContext(activeCreation: Creation | null): {
   title: string;
+  subtitle: string;
   placeholder: string;
   suggestions: ContextSuggestion[];
 } {
   if (!activeCreation) {
     return {
-      title: 'Ask Toolie to make something',
-      placeholder: 'Describe what you want to make…',
-      suggestions: [],
+      title: 'What would you like to make?',
+      subtitle: 'Describe anything — Toolie will build it.',
+      placeholder: 'A pool, a challenge, a budget tracker…',
+      suggestions: HOME_SUGGESTIONS,
     };
   }
 
   if (activeCreation.content.type === 'tournament_pool_tracker') {
     return {
       title: 'Ask Toolie about this pool',
+      subtitle: 'Run the draw, add results, change scoring…',
       placeholder: 'Ask about the pool, draw, scoring, or sharing…',
       suggestions: buildPoolSuggestions(activeCreation),
     };
@@ -107,6 +146,7 @@ function getContext(activeCreation: Creation | null): {
   if (activeCreation.content.type === 'workout_tracker') {
     return {
       title: 'Ask Toolie about this challenge',
+      subtitle: 'Log activity, check progress, adjust scoring…',
       placeholder: 'Ask about logging, scoring, sharing, or progress…',
       suggestions: buildChallengeSuggestions(activeCreation),
     };
@@ -114,6 +154,7 @@ function getContext(activeCreation: Creation | null): {
 
   return {
     title: 'Ask Toolie about this tool',
+    subtitle: 'Make changes or ask questions.',
     placeholder: 'What should change?',
     suggestions: [],
   };
@@ -202,11 +243,12 @@ export function CreationComposer({
 
             {/* Header */}
             <div className="px-4 pb-3 pt-1 flex-shrink-0">
-              <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="flex items-center gap-1.5 mb-1">
                 <span className="text-violet-400 text-xs">✦</span>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">Toolie</p>
               </div>
               <h3 className="text-base font-bold text-white">{context.title}</h3>
+              <p className="text-xs text-white/40 mt-0.5">{context.subtitle}</p>
             </div>
 
             {isGenerating && processingStatus && (

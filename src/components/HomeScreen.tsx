@@ -339,6 +339,23 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
           </button>
         </div>
 
+        {/* ── Toolie nudge ─────────────────────────────────────────────────── */}
+        <div className="px-4 pb-5">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950 border border-white/5">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 2px 12px rgba(124,58,237,0.4)' }}
+            >
+              ✨
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-white leading-tight">Want something else?</p>
+              <p className="text-xs text-white/45 mt-0.5">Just tell Toolie — it can build almost anything.</p>
+            </div>
+            <span className="text-white/30 text-sm flex-shrink-0">→</span>
+          </div>
+        </div>
+
         {/* ── How it works ─────────────────────────────────────────────────── */}
         <div data-testid="how-it-works" className="px-5 pb-6">
           <div className="flex items-center gap-2 mb-4">

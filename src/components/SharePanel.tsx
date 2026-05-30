@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import type { Creation } from '../types';
 import type { WorkoutTrackerContent } from '../types';
 import {

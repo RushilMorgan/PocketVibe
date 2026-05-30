@@ -25,7 +25,6 @@ import {
   saveActiveCreationId,
   upsertCreation,
   deleteCreationById,
-  clearCreations,
 } from '../lib/creationStore';
 
 // ── Initial state ─────────────────────────────────────────────────────────────

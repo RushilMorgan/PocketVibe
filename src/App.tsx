@@ -203,6 +203,7 @@ export default function App() {
             onPrompt={startNewCreation}
             isGenerating={isGenerating}
             onCreateWorldCupPool={createWorldCupPool}
+            onSignIn={auth.isAvailable && !auth.user && !auth.loading ? () => openAuthModal('account') : undefined}
           />
         )}
 

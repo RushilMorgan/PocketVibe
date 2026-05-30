@@ -127,6 +127,8 @@ Deno.serve(async (req: Request) => {
 
   let teamsUpserted = 0;
   let matchesUpserted = 0;
+  let teamsFromApi = 0;
+  let fixturesFromApi = 0;
   let errorMessage: string | null = null;
   let syncStatus: 'success' | 'partial' | 'failed' = 'success';
 
@@ -137,6 +139,7 @@ Deno.serve(async (req: Request) => {
       apiKey,
     );
 
+    teamsFromApi = (teamsData.response ?? []).length;
     const teamRows = (teamsData.response ?? []).map((item: any) => ({
       provider_team_id: item.team.id,
       name: item.team.name,
@@ -164,6 +167,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const fixtures: any[] = fixturesData.response ?? [];
+    fixturesFromApi = fixtures.length;
 
     // Build match rows — skip manual overrides (is_manual_override = true in DB)
     const { data: existingOverrides } = await supabase
@@ -277,7 +281,7 @@ Deno.serve(async (req: Request) => {
   });
 
   return new Response(
-    JSON.stringify({ status: syncStatus, teamsUpserted, matchesUpserted, durationMs, error: errorMessage }),
+    JSON.stringify({ status: syncStatus, teamsUpserted, matchesUpserted, teamsFromApi, fixturesFromApi, durationMs, error: errorMessage }),
     { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
   );
 });

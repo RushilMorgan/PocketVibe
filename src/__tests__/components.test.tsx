@@ -1296,6 +1296,140 @@ describe('TournamentPoolRenderer', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ drawLocked: true }));
   });
 
+  it('strict fair draw (draw-all-btn) shows fairness prompt when Pot 1 has remainder', () => {
+    // 3 Pot 1 teams, 2 participants → 1 each with 1 leftover → fairness prompt
+    const pool = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil',  pot: 1, status: 'active' },
+        { id: 't2', name: 'France',  pot: 1, status: 'active' },
+        { id: 't3', name: 'Germany', pot: 1, status: 'active' },
+        { id: 't4', name: 'Spain',   pot: 2, status: 'active' },
+        { id: 't5', name: 'Italy',   pot: 2, status: 'active' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={pool} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    expect(screen.getByTestId('draw-fairness-prompt')).toBeInTheDocument();
+  });
+
+  it('confirming fair draw leaves remainder Pot 1 teams unassigned', () => {
+    const onChange = vi.fn();
+    // 3 Pot 1 teams, 2 participants → base=1 each, 1 Pot 1 leftover
+    const pool = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil',  pot: 1, status: 'active' },
+        { id: 't2', name: 'France',  pot: 1, status: 'active' },
+        { id: 't3', name: 'Germany', pot: 1, status: 'active' },
+        { id: 't4', name: 'Spain',   pot: 2, status: 'active' },
+        { id: 't5', name: 'Italy',   pot: 2, status: 'active' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={pool} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    fireEvent.click(screen.getByTestId('confirm-fair-draw-btn'));
+
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    const unassignedPot1 = updated.teams.filter(t => t.pot === 1 && !t.assignedTo);
+    expect(unassignedPot1.length).toBe(1);
+
+    for (const p of pool.participants) {
+      const pot1Teams = updated.teams.filter(t => t.pot === 1 && t.assignedTo === p.id);
+      expect(pot1Teams.length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('draw complete view shows pot breakdown per participant', () => {
+    // 2 participants, 2 Pot1, 2 Pot2 → evenly divisible, no prompt needed
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    // No fairness prompt since 2/2 is even — draw executes directly
+    expect(screen.getByTestId('draw-complete-view')).toBeInTheDocument();
+    // Pot breakdown chips should be visible for each participant
+    expect(screen.getByTestId('pot-breakdown-p1')).toBeInTheDocument();
+    expect(screen.getByTestId('pot-breakdown-p2')).toBeInTheDocument();
+  });
+
+  it('assign-all assigns every team', () => {
+    const onChange = vi.fn();
+    // 3 Pot 1 teams, 2 participants → 1 remainder, but assign-all assigns everything
+    const pool = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil',  pot: 1, status: 'active' },
+        { id: 't2', name: 'France',  pot: 1, status: 'active' },
+        { id: 't3', name: 'Germany', pot: 1, status: 'active' },
+        { id: 't4', name: 'Spain',   pot: 2, status: 'active' },
+        { id: 't5', name: 'Italy',   pot: 2, status: 'active' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={pool} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('assign-all-btn'));
+
+    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
+    const unassigned = updated.teams.filter(t => !t.assignedTo);
+    expect(unassigned.length).toBe(0);
+    expect(updated.teams.filter(t => t.assignedTo).length).toBe(5);
+  });
+
+  it('assign-all draw complete shows fairness warning when Pot 1 is uneven', () => {
+    // 3 Pot 1 teams, 2 participants → 1 Pot1 remainder → warning shown
+    const pool = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil',  pot: 1, status: 'active' },
+        { id: 't2', name: 'France',  pot: 1, status: 'active' },
+        { id: 't3', name: 'Germany', pot: 1, status: 'active' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={pool} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('assign-all-btn'));
+    expect(screen.getByTestId('draw-fairness-warning')).toBeInTheDocument();
+  });
+
+  it('unassigned teams are shown in bonus pool section after fair draw', () => {
+    // 3 Pot 1 teams, 2 participants → 1 Pot1 leftover shown
+    const pool = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil',  pot: 1, status: 'active' },
+        { id: 't2', name: 'France',  pot: 1, status: 'active' },
+        { id: 't3', name: 'Germany', pot: 1, status: 'active' },
+        { id: 't4', name: 'Spain',   pot: 2, status: 'active' },
+        { id: 't5', name: 'Italy',   pot: 2, status: 'active' },
+      ],
+    });
+    render(<TournamentPoolRenderer content={pool} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    fireEvent.click(screen.getByTestId('draw-all-btn'));
+    fireEvent.click(screen.getByTestId('confirm-fair-draw-btn'));
+    expect(screen.getByTestId('unassigned-teams-section')).toBeInTheDocument();
+  });
+
+  it('participant detail sheet groups teams by pot', () => {
+    const content = makePool({
+      teams: [
+        { id: 't1', name: 'Brazil',  pot: 1, status: 'active', assignedTo: 'p1' },
+        { id: 't2', name: 'France',  pot: 1, status: 'active', assignedTo: 'p2' },
+        { id: 't3', name: 'Germany', pot: 2, status: 'active', assignedTo: 'p1' },
+        { id: 't4', name: 'Spain',   pot: 2, status: 'active', assignedTo: 'p2' },
+      ],
+      drawLocked: true,
+    });
+    render(<TournamentPoolRenderer content={content} onChange={vi.fn()} />);
+    // Click on Alice's leaderboard row to open detail sheet
+    const aliceRow = screen.getByTestId('leaderboard-row-p1');
+    fireEvent.click(aliceRow);
+    expect(screen.getByTestId('participant-detail-sheet')).toBeInTheDocument();
+    // Teams should be grouped by pot (Pot 1 and Pot 2 labels visible)
+    expect(screen.getByText('Pot 1')).toBeInTheDocument();
+    expect(screen.getByText('Pot 2')).toBeInTheDocument();
+    // Alice's teams visible
+    expect(screen.getByTestId('participant-detail-team-t1')).toBeInTheDocument();
+    expect(screen.getByTestId('participant-detail-team-t3')).toBeInTheDocument();
+  });
+
   it('enters a manual match result', () => {
     const content = makePool({
       teams: [

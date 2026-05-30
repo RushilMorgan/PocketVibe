@@ -10,6 +10,13 @@ import type {
 import { SmartGuidance } from '../SmartGuidance';
 import { computePoolGuidance } from '../../lib/guidance';
 import { THEMES, getPoolGradient } from '../../lib/themes';
+import {
+  shuffle,
+  checkDrawFairness,
+  runStrictFairSeededDraw,
+  runAssignAllDraw,
+} from '../../lib/drawEngine';
+import type { DrawMode, PotBreakdown } from '../../lib/drawEngine';
 
 interface Props {
   content: TournamentPoolTrackerContent;
@@ -45,23 +52,18 @@ interface DrawCompleteResult {
     emoji: string;
     topTeams: string[];
     totalTeams: number;
+    potCounts: PotBreakdown;
   }>;
+  unassignedTeams: Array<{ id: string; name: string; flag: string; pot: number }>;
+  fairnessWarning: string | null;
+  drawMode: DrawMode;
 }
 
-type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'drawOneResult' | 'addResult' | 'lockConfirm';
+type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'drawOneResult' | 'addResult' | 'lockConfirm' | 'drawFairnessPrompt';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 function nextParticipantIndex(
   participants: TournamentParticipant[],
@@ -188,6 +190,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
   // ── Draw result data ─────────────────────────────────────────────────────
   const [drawOneResultData, setDrawOneResultData] = useState<DrawOneResult | null>(null);
   const [drawCompleteData, setDrawCompleteData] = useState<DrawCompleteResult | null>(null);
+  const [pendingDrawMode, setPendingDrawMode] = useState<DrawMode | null>(null);
 
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -264,7 +267,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
         setSheetView('scoring');
         break;
       case 'run-draw-all': drawAll(); break;
-      case 'run-draw-by-pot': drawByPot(); break;
+      case 'run-draw-assign-all': drawAssignAll(); break;
       case 'lock-draw':    lockDraw(); break;
       case 'change-theme': setSheetView('colours'); break;
       case 'add-result':   setSheetView('addResult'); break;
@@ -438,61 +441,61 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
   function buildDrawCompleteResult(
     updatedTeams: TournamentTeam[],
-    _newlyAssigned: TournamentTeam[],
-    _assignment: Map<string, string>,
+    potBreakdown: Map<string, PotBreakdown>,
+    fairnessWarning: string | null,
+    drawMode: DrawMode,
   ): DrawCompleteResult {
     const totalAssigned = updatedTeams.filter(t => t.assignedTo).length;
     const summaries = content.participants.map(p => {
-      // Show ALL teams the participant now holds (not just newly drawn)
       const myTeams = updatedTeams.filter(t => t.assignedTo === p.id);
+      const potCounts = potBreakdown.get(p.id) ?? {};
       return {
         id: p.id,
         name: p.name,
         emoji: p.emoji ?? '👤',
         topTeams: myTeams.slice(0, 5).map(t => `${t.flagEmoji ?? ''} ${t.name}`.trim()),
         totalTeams: myTeams.length,
+        potCounts,
       };
     });
-    return { totalAssigned, summaries };
+    const unassignedTeams = updatedTeams
+      .filter(t => !t.assignedTo)
+      .map(t => ({ id: t.id, name: t.name, flag: t.flagEmoji ?? '', pot: t.pot }));
+    return { totalAssigned, summaries, unassignedTeams, fairnessWarning, drawMode };
   }
 
   function drawAll() {
     if (content.participants.length === 0) return;
-    const unassigned = shuffle(content.teams.filter(t => !t.assignedTo));
+    const unassigned = content.teams.filter(t => !t.assignedTo);
     if (unassigned.length === 0) return;
-    const assignment = new Map<string, string>();
-    let pidx = nextParticipantIndex(content.participants, content.teams);
-    for (const team of unassigned) {
-      assignment.set(team.id, content.participants[pidx].id);
-      pidx = (pidx + 1) % content.participants.length;
+
+    // Check if draw is perfectly fair; if not, prompt the user first
+    const fairness = checkDrawFairness(content.teams, content.participants.length);
+    if (fairness.hasRemainder) {
+      setPendingDrawMode('strict_fair_seeded');
+      setSheetView('drawFairnessPrompt');
+      return;
     }
-    const updatedTeams = content.teams.map(t =>
-      assignment.has(t.id) ? { ...t, assignedTo: assignment.get(t.id) } : t,
-    );
-    update({ teams: updatedTeams });
-    setDrawCompleteData(buildDrawCompleteResult(updatedTeams, unassigned, assignment));
-    setSheetView('drawComplete');
+    executeDraw('strict_fair_seeded');
   }
 
-  function drawByPot() {
+  function drawAssignAll() {
     if (content.participants.length === 0) return;
-    const teams = [...content.teams];
-    const pots = [...new Set(teams.map(t => t.pot))].sort((a, b) => a - b);
-    const assignment = new Map<string, string>();
-    for (const pot of pots) {
-      const potTeams = shuffle(teams.filter(t => t.pot === pot && !t.assignedTo));
-      potTeams.forEach((team, i) => {
-        const participant = content.participants[i % content.participants.length];
-        const idx = teams.findIndex(t => t.id === team.id);
-        if (idx >= 0) {
-          teams[idx] = { ...teams[idx], assignedTo: participant.id };
-          assignment.set(team.id, participant.id);
-        }
-      });
-    }
-    const originallyUnassigned = content.teams.filter(t => !t.assignedTo);
-    update({ teams });
-    setDrawCompleteData(buildDrawCompleteResult(teams, originallyUnassigned, assignment));
+    const unassigned = content.teams.filter(t => !t.assignedTo);
+    if (unassigned.length === 0) return;
+    executeDraw('assign_all_teams');
+  }
+
+  function executeDraw(mode: DrawMode) {
+    const result = mode === 'strict_fair_seeded'
+      ? runStrictFairSeededDraw(content.teams, content.participants)
+      : runAssignAllDraw(content.teams, content.participants);
+
+    update({ teams: result.teams });
+    setDrawCompleteData(
+      buildDrawCompleteResult(result.teams, result.potBreakdown, result.fairnessWarning, mode),
+    );
+    setPendingDrawMode(null);
     setSheetView('drawComplete');
   }
 
@@ -523,10 +526,10 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
           {/* Draw actions */}
           <div className="grid grid-cols-2 gap-2">
-            <button data-testid="draw-one-btn" onClick={drawOne}    className="rounded-xl bg-gray-900 px-3 py-2.5 text-xs font-semibold text-white">🎲 Draw one</button>
-            <button data-testid="draw-all-btn" onClick={drawAll}    className="rounded-xl bg-gray-900 px-3 py-2.5 text-xs font-semibold text-white">🎰 Draw all</button>
-            <button data-testid="draw-by-pot-btn" onClick={drawByPot} className="rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🪣 By pot</button>
-            <button data-testid="lock-draw-btn" onClick={lockDraw}  className="rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🔒 Lock draw</button>
+            <button data-testid="draw-one-btn"    onClick={drawOne}        className="rounded-xl bg-gray-900 px-3 py-2.5 text-xs font-semibold text-white">🎲 Draw one</button>
+            <button data-testid="draw-all-btn"    onClick={drawAll}        className="rounded-xl bg-gray-900 px-3 py-2.5 text-xs font-semibold text-white">🎯 Fair draw</button>
+            <button data-testid="assign-all-btn"  onClick={drawAssignAll}  className="rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🎰 Assign all</button>
+            <button data-testid="lock-draw-btn"   onClick={lockDraw}       className="rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🔒 Lock draw</button>
           </div>
 
           {/* Navigation to sub-views */}
@@ -684,6 +687,48 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
     }
 
     // ── DRAW ONE RESULT ──────────────────────────────────────────────────────
+    // ── DRAW FAIRNESS PROMPT ──────────────────────────────────────────────────
+    if (sheetView === 'drawFairnessPrompt') {
+      const fairness = checkDrawFairness(content.teams, content.participants.length);
+      return (
+        <>
+          <SheetHeader title="Draw fairness" onBack={() => setSheetView('manage')} />
+          <div data-testid="draw-fairness-prompt" className="space-y-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">⚠️ Some teams will be left over</p>
+              <p className="mt-1 text-xs text-amber-700">
+                To keep the draw perfectly fair, {fairness.strictUnassignedCount} team
+                {fairness.strictUnassignedCount !== 1 ? 's' : ''} will not be assigned
+                (including {fairness.pot1Remainder} Pot 1 team
+                {fairness.pot1Remainder !== 1 ? 's' : ''}).
+                Leftover teams will be shown after the draw.
+              </p>
+            </div>
+            <button
+              data-testid="confirm-fair-draw-btn"
+              onClick={() => executeDraw('strict_fair_seeded')}
+              className="w-full rounded-xl bg-gray-900 py-3 text-sm font-semibold text-white"
+            >
+              🎯 Keep it fair (leave {fairness.strictUnassignedCount} unassigned)
+            </button>
+            <button
+              data-testid="confirm-assign-all-btn"
+              onClick={() => executeDraw('assign_all_teams')}
+              className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-800"
+            >
+              🎰 Assign every team anyway
+            </button>
+            <button
+              onClick={() => setSheetView('manage')}
+              className="w-full rounded-xl border border-gray-200 py-3 text-sm text-gray-500"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      );
+    }
+
     if (sheetView === 'drawOneResult' && drawOneResultData) {
       return (
         <>
@@ -734,13 +779,27 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
     // ── DRAW COMPLETE ────────────────────────────────────────────────────────
     if (sheetView === 'drawComplete' && drawCompleteData) {
+      const pots = [...new Set(content.teams.map(t => t.pot))].sort((a, b) => a - b);
       return (
         <>
           <SheetHeader title="Draw complete! 🎉" onClose={() => setSheetView(null)} />
           <div data-testid="draw-complete-view">
             <p className="text-sm text-gray-500">
               {drawCompleteData.totalAssigned} teams assigned
+              {drawCompleteData.drawMode === 'strict_fair_seeded' ? ' · Fair seeded draw' : ' · All teams assigned'}
             </p>
+
+            {/* Fairness warning (assign_all mode only) */}
+            {drawCompleteData.fairnessWarning && (
+              <div
+                data-testid="draw-fairness-warning"
+                className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3"
+              >
+                <p className="text-xs text-amber-700">⚠️ {drawCompleteData.fairnessWarning}</p>
+              </div>
+            )}
+
+            {/* Participant summaries with pot breakdown */}
             <div className="mt-4 space-y-3">
               {drawCompleteData.summaries.map(s => (
                 <div
@@ -753,6 +812,24 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                     <p className="font-semibold text-gray-900">{s.name}</p>
                     <span className="ml-auto text-xs text-gray-500">{s.totalTeams} teams</span>
                   </div>
+                  {/* Pot breakdown */}
+                  <div
+                    data-testid={`pot-breakdown-${s.id}`}
+                    className="mt-2 flex flex-wrap gap-1.5"
+                  >
+                    {pots.map(pot => {
+                      const count = s.potCounts[pot] ?? 0;
+                      if (count === 0) return null;
+                      return (
+                        <span
+                          key={pot}
+                          className="rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-600"
+                        >
+                          Pot {pot}: {count}
+                        </span>
+                      );
+                    })}
+                  </div>
                   <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
                     {s.topTeams.join(' · ')}
                     {s.totalTeams > s.topTeams.length
@@ -762,6 +839,22 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                 </div>
               ))}
             </div>
+
+            {/* Unassigned / bonus teams */}
+            {drawCompleteData.unassignedTeams.length > 0 && (
+              <div data-testid="unassigned-teams-section" className="mt-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                  Bonus pool ({drawCompleteData.unassignedTeams.length} unassigned)
+                </p>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 space-y-1">
+                  {drawCompleteData.unassignedTeams.map(t => (
+                    <p key={t.id} className="text-xs text-gray-600">
+                      {t.flag} {t.name} <span className="text-gray-400">· Pot {t.pot}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="mt-5 flex flex-col gap-2">
             <button

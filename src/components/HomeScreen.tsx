@@ -6,28 +6,25 @@ interface HomeScreenProps {
   onPrompt: (prompt: string) => void;
   isGenerating: boolean;
   onCreateWorldCupPool?: () => void;
+  /** Shown as a subtle sign-in link when provided. */
+  onSignIn?: () => void;
 }
 
-const FLAGSHIP_TOOLS = [
-  {
-    id: 'partner-challenge',
-    emoji: '🏃',
-    name: 'Partner Challenge',
-    description: 'Track walks, runs and workouts with a partner. Points, weekly targets, and a live leaderboard.',
-    prompt: 'Create a walking and running challenge for me and my partner. We want to do 3 sessions per week, earn points, and see a leaderboard.',
-    gradient: 'from-red-500 to-orange-500',
-  },
-  {
-    id: 'world-cup-pool',
-    emoji: '🏆',
-    name: 'World Cup / Tournament Pool',
-    description: 'Run a friendly team draw for your family or office. Pick teams, track results, and follow the leaderboard together.',
-    prompt: 'Create a friendly World Cup pool for my family. Add participants, draw teams from seeded pots, track results, and show a leaderboard.',
-    gradient: 'from-yellow-500 to-orange-500',
-  },
-] as const;
+// ── Card data ─────────────────────────────────────────────────────────────────
 
-export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: HomeScreenProps) {
+const WC_POOL = {
+  id: 'world-cup-pool',
+  prompt: 'Create a friendly World Cup pool for my family. Add participants, draw teams from seeded pots, track results, and show a leaderboard.',
+} as const;
+
+const PARTNER_CHALLENGE = {
+  id: 'partner-challenge',
+  prompt: 'Create a walking and running challenge for me and my partner. We want to do 3 sessions per week, earn points, and see a leaderboard.',
+} as const;
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn }: HomeScreenProps) {
   const [input, setInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -46,7 +43,19 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: Hom
     onPrompt(prompt);
   }
 
-  // ── Category detail view (DEV_MODE only) ────────────────────────────────────
+  function handleWCPool() {
+    if (isGenerating) return;
+    if (onCreateWorldCupPool) onCreateWorldCupPool();
+    else handleStarter(WC_POOL.prompt);
+  }
+
+  function handlePartnerChallenge() {
+    if (isGenerating) return;
+    handleStarter(PARTNER_CHALLENGE.prompt);
+  }
+
+  // ── Category detail view (DEV_MODE only) ─────────────────────────────────
+
   if (category) {
     return (
       <div className="flex flex-col h-full bg-white overflow-hidden">
@@ -73,6 +82,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: Hom
             {category.starters.map((starter, i) => (
               <button
                 key={i}
+                data-testid={`context-suggestion-${starter.label.toLowerCase().replace(/\s+/g, '-')}`}
                 onClick={() => handleStarter(starter.prompt)}
                 disabled={isGenerating}
                 className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-gray-50 active:bg-gray-100 text-left transition-colors disabled:opacity-50"
@@ -115,10 +125,10 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: Hom
     );
   }
 
-  // ── Main home view ──────────────────────────────────────────────────────────
+  // ── Main landing view ─────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
-      {/* DEV_MODE banner */}
       {DEV_MODE && (
         <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-1.5 text-center">
           <p className="text-xs font-medium text-amber-700">⚙️ Dev mode — all tools visible</p>
@@ -126,52 +136,151 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: Hom
       )}
 
       <div className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="px-5 pt-7 pb-5">
-          <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-            Hey Toolie 🛠️
+
+        {/* ── Hero ─────────────────────────────────────────────────────────── */}
+        <div className="px-5 pt-7 pb-6">
+          <h1 data-testid="landing-headline" className="text-2xl font-black text-gray-900 leading-tight tracking-tight">
+            Make little tools for real life.
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Pick a tool and share it with friends
+          <p className="text-sm text-gray-500 mt-2 leading-relaxed max-w-xs">
+            Start with a World Cup pool or a partner challenge. Create it, share it, and keep it going together.
+          </p>
+          {onSignIn && (
+            <button
+              data-testid="signin-link"
+              onClick={onSignIn}
+              className="mt-3 text-xs text-violet-600 font-medium hover:underline"
+            >
+              Already have an account? Sign in
+            </button>
+          )}
+        </div>
+
+        {/* ── Main cards ───────────────────────────────────────────────────── */}
+        <div className="px-4 flex flex-col gap-4 pb-6">
+
+          {/* World Cup Pool */}
+          <button
+            data-testid="flagship-world-cup-pool"
+            onClick={handleWCPool}
+            disabled={isGenerating}
+            className="text-left rounded-3xl overflow-hidden shadow-sm border border-amber-100 active:scale-[0.985] transition-transform disabled:opacity-50 w-full"
+          >
+            <div className="bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 px-5 pt-5 pb-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-3xl">🏆</span>
+                <span className="text-xs font-semibold bg-white/25 text-white px-2.5 py-1 rounded-full">
+                  ⚽ 2026
+                </span>
+              </div>
+              <h2 className="text-xl font-black text-white leading-tight">World Cup Pool</h2>
+              <p className="text-sm text-white/90 mt-1.5 leading-relaxed">
+                Create a friendly pool with a fair team draw, share it with family or friends, and follow the leaderboard as results come in.
+              </p>
+            </div>
+            <div className="bg-white px-5 py-3 space-y-1.5">
+              {[
+                '🎯 Fair seeded draw — every team assigned',
+                '📊 Live leaderboard',
+                '🔗 Share with family or work friends',
+                '⚽ Results tracking as games happen',
+              ].map(h => (
+                <p key={h} className="text-xs text-gray-600 flex items-start gap-1.5">
+                  <span className="flex-shrink-0">{h.slice(0, 2)}</span>
+                  <span>{h.slice(3)}</span>
+                </p>
+              ))}
+              <div className="pt-2">
+                <span
+                  data-testid="make-world-cup-pool-btn"
+                  className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl w-full justify-center"
+                >
+                  Make a World Cup Pool
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </button>
+
+          {/* Partner Challenge */}
+          <button
+            data-testid="flagship-partner-challenge"
+            onClick={handlePartnerChallenge}
+            disabled={isGenerating}
+            className="text-left rounded-3xl overflow-hidden shadow-sm border border-violet-100 active:scale-[0.985] transition-transform disabled:opacity-50 w-full"
+          >
+            <div className="bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 px-5 pt-5 pb-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-3xl">🏃</span>
+                <span className="text-xs font-semibold bg-white/25 text-white px-2.5 py-1 rounded-full">
+                  Fitness
+                </span>
+              </div>
+              <h2 className="text-xl font-black text-white leading-tight">Partner Challenge</h2>
+              <p className="text-sm text-white/90 mt-1.5 leading-relaxed">
+                Create a fun challenge for you and your partner. Log walks or runs, earn points, and track progress week after week.
+              </p>
+            </div>
+            <div className="bg-white px-5 py-3 space-y-1.5">
+              {[
+                '🎯 Weekly goals and streaks',
+                '🏅 Points for every session',
+                '📈 Progress tracked over time',
+                '🔗 Shared link for your partner',
+              ].map(h => (
+                <p key={h} className="text-xs text-gray-600 flex items-start gap-1.5">
+                  <span className="flex-shrink-0">{h.slice(0, 2)}</span>
+                  <span>{h.slice(3)}</span>
+                </p>
+              ))}
+              <div className="pt-2">
+                <span
+                  data-testid="make-partner-challenge-btn"
+                  className="inline-flex items-center gap-1.5 bg-violet-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl w-full justify-center"
+                >
+                  Make a Partner Challenge
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* ── How it works ─────────────────────────────────────────────────── */}
+        <div data-testid="how-it-works" className="px-5 pb-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">How it works</p>
+          <div className="flex flex-col gap-4">
+            {[
+              { step: '1', label: 'Pick what you want to make', icon: '👆' },
+              { step: '2', label: 'Toolie creates it for you', icon: '✨' },
+              { step: '3', label: 'Edit, share and use it', icon: '🔗' },
+            ].map(({ step, label, icon }) => (
+              <div key={step} className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-base flex-shrink-0">
+                  {icon}
+                </div>
+                <p className="text-sm font-medium text-gray-700">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Trust note ───────────────────────────────────────────────────── */}
+        <div className="mx-4 mb-6 px-4 py-3 bg-gray-50 rounded-2xl border border-gray-100">
+          <p className="text-xs text-gray-500 leading-relaxed">
+            🔒 You own what you create. People you share with can view or take part — they can't edit your original tool.
           </p>
         </div>
 
-        {/* Flagship tool cards */}
-        <div className="px-4 flex flex-col gap-3 pb-4">
-          {FLAGSHIP_TOOLS.map(tool => (
-            <button
-              key={tool.id}
-              data-testid={`flagship-${tool.id}`}
-              onClick={() => {
-                if (tool.id === 'world-cup-pool' && onCreateWorldCupPool) {
-                  onCreateWorldCupPool();
-                } else {
-                  handleStarter(tool.prompt);
-                }
-              }}
-              disabled={isGenerating}
-              className="text-left rounded-2xl overflow-hidden border border-gray-100 shadow-sm active:scale-[0.98] transition-transform disabled:opacity-50"
-            >
-              <div className={`bg-gradient-to-br ${tool.gradient} p-5 text-white`}>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-3xl leading-none">{tool.emoji}</span>
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </div>
-                </div>
-                <h2 className="text-lg font-bold mt-2">{tool.name}</h2>
-                <p className="text-sm opacity-90 mt-1 leading-relaxed">{tool.description}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* DEV_MODE: all tools section */}
+        {/* ── DEV_MODE: all tools + chat input ─────────────────────────────── */}
         {DEV_MODE && (
-          <div className="px-4 pb-6">
+          <div data-testid="dev-mode-section" className="px-4 pb-8 border-t border-dashed border-amber-200 pt-4">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
               All tools (dev only)
             </p>
@@ -195,7 +304,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: Hom
                   type="text"
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder="Or describe what you want to make…"
+                  placeholder="Ask Toolie what you want to make…"
                   disabled={isGenerating}
                   className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:opacity-50"
                 />
@@ -218,4 +327,3 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool }: Hom
     </div>
   );
 }
-

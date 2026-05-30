@@ -130,12 +130,88 @@ describe('HomeScreen', () => {
   });
 
   it('calls onPrompt when form is submitted with text', () => {
-    // The free text input is only shown in DEV_MODE. Simulate by using URL ?dev param.
-    // We cannot easily toggle DEV_MODE in a test, so check that flagship click works instead.
+    // WC Pool with no onCreateWorldCupPool falls back to onPrompt
     const onPrompt = vi.fn();
     render(<HomeScreen onPrompt={onPrompt} isGenerating={false} />);
     fireEvent.click(screen.getByTestId('flagship-world-cup-pool'));
     expect(onPrompt).toHaveBeenCalled();
+  });
+});
+
+// ── Landing screen UX spec ─────────────────────────────────────────────────────
+
+describe('Landing screen UX', () => {
+  it('1. shows Hey Toolie branding and tagline', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    expect(screen.getByTestId('landing-headline')).toBeInTheDocument();
+    expect(screen.getByText(/Make little tools for real life/i)).toBeInTheDocument();
+  });
+
+  it('2. shows only World Cup Pool and Partner Challenge cards publicly', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    expect(screen.getByTestId('flagship-world-cup-pool')).toBeInTheDocument();
+    expect(screen.getByTestId('flagship-partner-challenge')).toBeInTheDocument();
+    // No other "flagship-" cards
+    const allFlagships = document.querySelectorAll('[data-testid^="flagship-"]');
+    expect(allFlagships.length).toBe(2);
+  });
+
+  it('3. old template categories are hidden when dev mode is off', () => {
+    // DEV_MODE is false in the test environment
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    expect(screen.queryByTestId('dev-mode-section')).not.toBeInTheDocument();
+  });
+
+  it('4. World Cup card has Make a World Cup Pool button', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    expect(screen.getByTestId('make-world-cup-pool-btn')).toBeInTheDocument();
+    expect(screen.getByText(/Make a World Cup Pool/i)).toBeInTheDocument();
+  });
+
+  it('5. Partner card has Make a Partner Challenge button', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    expect(screen.getByTestId('make-partner-challenge-btn')).toBeInTheDocument();
+    expect(screen.getByText(/Make a Partner Challenge/i)).toBeInTheDocument();
+  });
+
+  it('6. clicking World Cup Pool calls onCreateWorldCupPool when provided', () => {
+    const onCreateWorldCupPool = vi.fn();
+    render(<HomeScreen onPrompt={noop} isGenerating={false} onCreateWorldCupPool={onCreateWorldCupPool} />);
+    fireEvent.click(screen.getByTestId('flagship-world-cup-pool'));
+    expect(onCreateWorldCupPool).toHaveBeenCalledOnce();
+  });
+
+  it('7. clicking Partner Challenge calls onPrompt with challenge prompt', () => {
+    const onPrompt = vi.fn();
+    render(<HomeScreen onPrompt={onPrompt} isGenerating={false} />);
+    fireEvent.click(screen.getByTestId('flagship-partner-challenge'));
+    expect(onPrompt).toHaveBeenCalledWith(expect.stringContaining('challenge'));
+  });
+
+  it('8. landing does not contain technical or developer wording', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    const bodyText = document.body.textContent ?? '';
+    for (const badWord of ['AI app builder', 'workflow automation', 'schema', 'TypeScript', 'generate app', 'vibe coding']) {
+      expect(bodyText).not.toMatch(new RegExp(badWord, 'i'));
+    }
+  });
+
+  it('9. sign-in link is visible but creation is not blocked', () => {
+    const onSignIn = vi.fn();
+    render(<HomeScreen onPrompt={noop} isGenerating={false} onSignIn={onSignIn} />);
+    // Sign in link is present
+    expect(screen.getByTestId('signin-link')).toBeInTheDocument();
+    // Cards are still enabled — creation is not blocked
+    expect(screen.getByTestId('flagship-world-cup-pool')).not.toBeDisabled();
+    expect(screen.getByTestId('flagship-partner-challenge')).not.toBeDisabled();
+  });
+
+  it('10. mobile layout: no old crowded template grid in non-dev mode', () => {
+    render(<HomeScreen onPrompt={noop} isGenerating={false} />);
+    // The 2-column category grid only appears in DEV_MODE
+    expect(screen.queryByTestId('dev-mode-section')).not.toBeInTheDocument();
+    // The "How it works" section is present instead
+    expect(screen.getByTestId('how-it-works')).toBeInTheDocument();
   });
 });
 

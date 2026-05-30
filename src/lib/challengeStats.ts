@@ -48,10 +48,10 @@ function pointsForWeekLogs(
 ): number {
   let pts = 0;
   for (const log of weekLogs) {
-    pts += rules.pointsPerActivity;
-    if (log.activityType === 'run') pts += rules.runningBonus;
+    pts += rules.pointsPerActivity ?? 10;
+    if (log.activityType === 'run') pts += rules.runningBonus ?? 0;
   }
-  if (weekLogs.length >= weeklyTarget) pts += rules.weeklyTargetBonus;
+  if (weekLogs.length >= weeklyTarget) pts += rules.weeklyTargetBonus ?? 20;
   return pts;
 }
 
@@ -132,7 +132,7 @@ export function getMonthStats(
   for (const cnt of weekCounts.values()) {
     if (cnt >= weeklyTarget) {
       weeksHitTarget++;
-      points += rules.weeklyTargetBonus;
+      points += rules.weeklyTargetBonus ?? 20;
     }
   }
   return { year, month, sessions: monthLogs.length, points, weeksHitTarget };
@@ -158,7 +158,7 @@ export function getAllTimeStats(
     if (log.activityType === 'run') points += rules.runningBonus;
   }
   for (const cnt of weekCounts.values()) {
-    if (cnt >= weeklyTarget) points += rules.weeklyTargetBonus;
+    if (cnt >= weeklyTarget) points += rules.weeklyTargetBonus ?? 20;
   }
 
   const bestWeekSessions = weekCounts.size > 0 ? Math.max(...weekCounts.values()) : 0;

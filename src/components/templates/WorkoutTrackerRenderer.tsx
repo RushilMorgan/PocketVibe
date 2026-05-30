@@ -63,12 +63,12 @@ function calcScores(
       for (const log of myLogs) {
         const wk = weekKey(log.date);
         weekCounts.set(wk, (weekCounts.get(wk) ?? 0) + 1);
-        points += rules.pointsPerActivity;
-        if (log.activityType === 'run') points += rules.runningBonus;
+        points += rules.pointsPerActivity ?? 10;
+        if (log.activityType === 'run') points += rules.runningBonus ?? 5;
       }
 
       for (const count of weekCounts.values()) {
-        if (count >= weeklyTarget) points += rules.weeklyTargetBonus;
+        if (count >= weeklyTarget) points += rules.weeklyTargetBonus ?? 20;
       }
 
       return {
@@ -115,10 +115,13 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
   const logs = content.logs ?? [];
   const activityTypes = content.activityTypes ?? ['walk', 'run', 'gym', 'other'];
   const weeklyTarget = content.weeklyTarget ?? 3;
-  const rules: ChallengeScoringRules = content.scoringRules ?? {
+  // Spread defaults so partially-defined scoringRules (e.g. AI omitting runningBonus)
+  // never produce NaN in score calculations.
+  const rules: ChallengeScoringRules = {
     pointsPerActivity: 10,
     weeklyTargetBonus: 20,
     runningBonus: 5,
+    ...(content.scoringRules ?? {}),
   };
 
   const today = new Date().toISOString().slice(0, 10);

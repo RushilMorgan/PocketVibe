@@ -72,3 +72,13 @@ export function upsertCreation(creations: Creation[], creation: Creation): Creat
 export function deleteCreationById(creations: Creation[], id: string): Creation[] {
   return creations.filter(c => c.id !== id);
 }
+
+/** Remove all creations and the active-creation pointer from localStorage. */
+export function clearCreations(): void {
+  try {
+    localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(ACTIVE_KEY);
+  } catch {
+    // Silently handle
+  }
+}

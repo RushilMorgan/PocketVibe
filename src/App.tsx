@@ -14,6 +14,8 @@ import type { AuthModalVariant } from './components/AuthModal';
 import { formatCreationSummary } from './lib/creationSummary';
 
 export default function App() {
+  const auth = useAuth();
+
   const {
     state,
     activeCreation,
@@ -21,6 +23,7 @@ export default function App() {
     goHome,
     goToMyCreations,
     goToMyTools,
+    signOutReset,
     startNewCreation,
     improveCreation,
     chatMessage,
@@ -32,9 +35,7 @@ export default function App() {
     updateCreationContent,
     setCreationShareSlug,
     createWorldCupPool,
-  } = usePocketVibe();
-
-  const auth = useAuth();
+  } = usePocketVibe(auth.user?.id);
 
   // ── Back-button / popstate handling ─────────────────────────────────────────
   // We always keep one history entry ahead of the current page so Android's
@@ -80,6 +81,21 @@ export default function App() {
   const [pendingToolAction, setPendingToolAction] = useState<string | null>(null);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
+
+  /**
+   * Sign out: clear the Supabase session, strip owned creations from the local
+   * store (keeping any anonymous ones), and navigate home so the user doesn't
+   * land on a blank my-tools screen.
+   */
+  async function handleSignOut() {
+    const signedOutUserId = auth.user?.id;
+    await auth.signOut();
+    if (signedOutUserId) {
+      signOutReset(signedOutUserId);
+    } else {
+      goHome();
+    }
+  }
 
   function openAuthModal(variant: AuthModalVariant) {
     setAuthModalVariant(variant);
@@ -177,7 +193,7 @@ export default function App() {
         {view === 'my-tools' && auth.user && (
           <MyToolsPage
             user={auth.user}
-            onSignOut={auth.signOut}
+            onSignOut={handleSignOut}
             onBack={goHome}
           />
         )}

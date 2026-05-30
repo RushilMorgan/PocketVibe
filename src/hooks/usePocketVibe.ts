@@ -25,6 +25,7 @@ import {
   saveActiveCreationId,
   upsertCreation,
   deleteCreationById,
+  clearCreations,
 } from '../lib/creationStore';
 
 // ── Initial state ─────────────────────────────────────────────────────────────
@@ -154,10 +155,14 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function usePocketVibe() {
+export function usePocketVibe(userId?: string) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  // Keep a ref so callbacks can read the latest userId without re-creating.
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   // ── Hydrate from localStorage on mount ──────────────────────────────────────
   useEffect(() => {
@@ -204,6 +209,20 @@ export function usePocketVibe() {
 
   const goToMyTools = useCallback(() => {
     dispatch({ type: 'SET_VIEW', payload: 'my-tools' });
+  }, []);
+
+  /**
+   * Call this immediately after signing out.
+   * Strips creations that were made while signed in as `signedOutUserId`,
+   * keeps anonymous ones (no ownerUserId), and resets the view to home.
+   */
+  const signOutReset = useCallback((signedOutUserId: string) => {
+    const remaining = stateRef.current.creations.filter(
+      c => !c.ownerUserId || c.ownerUserId !== signedOutUserId,
+    );
+    saveCreations(remaining);
+    saveActiveCreationId(null);
+    dispatch({ type: 'HYDRATE', payload: { creations: remaining, activeCreationId: null } });
   }, []);
 
   // ── Core generation ───────────────────────────────────────────────────────────
@@ -374,6 +393,8 @@ export function usePocketVibe() {
         createdAt: existing?.createdAt ?? updatedAt,
         updatedAt,
         content: res.content,
+        // Preserve existing ownerUserId or tag with current user if signed in.
+        ownerUserId: existing?.ownerUserId ?? userIdRef.current,
       };
 
       dispatch({ type: 'UPSERT_CREATION', payload: finishedCreation });
@@ -608,6 +629,7 @@ export function usePocketVibe() {
       status: 'ready',
       sourceTemplate: original.id,
       isFavorite: false,
+      ownerUserId: userIdRef.current,
     };
     dispatch({ type: 'UPSERT_CREATION', payload: duplicate });
     dispatch({ type: 'SET_ACTIVE_CREATION', payload: duplicate.id });
@@ -666,6 +688,7 @@ export function usePocketVibe() {
       version: 1,
       createdAt: now,
       updatedAt: now,
+      ownerUserId: userIdRef.current,
       content: {
         type: 'tournament_pool_tracker',
         poolName: 'World Cup 2026 Pool',
@@ -772,6 +795,7 @@ export function usePocketVibe() {
     goHome,
     goToMyCreations,
     goToMyTools,
+    signOutReset,
     startNewCreation,
     improveCreation,
     chatMessage,

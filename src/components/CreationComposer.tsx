@@ -276,7 +276,6 @@ export function CreationComposer({
                     : context.placeholder
                 }
                 disabled={isGenerating}
-                autoFocus
                 className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50"
               />
               <button

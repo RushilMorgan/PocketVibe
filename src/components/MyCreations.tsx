@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Creation, CreationType } from '../types';
 
 interface MyCreationsProps {
@@ -63,6 +63,7 @@ export function MyCreations({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function startRename(creation: Creation) {
     setRenamingId(creation.id);
@@ -85,30 +86,26 @@ export function MyCreations({
 
   function handleDelete(id: string) {
     if (confirmDeleteId === id) {
+      // Second tap — confirmed
+      if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current);
       onDelete(id);
       setConfirmDeleteId(null);
     } else {
+      // First tap — enter confirmation mode, auto-reset after 3 s
       setConfirmDeleteId(id);
+      if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current);
+      deleteTimeoutRef.current = setTimeout(() => setConfirmDeleteId(null), 3000);
     }
   }
 
+  // Clear pending timeout on unmount
+  useEffect(() => () => { if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current); }, []);
+
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-6 pb-4 flex-shrink-0 border-b border-gray-100">
-        <button
-          onClick={onBack}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 active:bg-gray-200"
-          aria-label="Back"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 leading-tight">My things</h2>
-          <p className="text-xs text-gray-500">{sorted.length} creation{sorted.length !== 1 ? 's' : ''}</p>
-        </div>
+      {/* Count subtitle — title/back handled by PVHeader above */}
+      <div className="px-4 pt-3 pb-1 flex-shrink-0">
+        <p className="text-xs text-gray-400">{sorted.length} creation{sorted.length !== 1 ? 's' : ''}</p>
       </div>
 
       {/* List */}
@@ -178,37 +175,37 @@ export function MyCreations({
                       </div>
                     </button>
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                    {/* Action buttons — min 44×44 touch targets */}
+                    <div className="flex items-center flex-shrink-0 ml-1">
                       <button
                         onClick={e => { e.stopPropagation(); startRename(creation); }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
+                        className="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
                         aria-label="Rename"
                         title="Rename"
                       >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
                       <button
-                        onClick={() => onDuplicate(creation.id)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
+                        onClick={e => { e.stopPropagation(); onDuplicate(creation.id); }}
+                        className="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
                         aria-label="Duplicate"
                         title="Duplicate"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDelete(creation.id)}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center active:bg-red-50 ${isConfirming ? 'text-red-500' : 'text-gray-300'}`}
+                        onClick={e => { e.stopPropagation(); handleDelete(creation.id); }}
+                        className={`w-11 h-11 rounded-full flex items-center justify-center active:bg-red-50 ${isConfirming ? 'text-red-500' : 'text-gray-300'}`}
                         aria-label={isConfirming ? 'Tap again to confirm delete' : 'Delete'}
                         title={isConfirming ? 'Tap again to confirm' : 'Delete'}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6" />
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                         </svg>

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import AppShell from './components/AppShell';
 import PVHeader from './components/PVHeader';
 import { HomeScreen } from './components/HomeScreen';
@@ -35,6 +35,39 @@ export default function App() {
   } = usePocketVibe();
 
   const auth = useAuth();
+
+  // ── Back-button / popstate handling ─────────────────────────────────────────
+  // We always keep one history entry ahead of the current page so Android's
+  // hardware back and iOS swipe-back get intercepted before leaving the app.
+  const backHandlerRef = useRef<() => void>(() => {});
+
+  // Keep the ref up-to-date with current view/modal state (no dep-lint issue
+  // because we intentionally capture everything as a snapshot each render).
+  useEffect(() => {
+    backHandlerRef.current = () => {
+      // Close modals/sheets first, then navigate views
+      if (sharePanelOpen)   { setSharePanelOpen(false); return; }
+      if (authModalOpen)    { setAuthModalOpen(false);  return; }
+      if (view === 'my-creations') {
+        activeCreation ? openCreation(activeCreation.id) : goHome();
+      } else if (view !== 'home') {
+        goHome();
+      }
+    };
+  });
+
+  // Push an initial entry so the very first back press is interceptable.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.history.pushState({ pv: true }, '');
+    const handler = () => {
+      backHandlerRef.current();
+      // Re-push so subsequent back presses are also intercepted.
+      window.history.pushState({ pv: true }, '');
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
@@ -104,7 +137,13 @@ export default function App() {
         activeCreation={activeCreation}
         creationsCount={creations.length}
         accentColor={accentColor}
-        onBack={goHome}
+        onBack={
+          // "Back" is context-aware: my-creations goes back to the active
+          // creation if one exists, everything else goes home.
+          view === 'my-creations' && activeCreation
+            ? () => openCreation(activeCreation.id)
+            : goHome
+        }
         onGoMyCreations={goToMyCreations}
         onGoMyTools={auth.user ? goToMyTools : undefined}
         userEmail={auth.user?.email}

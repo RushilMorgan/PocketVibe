@@ -88,24 +88,12 @@ export function MyToolsPage({ user, onSignOut, onBack }: MyToolsPageProps) {
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
-        <button
-          onClick={onBack}
-          aria-label="Back"
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 active:bg-gray-200"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base font-bold text-gray-900">My Tools</h2>
-          <p className="text-xs text-gray-400 truncate">{user.email}</p>
-        </div>
+      {/* ── Sub-header: email + sign out — title/back are in PVHeader ──── */}
+      <div className="flex items-center gap-3 px-4 pt-3 pb-3 border-b border-gray-100 flex-shrink-0">
+        <p className="text-xs text-gray-400 flex-1 truncate">{user.email}</p>
         <button
           onClick={onSignOut}
-          className="flex-shrink-0 text-xs text-gray-400 font-medium px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors"
+          className="flex-shrink-0 text-xs text-gray-400 font-medium px-3 py-1.5 rounded-xl active:bg-gray-100"
         >
           Sign out
         </button>

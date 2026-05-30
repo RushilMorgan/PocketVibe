@@ -72,7 +72,7 @@ describe('PVHeader', () => {
         onGoMyCreations={noop}
       />
     );
-    fireEvent.click(screen.getByLabelText('Back to home'));
+    fireEvent.click(screen.getByLabelText('Back'));
     expect(onBack).toHaveBeenCalledOnce();
   });
 

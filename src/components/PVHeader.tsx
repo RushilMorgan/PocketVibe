@@ -26,11 +26,13 @@ export default function PVHeader({
   userEmail,
   onSignIn,
 }: PVHeaderProps) {
-  const showBack = view === 'creation' || view === 'my-creations';
+  const showBack = view === 'creation' || view === 'my-creations' || view === 'my-tools';
   const title = view === 'creation' && activeCreation
     ? activeCreation.title
     : view === 'my-creations'
     ? 'My things'
+    : view === 'my-tools'
+    ? 'My Tools'
     : null;
 
   return (
@@ -38,12 +40,12 @@ export default function PVHeader({
       className="flex items-center gap-3 px-4 shrink-0"
       style={{ height: '52px', borderBottom: '1px solid #f0f0f5' }}
     >
-      {/* Back button */}
+      {/* Back button — min 44×44 touch target per Apple HIG */}
       {showBack ? (
         <button
           onClick={onBack}
-          className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 active:bg-gray-200 flex-shrink-0"
-          aria-label="Back to home"
+          className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 active:bg-gray-200 flex-shrink-0"
+          aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -70,7 +72,7 @@ export default function PVHeader({
         )}
       </div>
 
-      {/* My things link */}
+      {/* My things link — hidden on the my-creations and my-tools views */}
       {creationsCount > 0 && view !== 'my-creations' && view !== 'my-tools' && (
         <button
           onClick={onGoMyCreations}
@@ -84,12 +86,12 @@ export default function PVHeader({
         </button>
       )}
 
-      {/* User avatar (logged in) or Sign in button */}
-      {userEmail && onGoMyTools ? (
+      {/* User avatar (logged in) or Sign in button — hidden on my-tools (already "inside" account) */}
+      {view !== 'my-tools' && (userEmail && onGoMyTools ? (
         <button
           onClick={onGoMyTools}
           title={userEmail}
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold active:opacity-80"
+          className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-white text-xs font-bold active:opacity-80"
           style={{ background: accentColor }}
         >
           {userEmail[0].toUpperCase()}
@@ -101,7 +103,7 @@ export default function PVHeader({
         >
           Sign in
         </button>
-      ) : null}
+      ) : null)}
     </div>
   );
 }

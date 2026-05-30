@@ -153,7 +153,6 @@ export function computeWorkoutGuidance(
   const logs = content.logs ?? [];
   const hasPartner = participants.length >= 2;
   const hasLogs = logs.length > 0;
-  const { colourTheme } = content;
   const today = new Date().toISOString().slice(0, 10);
   const weeklyTarget = content.weeklyTarget ?? 3;
   const rules = content.scoringRules ?? { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 };
@@ -208,10 +207,6 @@ export function computeWorkoutGuidance(
   if (hasPartner && hasLogs && hasShareLink) {
     raw.push({ id: 'keep-going', icon: '🔥', label: 'Keep logging to stay on top!', actionId: 'log-activity', variant: 'tip', priority: 4 });
   }
-  if (!colourTheme) {
-    raw.push({ id: 'pick-theme', icon: '🎨', label: 'Personalise with a colour theme', actionId: 'change-theme', variant: 'tip', priority: 1 });
-  }
-
   // ── History-based smart suggestions ──────────────────────────────────────
   if (hasPartner && hasLogs) {
     // Both participants hit weekly target for 2+ consecutive past weeks
@@ -289,7 +284,6 @@ export function computeWorkoutGuidance(
     { id: 'log-activity', label: 'Log activity', icon: '🏃', variant: hasPartner ? 'primary' : 'default' },
     { id: 'set-target',   label: 'Set target',   icon: '🎯' },
     { id: 'edit-points',  label: 'Edit points',  icon: '📊' },
-    { id: 'change-theme', label: 'Colours',      icon: '🎨' },
     { id: 'share',        label: 'Share',        icon: '📤' },
   ];
 

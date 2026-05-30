@@ -244,48 +244,88 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
             </div>
           </button>
 
-          {/* Partner Challenge */}
+          {/* Partner Challenge — dark charcoal + emerald */}
           <button
             data-testid="flagship-partner-challenge"
             onClick={handlePartnerChallenge}
             disabled={isGenerating}
-            className="text-left rounded-3xl overflow-hidden shadow-sm border border-violet-100 active:scale-[0.985] transition-transform disabled:opacity-50 w-full"
+            className="text-left rounded-3xl overflow-hidden shadow-2xl active:scale-[0.985] transition-all disabled:opacity-50 w-full ring-1 ring-emerald-400/40"
           >
-            <div className="bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 px-5 pt-5 pb-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-3xl">🏃</span>
-                <span className="text-xs font-semibold bg-white/25 text-white px-2.5 py-1 rounded-full">
-                  Fitness
+            {/* ── Dark charcoal panel ───────────────────────────────────────── */}
+            <div className="relative bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 px-5 pt-5 pb-6 overflow-hidden">
+
+              {/* Running track oval arcs */}
+              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-80 h-20 rounded-full border-2 border-white/8 pointer-events-none" />
+              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-56 h-14 rounded-full border border-white/6 pointer-events-none" />
+              {/* 🏃 watermark */}
+              <div className="absolute -right-3 top-2 text-7xl opacity-5 pointer-events-none select-none">🏃</div>
+              <div className="absolute right-10 -bottom-2 text-4xl opacity-5 pointer-events-none select-none rotate-12">🏃</div>
+
+              {/* Top row: activity types + badge */}
+              <div className="relative z-10 flex items-center justify-between mb-5">
+                <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+                  <span className="text-base leading-none">🚶</span>
+                  <span className="text-base leading-none">🏃</span>
+                  <span className="text-base leading-none">💪</span>
+                  <span className="text-base leading-none">⭐</span>
+                  <span className="text-xs text-white/60 font-semibold ml-1 tracking-wide">Activities</span>
+                </div>
+                <span className="text-xs font-black bg-emerald-400 text-gray-900 px-3 py-1 rounded-full tracking-widest uppercase">
+                  Fitness ⚡
                 </span>
               </div>
-              <h2 className="text-xl font-black text-white leading-tight">Partner Challenge</h2>
-              <p className="text-sm text-white/90 mt-1.5 leading-relaxed">
-                Create a fun challenge for you and your partner. Log walks or runs, earn points, and track progress week after week.
+
+              {/* 🏃 + title */}
+              <div className="relative z-10 flex items-center gap-4 mb-3">
+                <span className="text-6xl leading-none">🏃</span>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div className="h-px w-8 bg-emerald-400" />
+                    <div className="h-px w-3 bg-emerald-400/40" />
+                  </div>
+                  <h2 className="text-2xl font-black text-white leading-tight tracking-wide uppercase">Partner</h2>
+                  <h2 className="text-2xl font-black text-emerald-400 leading-tight tracking-wide uppercase">Challenge</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="h-px w-8 bg-emerald-400" />
+                    <div className="h-px w-3 bg-emerald-400/40" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="relative z-10 text-sm text-white/70 leading-relaxed mb-4">
+                Set a weekly fitness goal with your partner. Log every walk, run or gym session, earn points, and stay neck and neck all season.
               </p>
+
+              {/* Feature chips */}
+              <div className="relative z-10 flex flex-wrap gap-2">
+                {[
+                  { icon: '🎯', label: 'Weekly targets' },
+                  { icon: '🏅', label: 'Points & streaks' },
+                  { icon: '📈', label: 'Live leaderboard' },
+                  { icon: '🔗', label: 'Share with partner' },
+                ].map(chip => (
+                  <span
+                    key={chip.label}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2.5 py-1 rounded-full"
+                  >
+                    {chip.icon} {chip.label}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="bg-white px-5 py-3 space-y-1.5">
-              {[
-                '🎯 Weekly goals and streaks',
-                '🏅 Points for every session',
-                '📈 Progress tracked over time',
-                '🔗 Shared link for your partner',
-              ].map(h => (
-                <p key={h} className="text-xs text-gray-600 flex items-start gap-1.5">
-                  <span className="flex-shrink-0">{h.slice(0, 2)}</span>
-                  <span>{h.slice(3)}</span>
-                </p>
-              ))}
-              <div className="pt-2">
-                <span
-                  data-testid="make-partner-challenge-btn"
-                  className="inline-flex items-center gap-1.5 bg-violet-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl w-full justify-center"
-                >
-                  Make a Partner Challenge
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </span>
+
+            {/* ── Emerald CTA strip ─────────────────────────────────────────── */}
+            <div
+              data-testid="make-partner-challenge-btn"
+              className="bg-emerald-400 px-5 py-3.5 flex items-center justify-between"
+            >
+              <span className="text-sm font-black text-gray-900 tracking-tight">Start a Partner Challenge</span>
+              <div className="w-7 h-7 rounded-full bg-gray-900/15 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
               </div>
             </div>
           </button>

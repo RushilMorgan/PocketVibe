@@ -5,11 +5,9 @@ import type {
   ActivityLog,
   ChallengeScoringRules,
   ActivityType,
-  ColourTheme,
 } from '../../types';
 import { SmartGuidance } from '../SmartGuidance';
 import { computeWorkoutGuidance } from '../../lib/guidance';
-import { THEMES, getWorkoutGradient } from '../../lib/themes';
 import {
   getCurrentWeekStats,
   getPastWeeks,
@@ -81,7 +79,7 @@ function calcScores(
     .sort((a, b) => b.points - a.points);
 }
 
-type ChallengeSheetView = null | 'logActivity' | 'manage' | 'participants' | 'scoring' | 'colours';
+type ChallengeSheetView = null | 'logActivity' | 'manage' | 'participants' | 'scoring';
 
 export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLink = false }: WorkoutTrackerRendererProps) {
   const update = (patch: Partial<WorkoutTrackerContent>) => onChange({ ...content, ...patch });
@@ -147,9 +145,6 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
         break;
       case 'log-activity':
         openLog();
-        break;
-      case 'change-theme':
-        setSheetView('colours');
         break;
       case 'share':
         onShare?.();
@@ -276,7 +271,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
             </div>
             <input value={logNote} onChange={e => setLogNote(e.target.value)} placeholder="Note (optional)" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
             <div className="flex gap-2">
-              <button data-testid="log-submit-btn" onClick={submitLog} className="flex-1 rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white">Log it</button>
+              <button data-testid="log-submit-btn" onClick={submitLog} className="flex-1 rounded-xl bg-emerald-400 py-2.5 text-sm font-black text-gray-900">Log it</button>
               <button onClick={() => setSheetView(null)} className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700">Cancel</button>
             </div>
           </div>
@@ -334,17 +329,10 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
             >
               📊 Scoring
             </button>
-            <button
-              data-testid="colours-nav-btn"
-              onClick={() => setSheetView('colours')}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
-            >
-              🎨 Colours
-            </button>
             {onShare && (
               <button
                 onClick={onShare}
-                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
+                className="col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
               >
                 🔗 Share
               </button>
@@ -430,70 +418,64 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
       );
     }
 
-    if (sheetView === 'colours') {
-      return (
-        <>
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
-          <div className="mb-3 flex items-center gap-2">
-            <button
-              onClick={() => setSheetView('manage')}
-              className="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 active:bg-gray-200"
-            >
-              ← Back
-            </button>
-            <h3 className="flex-1 text-base font-black text-gray-900">Challenge colours</h3>
-          </div>
-          <div data-testid="challenge-colours-view" className="flex flex-wrap gap-3">
-            {THEMES.map(theme => (
-              <button
-                key={theme.id}
-                data-testid={`theme-${theme.id}`}
-                onClick={() => {
-                  update({ colourTheme: theme.id as ColourTheme });
-                  setSheetView('manage');
-                }}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${theme.gradient} ${content.colourTheme === theme.id ? 'ring-2 ring-gray-900 ring-offset-2' : ''}`} />
-                <span className="text-xs text-gray-600">{theme.label}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      );
-    }
-
     return null;
   }
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className={`rounded-3xl bg-gradient-to-br ${getWorkoutGradient(content.colourTheme)} p-5 text-white shadow-lg`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-xl font-black">{content.planName}</h2>
-            <p className="mt-0.5 text-xs opacity-90">Week target: {weeklyTarget}</p>
-            <p className="mt-0.5 text-xs opacity-80">{leaderLabel}</p>
-          </div>
-          <button
-            data-testid="edit-challenge-btn"
-            onClick={() => setSheetView('manage')}
-            className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/30"
-          >
-            Manage challenge
-          </button>
-        </div>
+      {/* ── Hero card — dark charcoal + emerald ───────────────────────────── */}
+      <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-1 ring-emerald-400/35">
+        <div className="relative bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-5 overflow-hidden">
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-white/15 p-3 text-xs">
-            <p className="opacity-80">{left?.participant.name ?? 'Player 1'}</p>
-            <p className="text-base font-black">{left?.points ?? 0} pts</p>
-            <p className="opacity-80">{left?.sessionsThisWeek ?? 0}/{weeklyTarget}</p>
+          {/* Running track oval arcs */}
+          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 w-80 h-20 rounded-full border-2 border-white/8 pointer-events-none" />
+          <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-56 h-14 rounded-full border border-white/6 pointer-events-none" />
+          {/* 🏃 watermark */}
+          <div className="absolute -right-2 top-1 text-7xl opacity-5 pointer-events-none select-none">🏃</div>
+
+          {/* Top row: challenge label + manage button */}
+          <div className="relative z-10 flex items-center justify-between mb-4">
+            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+              <span className="text-xs text-white/60 font-semibold tracking-wide uppercase">Partner Challenge</span>
+            </div>
+            <button
+              data-testid="edit-challenge-btn"
+              onClick={() => setSheetView('manage')}
+              className="bg-emerald-400 text-gray-900 text-xs font-black px-3 py-1.5 rounded-full active:bg-emerald-300"
+            >
+              Manage
+            </button>
           </div>
-          <div className="rounded-xl bg-white/15 p-3 text-xs">
-            <p className="opacity-80">{right?.participant.name ?? 'Player 2'}</p>
-            <p className="text-base font-black">{right?.points ?? 0} pts</p>
-            <p className="opacity-80">{right?.sessionsThisWeek ?? 0}/{weeklyTarget}</p>
+
+          {/* Challenge name + leader status */}
+          <div className="relative z-10 mb-4">
+            <p className="text-emerald-400 text-xs font-semibold tracking-wide uppercase mb-0.5">
+              {weeklyTarget} sessions/week target
+            </p>
+            <h2 className="text-xl font-black text-white leading-tight truncate">{content.planName}</h2>
+            <p className="text-xs text-white/60 mt-0.5">{leaderLabel}</p>
+          </div>
+
+          {/* Frosted glass stat boxes */}
+          <div className="relative z-10 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-xs text-white/60 truncate">
+                <span>{left?.participant.emoji ?? '🏃'}</span>
+                {' '}
+                <span>{left?.participant.name ?? 'Player 1'}</span>
+              </p>
+              <p className="text-base font-black text-emerald-400 mt-0.5">{left?.points ?? 0} pts</p>
+              <p className="text-xs text-white/50">{left?.sessionsThisWeek ?? 0}/{weeklyTarget} this wk</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-xs text-white/60 truncate">
+                <span>{right?.participant.emoji ?? '🏃'}</span>
+                {' '}
+                <span>{right?.participant.name ?? 'Player 2'}</span>
+              </p>
+              <p className="text-base font-black text-emerald-400 mt-0.5">{right?.points ?? 0} pts</p>
+              <p className="text-xs text-white/50">{right?.sessionsThisWeek ?? 0}/{weeklyTarget} this wk</p>
+            </div>
           </div>
         </div>
       </div>
@@ -503,7 +485,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
       <button
         data-testid="log-activity-btn"
         onClick={() => openLog()}
-        className="rounded-2xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white active:bg-black"
+        className="rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-gray-900 active:bg-emerald-300 shadow-sm"
       >
         + Log activity
       </button>
@@ -519,7 +501,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
               onClick={() => setHistoryTab(tab)}
               className={`flex-shrink-0 rounded-t-lg px-3 py-2 text-xs font-semibold transition-colors ${
                 historyTab === tab
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-emerald-400 text-gray-900'
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >

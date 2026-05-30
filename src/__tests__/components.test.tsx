@@ -171,7 +171,7 @@ describe('Landing screen UX', () => {
   it('5. Partner card has Make a Partner Challenge button', () => {
     render(<HomeScreen onPrompt={noop} isGenerating={false} />);
     expect(screen.getByTestId('make-partner-challenge-btn')).toBeInTheDocument();
-    expect(screen.getByText(/Make a Partner Challenge/i)).toBeInTheDocument();
+    expect(screen.getByText(/Start a Partner Challenge/i)).toBeInTheDocument();
   });
 
   it('6. clicking World Cup Pool calls onCreateWorldCupPool when provided', () => {
@@ -1184,15 +1184,6 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ logs: expect.arrayContaining([expect.objectContaining({ id: 'l1', activityType: 'run' })]) }),
     );
-  });
-
-  it('Partner Challenge colours does not open behind Manage Challenge', () => {
-    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('edit-challenge-btn'));
-    fireEvent.click(screen.getByTestId('colours-nav-btn'));
-    expect(screen.getByTestId('manage-challenge-sheet')).toBeInTheDocument();
-    expect(screen.getAllByTestId('manage-challenge-sheet')).toHaveLength(1);
-    expect(screen.getByTestId('challenge-colours-view')).toBeInTheDocument();
   });
 
   // ── Test 10: Past weeks can be viewed ──────────────────────────────────────

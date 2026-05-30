@@ -181,15 +181,29 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Challenge header */}
-      <div className="bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl p-5 text-white">
-        <h2 className="text-xl font-bold">{content.planName}</h2>
-        <p className="text-sm opacity-90 mt-1">
-          Target: {weeklyTarget} session{weeklyTarget !== 1 ? 's' : ''}/week
-        </p>
-        <p className="text-xs opacity-75 mt-0.5">
-          {rules.pointsPerActivity} pts · Run bonus +{rules.runningBonus} · Weekly target +{rules.weeklyTargetBonus}
-        </p>
+      {/* Challenge header — dark charcoal + emerald */}
+      <div className="relative rounded-2xl overflow-hidden ring-1 ring-emerald-400/30 shadow-lg">
+        <div className="relative bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-5 overflow-hidden">
+          {/* Track arc decoration */}
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-64 h-16 rounded-full border border-white/8 pointer-events-none" />
+          {/* 🏃 watermark */}
+          <div className="absolute -right-2 top-1 text-6xl opacity-5 pointer-events-none select-none">🏃</div>
+          <div className="relative z-10 flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-2.5 py-1">
+              <span className="text-xs text-white/60 font-semibold tracking-wide uppercase">Partner Challenge</span>
+            </div>
+            <span className="text-xs font-black bg-emerald-400 text-gray-900 px-2.5 py-1 rounded-full tracking-widest uppercase">
+              Fitness ⚡
+            </span>
+          </div>
+          <h2 className="relative z-10 text-xl font-black text-white mt-3">{content.planName}</h2>
+          <p className="relative z-10 text-emerald-400 text-xs font-semibold mt-0.5">
+            Target: {weeklyTarget} session{weeklyTarget !== 1 ? 's' : ''}/week
+          </p>
+          <p className="relative z-10 text-xs text-white/50 mt-0.5">
+            {rules.pointsPerActivity} pts · Run bonus +{rules.runningBonus} · Weekly target +{rules.weeklyTargetBonus}
+          </p>
+        </div>
       </div>
 
       {/* My stats */}
@@ -223,7 +237,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
             data-testid="log-activity-btn"
             onClick={() => { setLogOpen(true); setActionError(null); }}
             disabled={submitting}
-            className="mt-3 w-full bg-red-500 text-white text-sm font-semibold rounded-xl py-2.5 active:bg-red-600 disabled:opacity-50"
+            className="mt-3 w-full bg-emerald-400 text-gray-900 text-sm font-black rounded-xl py-2.5 active:bg-emerald-300 disabled:opacity-50"
           >
             + Log activity
           </button>
@@ -244,7 +258,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                     key={at}
                     onClick={() => setLogActivity(at)}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      logActivity === at ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                      logActivity === at ? 'bg-emerald-400 text-gray-900' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
                     }`}
                   >
                     {ACTIVITY_ICON[at] ?? '⭐'} {at}
@@ -259,7 +273,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                   type="date"
                   value={logDate}
                   onChange={e => setLogDate(e.target.value)}
-                  className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                  className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
               </div>
               <div>
@@ -268,7 +282,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                   value={logDuration}
                   onChange={e => setLogDuration(e.target.value)}
                   placeholder="e.g. 30 min"
-                  className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                  className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
               </div>
             </div>
@@ -278,7 +292,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                 value={logNote}
                 onChange={e => setLogNote(e.target.value)}
                 placeholder="How did it go?"
-                className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                className="w-full mt-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               />
             </div>
             <div className="flex gap-2 pt-1">
@@ -286,7 +300,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                 data-testid="log-submit-btn"
                 onClick={submitLog}
                 disabled={submitting}
-                className="flex-1 bg-red-500 text-white text-sm font-semibold rounded-xl py-2.5 active:bg-red-600 disabled:opacity-50"
+                className="flex-1 bg-emerald-400 text-gray-900 text-sm font-black rounded-xl py-2.5 active:bg-emerald-300 disabled:opacity-50"
               >
                 {submitting ? 'Logging…' : 'Log it'}
               </button>
@@ -317,7 +331,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                           key={at}
                           onClick={() => setEditActivity(at)}
                           className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                            editActivity === at ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600'
+                            editActivity === at ? 'bg-emerald-400 text-gray-900' : 'bg-gray-200 text-gray-600'
                           }`}
                         >
                           {ACTIVITY_ICON[at] ?? '⭐'} {at}
@@ -329,26 +343,26 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
                         type="date"
                         value={editDate}
                         onChange={e => setEditDate(e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                       />
                       <input
                         value={editDuration}
                         onChange={e => setEditDuration(e.target.value)}
                         placeholder="Duration"
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                       />
                     </div>
                     <input
                       value={editNote}
                       onChange={e => setEditNote(e.target.value)}
                       placeholder="Note"
-                      className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={submitEditLog}
                         disabled={submitting}
-                        className="flex-1 text-xs bg-red-500 text-white rounded-lg py-1.5 font-semibold disabled:opacity-50"
+                        className="flex-1 text-xs bg-emerald-400 text-gray-900 rounded-lg py-1.5 font-black disabled:opacity-50"
                       >
                         {submitting ? '…' : 'Save'}
                       </button>
@@ -404,7 +418,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
             <div
               key={score.participant.id}
               className={`flex items-center gap-3 py-2 px-3 rounded-xl ${
-                score.participant.id === participantRef ? 'bg-red-50' : ''
+                score.participant.id === participantRef ? 'bg-emerald-50' : ''
               }`}
             >
               <span className="text-lg w-6 text-center flex-shrink-0">
@@ -414,7 +428,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
               <span className="flex-1 text-sm font-medium text-gray-800 min-w-0 truncate">
                 {score.participant.name}
                 {score.participant.id === participantRef && (
-                  <span className="ml-1 text-xs text-red-400">(you)</span>
+                  <span className="ml-1 text-xs text-emerald-500">(you)</span>
                 )}
               </span>
               <div className="text-right flex-shrink-0">

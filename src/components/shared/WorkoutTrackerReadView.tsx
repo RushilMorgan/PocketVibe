@@ -11,7 +11,6 @@ import type {
   ActivityLog,
   ChallengeScoringRules,
 } from '../../types';
-import { THEMES, getWorkoutGradient } from '../../lib/themes';
 
 interface Props {
   content: WorkoutTrackerContent;
@@ -87,19 +86,30 @@ export function WorkoutTrackerReadView({ content, onRemix }: Props) {
     [participants, logs, rules, weeklyTarget, today],
   );
 
-  const theme = THEMES.find(t => t.id === content.colourTheme) ?? THEMES[0];
-  const gradient = getWorkoutGradient(content.colourTheme);
-
   const recentLogs = [...logs]
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 10);
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Header */}
-      <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-5 text-white`}>
-        <h2 className="text-xl font-bold">{content.planName || 'Partner Challenge'}</h2>
-        <p className="text-sm opacity-80 mt-0.5">Partner Challenge · View only</p>
+      {/* Header — dark charcoal + emerald */}
+      <div className="relative rounded-2xl overflow-hidden ring-1 ring-emerald-400/30 shadow-lg">
+        <div className="relative bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-5 overflow-hidden">
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-64 h-16 rounded-full border border-white/8 pointer-events-none" />
+          <div className="absolute -right-2 top-1 text-6xl opacity-5 pointer-events-none select-none">🏃</div>
+          <div className="relative z-10 flex items-center justify-between mb-3">
+            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-2.5 py-1">
+              <span className="text-xs text-white/60 font-semibold tracking-wide uppercase">Partner Challenge</span>
+            </div>
+            <span className="text-xs font-black bg-emerald-400 text-gray-900 px-2.5 py-1 rounded-full tracking-widest uppercase">
+              View only
+            </span>
+          </div>
+          <h2 className="relative z-10 text-xl font-black text-white">{content.planName || 'Partner Challenge'}</h2>
+          <p className="relative z-10 text-emerald-400 text-xs font-semibold mt-0.5">
+            {weeklyTarget} sessions/week target
+          </p>
+        </div>
       </div>
 
       {/* Leaderboard */}
@@ -166,15 +176,15 @@ export function WorkoutTrackerReadView({ content, onRemix }: Props) {
 
       {/* Make my own version */}
       {onRemix && (
-        <div className="bg-violet-50 rounded-2xl border border-violet-100 p-4 flex flex-col gap-2">
-          <p className="text-sm font-semibold text-violet-800">Like this challenge?</p>
-          <p className="text-xs text-violet-600">
+        <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4 flex flex-col gap-2">
+          <p className="text-sm font-semibold text-emerald-900">Like this challenge?</p>
+          <p className="text-xs text-emerald-700">
             Make your own private copy with the same rules and participants.
           </p>
           <button
             data-testid="remix-btn"
             onClick={onRemix}
-            className="w-full bg-violet-600 text-white text-sm font-semibold rounded-xl py-3 active:bg-violet-700"
+            className="w-full bg-emerald-400 text-gray-900 text-sm font-black rounded-xl py-3 active:bg-emerald-300"
           >
             Make my own version
           </button>

@@ -324,4 +324,62 @@ describe('Suggestions cap at 5', () => {
     const guidance = computeWorkoutGuidance(content, false);
     expect(guidance.suggestions.length).toBeLessThanOrEqual(5);
   });
+
+  // ── Test 9: AI suggestion when both participants hit target multiple weeks ──
+
+  it('suggests increasing target when both participants hit target for 2+ consecutive past weeks', () => {
+    // Use dates firmly in the past (2025 weeks) — always before "today" whenever this runs
+    const bothHitLogs = [
+      // week of 2025-05-12 (Mon) — both hit target=3
+      { id: 'a1', participantId: 'p1', date: '2025-05-12', activityType: 'walk' as const },
+      { id: 'a2', participantId: 'p1', date: '2025-05-13', activityType: 'walk' as const },
+      { id: 'a3', participantId: 'p1', date: '2025-05-14', activityType: 'walk' as const },
+      { id: 'b1', participantId: 'p2', date: '2025-05-12', activityType: 'walk' as const },
+      { id: 'b2', participantId: 'p2', date: '2025-05-13', activityType: 'walk' as const },
+      { id: 'b3', participantId: 'p2', date: '2025-05-14', activityType: 'walk' as const },
+      // week of 2025-05-19 (Mon) — both hit target=3
+      { id: 'a4', participantId: 'p1', date: '2025-05-19', activityType: 'walk' as const },
+      { id: 'a5', participantId: 'p1', date: '2025-05-20', activityType: 'walk' as const },
+      { id: 'a6', participantId: 'p1', date: '2025-05-21', activityType: 'walk' as const },
+      { id: 'b4', participantId: 'p2', date: '2025-05-19', activityType: 'walk' as const },
+      { id: 'b5', participantId: 'p2', date: '2025-05-20', activityType: 'walk' as const },
+      { id: 'b6', participantId: 'p2', date: '2025-05-21', activityType: 'walk' as const },
+    ];
+    const content = makeWorkout({
+      participants: [
+        { id: 'p1', name: 'Alice', emoji: '🏃' },
+        { id: 'p2', name: 'Bob', emoji: '🚶' },
+      ],
+      weeklyTarget: 3,
+      logs: bothHitLogs,
+    });
+    const guidance = computeWorkoutGuidance(content, true);
+    const suggestion = guidance.suggestions.find(s => s.id === 'increase-target');
+    expect(suggestion).toBeDefined();
+    expect(suggestion?.label).toMatch(/smashing it/i);
+    expect(suggestion?.actionId).toBe('set-target');
+  });
+
+  it('does NOT suggest increasing target when only 1 week of both hitting target', () => {
+    const oneWeekLogs = [
+      { id: 'a1', participantId: 'p1', date: '2025-05-19', activityType: 'walk' as const },
+      { id: 'a2', participantId: 'p1', date: '2025-05-20', activityType: 'walk' as const },
+      { id: 'a3', participantId: 'p1', date: '2025-05-21', activityType: 'walk' as const },
+      { id: 'b1', participantId: 'p2', date: '2025-05-19', activityType: 'walk' as const },
+      { id: 'b2', participantId: 'p2', date: '2025-05-20', activityType: 'walk' as const },
+      { id: 'b3', participantId: 'p2', date: '2025-05-21', activityType: 'walk' as const },
+    ];
+    const content = makeWorkout({
+      participants: [
+        { id: 'p1', name: 'Alice', emoji: '🏃' },
+        { id: 'p2', name: 'Bob', emoji: '🚶' },
+      ],
+      weeklyTarget: 3,
+      logs: oneWeekLogs,
+    });
+    const guidance = computeWorkoutGuidance(content, true);
+    const suggestion = guidance.suggestions.find(s => s.id === 'increase-target');
+    expect(suggestion).toBeUndefined();
+  });
 });
+

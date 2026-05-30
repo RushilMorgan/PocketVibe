@@ -4,6 +4,7 @@
  * for each tool type based on current content state.
  */
 import type { TournamentPoolTrackerContent, WorkoutTrackerContent } from '../types';
+import { countBothHitTarget, getAllTimeStats } from './challengeStats';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -158,6 +159,9 @@ export function computeWorkoutGuidance(
   const hasPartner = participants.length >= 2;
   const hasLogs = logs.length > 0;
   const { colourTheme } = content;
+  const today = new Date().toISOString().slice(0, 10);
+  const weeklyTarget = content.weeklyTarget ?? 3;
+  const rules = content.scoringRules ?? { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 };
 
   // ── Setup checklist ───────────────────────────────────────────────────────
   const setupSteps: SetupStep[] = [
@@ -211,6 +215,75 @@ export function computeWorkoutGuidance(
   }
   if (!colourTheme) {
     raw.push({ id: 'pick-theme', icon: '🎨', label: 'Personalise with a colour theme', actionId: 'change-theme', variant: 'tip', priority: 1 });
+  }
+
+  // ── History-based smart suggestions ──────────────────────────────────────
+  if (hasPartner && hasLogs) {
+    // Both participants hit weekly target for 2+ consecutive past weeks
+    const bothHitWeeks = countBothHitTarget(
+      participants.map(p => p.id),
+      logs,
+      weeklyTarget,
+      today,
+    );
+    if (bothHitWeeks >= 2) {
+      raw.push({
+        id: 'increase-target',
+        icon: '🚀',
+        label: `You're both smashing it ${bothHitWeeks} weeks in a row! Want to increase the weekly target to ${weeklyTarget + 1}?`,
+        actionId: 'set-target',
+        variant: 'tip',
+        priority: 9,
+      });
+    }
+
+    // One participant is far behind (less than 50% of leader's all-time points)
+    const allTimePoints = participants.map(p =>
+      getAllTimeStats(p.id, logs, rules, weeklyTarget, today).points,
+    );
+    const maxPts = Math.max(...allTimePoints);
+    const minPts = Math.min(...allTimePoints);
+    if (maxPts > 0 && minPts < maxPts * 0.5) {
+      raw.push({
+        id: 'catchup-bonus',
+        icon: '🎯',
+        label: 'One player is far behind. Want to add a catch-up bonus?',
+        actionId: 'edit-points',
+        variant: 'tip',
+        priority: 7,
+      });
+    }
+
+    // Logs are mostly walking (> 75% of all logs are walks)
+    if (logs.length >= 5) {
+      const walkCount = logs.filter(l => l.activityType === 'walk').length;
+      if (walkCount / logs.length > 0.75) {
+        raw.push({
+          id: 'running-bonus',
+          icon: '🏃',
+          label: 'Most activities are walks. Want to add a running bonus?',
+          actionId: 'edit-points',
+          variant: 'tip',
+          priority: 5,
+        });
+      }
+    }
+
+    // No logs for 3 or more days
+    const lastLogDate = logs.reduce((max, l) => (l.date > max ? l.date : max), '');
+    const daysSince = Math.floor(
+      (new Date(today).getTime() - new Date(lastLogDate).getTime()) / 86_400_000,
+    );
+    if (daysSince >= 3) {
+      raw.push({
+        id: 'no-recent-logs',
+        icon: '💤',
+        label: `No activity logged for ${daysSince} day${daysSince !== 1 ? 's' : ''}. Time to get moving!`,
+        actionId: 'log-activity',
+        variant: 'info',
+        priority: 6,
+      });
+    }
   }
 
   const suggestions = raw.sort((a, b) => b.priority - a.priority).slice(0, 5);

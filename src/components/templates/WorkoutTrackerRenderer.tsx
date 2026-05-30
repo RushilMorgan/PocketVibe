@@ -10,6 +10,12 @@ import type {
 import { SmartGuidance } from '../SmartGuidance';
 import { computeWorkoutGuidance } from '../../lib/guidance';
 import { THEMES, getWorkoutGradient } from '../../lib/themes';
+import {
+  getCurrentWeekStats,
+  getPastWeeks,
+  getMonthStats,
+  getAllTimeStats,
+} from '../../lib/challengeStats';
 
 interface WorkoutTrackerRendererProps {
   content: WorkoutTrackerContent;
@@ -85,6 +91,8 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
   const update = (patch: Partial<WorkoutTrackerContent>) => onChange({ ...content, ...patch });
 
   const [sheetView, setSheetView] = useState<ChallengeSheetView>(null);
+  type HistoryTab = 'thisweek' | 'thismonth' | 'alltime' | 'pastweeks';
+  const [historyTab, setHistoryTab] = useState<HistoryTab>('thisweek');
 
   const [logParticipantId, setLogParticipantId] = useState('');
   const [logActivity, setLogActivity] = useState<ActivityType>('walk');
@@ -500,6 +508,168 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
       >
         + Log activity
       </button>
+
+      {/* ── Progress & history section ─────────────────────────────────── */}
+      <div data-testid="history-section" className="rounded-2xl border border-gray-100 bg-white">
+        {/* Tab bar */}
+        <div className="flex gap-0 overflow-x-auto border-b border-gray-100 px-2 pt-2">
+          {(['thisweek', 'thismonth', 'alltime', 'pastweeks'] as const).map(tab => (
+            <button
+              key={tab}
+              data-testid={`history-tab-${tab}`}
+              onClick={() => setHistoryTab(tab)}
+              className={`flex-shrink-0 rounded-t-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                historyTab === tab
+                  ? 'bg-gray-900 text-white'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {tab === 'thisweek' && 'This week'}
+              {tab === 'thismonth' && 'This month'}
+              {tab === 'alltime' && 'All time'}
+              {tab === 'pastweeks' && 'Past weeks'}
+            </button>
+          ))}
+        </div>
+
+        {/* This week */}
+        {historyTab === 'thisweek' && (
+          <div data-testid="history-thisweek-view" className="p-4 space-y-2">
+            {participants.map(p => {
+              const ws = getCurrentWeekStats(p.id, logs, rules, weeklyTarget, today);
+              return (
+                <div key={p.id} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">{p.emoji ?? '🏃'} {p.name}</span>
+                  <span className="text-xs text-gray-500">
+                    {ws.sessions}/{weeklyTarget} sessions · {ws.points} pts
+                    {ws.hitTarget && ' 🎯'}
+                  </span>
+                </div>
+              );
+            })}
+            {logs.filter(l => {
+              const { weekStart } = getCurrentWeekStats(participants[0]?.id ?? '', logs, rules, weeklyTarget, today);
+              return weekStart && logs.some(x => x.date >= weekStart && x.date <= today);
+            }).length === 0 && participants.length === 0 && (
+              <p className="text-xs text-gray-400">No logs yet this week.</p>
+            )}
+          </div>
+        )}
+
+        {/* This month */}
+        {historyTab === 'thismonth' && (() => {
+          const now = new Date(today + 'T12:00:00');
+          return (
+            <div data-testid="history-thismonth-view" className="p-4 space-y-2">
+              {participants.map(p => {
+                const ms = getMonthStats(p.id, logs, rules, weeklyTarget, now.getFullYear(), now.getMonth());
+                return (
+                  <div key={p.id} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">{p.emoji ?? '🏃'} {p.name}</span>
+                    <span
+                      data-testid={`monthly-sessions-${p.id}`}
+                      className="text-xs text-gray-500"
+                    >
+                      {ms.sessions} sessions · {ms.points} pts · {ms.weeksHitTarget}w target
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* All time */}
+        {historyTab === 'alltime' && (
+          <div data-testid="history-alltime-view" className="p-4 space-y-3">
+            {participants.map(p => {
+              const at = getAllTimeStats(p.id, logs, rules, weeklyTarget, today);
+              return (
+                <div key={p.id} className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-sm font-semibold text-gray-800 mb-2">{p.emoji ?? '🏃'} {p.name}</p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p
+                        data-testid={`all-time-sessions-${p.id}`}
+                        className="text-lg font-black text-gray-900"
+                      >
+                        {at.sessions}
+                      </p>
+                      <p className="text-xs text-gray-500">Sessions</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-gray-900">{at.points}</p>
+                      <p className="text-xs text-gray-500">Points</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-gray-900">{at.bestWeekSessions}</p>
+                      <p className="text-xs text-gray-500">Best week</p>
+                    </div>
+                  </div>
+                  {at.currentStreak > 0 && (
+                    <p className="mt-2 text-xs text-emerald-600">🔥 {at.currentStreak} week streak</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Past weeks */}
+        {historyTab === 'pastweeks' && (() => {
+          // Collect past weeks across all participants
+          const allPastWeekStarts = new Set<string>();
+          participants.forEach(p => {
+            getPastWeeks(p.id, logs, rules, weeklyTarget, today, 12).forEach(w =>
+              allPastWeekStarts.add(w.weekStart),
+            );
+          });
+          const sortedWeeks = Array.from(allPastWeekStarts).sort((a, b) => b.localeCompare(a));
+          return (
+            <div data-testid="history-pastweeks-view" className="p-4 space-y-2">
+              {sortedWeeks.length === 0 && (
+                <p className="text-xs text-gray-400">No past weeks yet — keep going!</p>
+              )}
+              {sortedWeeks.map(wk => (
+                <div
+                  key={wk}
+                  data-testid={`past-week-row-${wk}`}
+                  className="rounded-xl border border-gray-100 p-3"
+                >
+                  <p className="text-xs font-semibold text-gray-500 mb-1">
+                    w/c {wk}
+                  </p>
+                  <div className="flex gap-4">
+                    {participants.map(p => {
+                      const myLogs = logs.filter(
+                        l => l.participantId === p.id && l.date >= wk,
+                      );
+                      // count only logs in this specific week
+                      const weekLogs = logs.filter(
+                        l =>
+                          l.participantId === p.id &&
+                          (() => {
+                            const wkEnd = new Date(wk + 'T12:00:00');
+                            wkEnd.setDate(wkEnd.getDate() + 6);
+                            return l.date >= wk && l.date <= wkEnd.toISOString().slice(0, 10);
+                          })(),
+                      );
+                      const sessions = weekLogs.length;
+                      const hitTarget = sessions >= weeklyTarget;
+                      return (
+                        <span key={p.id} className="text-xs text-gray-600">
+                          {p.emoji ?? '🏃'} {p.name}: {sessions}/{weeklyTarget}
+                          {hitTarget ? ' 🎯' : ''}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </div>
 
       <div className="grid gap-3">
         {ranked.map(score => {

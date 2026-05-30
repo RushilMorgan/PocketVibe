@@ -1118,7 +1118,58 @@ describe('WorkoutTrackerRenderer — Challenge Mode', () => {
     expect(screen.getAllByTestId('manage-challenge-sheet')).toHaveLength(1);
     expect(screen.getByTestId('challenge-colours-view')).toBeInTheDocument();
   });
+
+  // ── Test 10: Past weeks can be viewed ──────────────────────────────────────
+
+  it('shows history section with tabs', () => {
+    render(<WorkoutTrackerRenderer content={makeChallenge()} onChange={vi.fn()} />);
+    expect(screen.getByTestId('history-section')).toBeInTheDocument();
+    expect(screen.getByTestId('history-tab-thisweek')).toBeInTheDocument();
+    expect(screen.getByTestId('history-tab-thismonth')).toBeInTheDocument();
+    expect(screen.getByTestId('history-tab-alltime')).toBeInTheDocument();
+    expect(screen.getByTestId('history-tab-pastweeks')).toBeInTheDocument();
+  });
+
+  it('past weeks tab shows a row for each past week with logs', () => {
+    // Use fixed past dates (Monday 2025-05-12 and 2025-05-19) which are always in the past
+    const contentWithHistory: WorkoutTrackerContent = {
+      ...makeChallenge(),
+      logs: [
+        // week of 2025-05-12
+        { id: 'l1', participantId: 'p1', date: '2025-05-12', activityType: 'walk' },
+        { id: 'l2', participantId: 'p1', date: '2025-05-13', activityType: 'run' },
+        { id: 'l3', participantId: 'p1', date: '2025-05-14', activityType: 'gym' },
+        // week of 2025-05-19
+        { id: 'l4', participantId: 'p2', date: '2025-05-19', activityType: 'walk' },
+        { id: 'l5', participantId: 'p2', date: '2025-05-20', activityType: 'walk' },
+      ],
+    };
+    render(<WorkoutTrackerRenderer content={contentWithHistory} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('history-tab-pastweeks'));
+    expect(screen.getByTestId('history-pastweeks-view')).toBeInTheDocument();
+    // Both past weeks should appear as rows
+    expect(screen.getByTestId('past-week-row-2025-05-12')).toBeInTheDocument();
+    expect(screen.getByTestId('past-week-row-2025-05-19')).toBeInTheDocument();
+  });
+
+  it('all-time tab shows session totals per participant', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const contentWithLogs: WorkoutTrackerContent = {
+      ...makeChallenge(),
+      logs: [
+        { id: 'l1', participantId: 'p1', date: '2025-05-12', activityType: 'walk' },
+        { id: 'l2', participantId: 'p1', date: '2025-05-13', activityType: 'walk' },
+        { id: 'l3', participantId: 'p2', date: '2025-05-12', activityType: 'run' },
+      ],
+    };
+    render(<WorkoutTrackerRenderer content={contentWithLogs} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('history-tab-alltime'));
+    expect(screen.getByTestId('history-alltime-view')).toBeInTheDocument();
+    expect(screen.getByTestId('all-time-sessions-p1')).toHaveTextContent('2');
+    expect(screen.getByTestId('all-time-sessions-p2')).toHaveTextContent('1');
+  });
 });
+
 
 // ── Template catalog ──────────────────────────────────────────────────────────
 

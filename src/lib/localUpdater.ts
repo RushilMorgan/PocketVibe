@@ -294,6 +294,22 @@ function handleWorkoutUpdate(req: string, content: WorkoutTrackerContent): Local
     };
   }
 
+  // ── Add activity type (must come before add-participant catch-all) ─────────
+  // "add yoga as an activity" / "add gym activity" / "add yoga activity type"
+  m = req.match(/\badd\s+([a-z][a-z0-9-]*)\s+(?:as\s+(?:an?\s+)?activity|activity\s+type|activity)\b/i);
+  if (m) {
+    const newType = m[1].trim().toLowerCase();
+    const existing = content.activityTypes ?? ['walk', 'run', 'gym', 'other'];
+    if (!existing.map(t => t.toLowerCase()).includes(newType)) {
+      return {
+        handled: true,
+        updatedContent: { ...content, activityTypes: [...existing, newType] },
+        message: `Added "${newType}" as an activity type.`,
+      };
+    }
+    return { handled: true, updatedContent: content, message: `"${newType}" is already an activity type.` };
+  }
+
   // ── Add participant ───────────────────────────────────────────────────────
   m = req.match(/^add\s+(?:participant\s+)?(.+)$/i);
   if (m) {
@@ -413,6 +429,48 @@ function handleWorkoutUpdate(req: string, content: WorkoutTrackerContent): Local
       handled: true,
       updatedContent: { ...content, logs: updatedLogs },
       message: 'Last activity removed.',
+    };
+  }
+
+
+  // ── Make runs worth N points: "make runs worth 20 points" ────────────────
+  m = req.match(/\b(?:make\s+)?runs?\s+worth\s+(\d+)\s*(?:points?)?\b/i);
+  if (m) {
+    const value = parseInt(m[1], 10);
+    const scoringRules = {
+      ...(content.scoringRules ?? { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 }),
+      runningBonus: value,
+    };
+    return {
+      handled: true,
+      updatedContent: { ...content, scoringRules },
+      message: `Running bonus set to ${value} points.`,
+    };
+  }
+
+  // ── Streak bonus: "add streak bonus" / "set streak bonus to N" ───────────
+  m = req.match(/(?:add|set|enable)\s+streak\s+bonus(?:\s+(?:to\s+)?(\d+))?/i);
+  if (m) {
+    const value = m[1] ? parseInt(m[1], 10) : 10;
+    const scoringRules = {
+      ...(content.scoringRules ?? { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 }),
+      streakBonus: value,
+    };
+    return {
+      handled: true,
+      updatedContent: { ...content, scoringRules },
+      message: `Streak bonus set to ${value} points.`,
+    };
+  }
+
+  // ── Make it harder: increase weekly target by 1 ───────────────────────────
+  if (/\bmake\s+(?:it|this)\s+harder\b/i.test(req) || /\bincrease\s+(?:the\s+)?(?:weekly\s+)?target\b/i.test(req)) {
+    const current = content.weeklyTarget ?? 3;
+    const next = Math.min(current + 1, 14);
+    return {
+      handled: true,
+      updatedContent: { ...content, weeklyTarget: next },
+      message: `Weekly target increased to ${next}.`,
     };
   }
 

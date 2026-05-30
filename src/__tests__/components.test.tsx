@@ -1637,25 +1637,6 @@ describe('TournamentPoolRenderer', () => {
     expect(screen.queryByTestId('manage-pool-sheet')).not.toBeInTheDocument();
   });
 
-  it('Colours picker opens inside the active manage sheet', () => {
-    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('manage-pool-btn'));
-    fireEvent.click(screen.getByTestId('colours-nav-btn'));
-    expect(screen.getByTestId('sheet-colours-view')).toBeInTheDocument();
-    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
-  });
-
-  it('Colour selection navigates back to manage without closing sheet', () => {
-    const onChange = vi.fn();
-    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('manage-pool-btn'));
-    fireEvent.click(screen.getByTestId('colours-nav-btn'));
-    fireEvent.click(screen.getByTestId('theme-classic'));
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ colourTheme: 'classic' }));
-    expect(screen.getByTestId('manage-pool-sheet')).toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-colours-view')).not.toBeInTheDocument();
-  });
-
   it('Scoring opens as sub-view with back navigation', () => {
     render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
@@ -1669,7 +1650,7 @@ describe('TournamentPoolRenderer', () => {
   it('Only one manage sheet is visible at a time', () => {
     render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
-    fireEvent.click(screen.getByTestId('colours-nav-btn'));
+    fireEvent.click(screen.getByTestId('scoring-nav-btn'));
     expect(screen.getAllByTestId('manage-pool-sheet')).toHaveLength(1);
   });
 });
@@ -1693,19 +1674,6 @@ describe('TournamentPoolRenderer — Phase 4 UX', () => {
     expect(screen.getByTestId('match-row-m1')).toHaveTextContent('🇫🇷 France');
   });
 
-  it("pendingLocalAction 'change-theme' opens colours sheet without clicking manage", () => {
-    const onConsumed = vi.fn();
-    render(
-      <TournamentPoolRenderer
-        content={makePool()}
-        onChange={vi.fn()}
-        pendingLocalAction="change-theme"
-        onLocalActionConsumed={onConsumed}
-      />,
-    );
-    expect(screen.getByTestId('sheet-colours-view')).toBeInTheDocument();
-    expect(onConsumed).toHaveBeenCalled();
-  });
 
   it("pendingLocalAction 'edit-scoring' opens scoring sheet", () => {
     render(
@@ -1941,39 +1909,6 @@ describe('CreationComposer — AI status banner', () => {
     expect(onToolAction).toHaveBeenCalledWith('run-draw-all');
   });
 
-  it("Chat suggestion 'Change colours' calls onToolAction with change-theme", () => {
-    const onToolAction = vi.fn();
-    const creation: Creation = {
-      id: 'cp-tool-2', title: 'Family Pool', creationType: 'tournament_pool_tracker',
-      description: '', summary: '', originalRequest: '', status: 'ready',
-      version: 1, createdAt: 0, updatedAt: 0,
-      content: {
-        type: 'tournament_pool_tracker',
-        poolName: 'Family Pool',
-        tournamentName: 'Cup',
-        participants: [{ id: 'p1', name: 'Alice', emoji: '⭐' }],
-        teams: [{ id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' }],
-        matches: [],
-        drawLocked: true,
-        scoringRules: { pointsPerWin: 3, pointsPerDraw: 1, knockoutBonus: 5, quarterFinalBonus: 10, semiFinalBonus: 15, finalBonus: 20, winnerBonus: 50 },
-      },
-    };
-    render(
-      <CreationComposer
-        activeCreation={creation}
-        messages={[]}
-        isGenerating={false}
-        processingStatus={null}
-        onNew={noop}
-        onImprove={noop}
-        onAdd={noop}
-        onToolAction={onToolAction}
-      />,
-    );
-    fireEvent.click(screen.getByLabelText(/ask toolie about this pool/i));
-    fireEvent.click(screen.getByTestId('context-suggestion-colours'));
-    expect(onToolAction).toHaveBeenCalledWith('change-theme');
-  });
 
   it('shows challenge contextual chips for workout challenge state', () => {
     const onImprove = vi.fn();

@@ -5,11 +5,10 @@ import type {
   TournamentTeam,
   TournamentMatch,
   TournamentScoringRules,
-  ColourTheme,
 } from '../../types';
 import { SmartGuidance } from '../SmartGuidance';
 import { computePoolGuidance } from '../../lib/guidance';
-import { THEMES, getPoolGradient, getThemeAccent } from '../../lib/themes';
+import { getThemeAccent } from '../../lib/themes';
 import {
   shuffle,
   runFairSeededDraw,
@@ -48,7 +47,7 @@ interface DrawCompleteResult {
   fairnessWarning: string | null;
 }
 
-type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'addResult' | 'lockConfirm';
+type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'drawComplete' | 'addResult' | 'lockConfirm';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -297,7 +296,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
         break;
       case 'run-draw-all': drawAll(); break;
       case 'lock-draw':    lockDraw(); break;
-      case 'change-theme': setSheetView('colours'); break;
       case 'add-result':   setSheetView('addResult'); break;
       case 'share':        onShare?.(); break;
     }
@@ -535,13 +533,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
             >
               📊 Scoring
-            </button>
-            <button
-              data-testid="colours-nav-btn"
-              onClick={() => setSheetView('colours')}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700"
-            >
-              🎨 Colours
             </button>
             <button
               data-testid="add-match-btn"
@@ -804,45 +795,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
               style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, opacity: scoringDirty ? 1 : 0.4 }}
             >
               Save scoring
-            </button>
-          </div>
-        </>
-      );
-    }
-
-    // ── COLOURS ──────────────────────────────────────────────────────────────
-    if (sheetView === 'colours') {
-      return (
-        <>
-          <SheetHeader title="Pool colours" onBack={() => setSheetView('manage')} />
-          <div data-testid="sheet-colours-view" className="flex flex-wrap gap-4">
-            {THEMES.map(theme => (
-              <button
-                key={theme.id}
-                data-testid={`theme-${theme.id}`}
-                onClick={() => {
-                  update({ colourTheme: theme.id as ColourTheme });
-                  showToast('Theme updated');
-                  setSheetView('manage');
-                }}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div
-                  className={`h-12 w-12 rounded-full bg-gradient-to-br ${theme.gradient} ${
-                    content.colourTheme === theme.id ? 'ring-2 ring-gray-900 ring-offset-2' : ''
-                  }`}
-                />
-                <span className="text-xs text-gray-600">{theme.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-5">
-            <button
-              data-testid="colours-back-btn"
-              onClick={() => setSheetView('manage')}
-              className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
-            >
-              ← Back to Manage pool
             </button>
           </div>
         </>

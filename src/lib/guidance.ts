@@ -49,7 +49,7 @@ export function computePoolGuidance(
   content: TournamentPoolTrackerContent,
   hasShareLink: boolean,
 ): GuidanceState {
-  const { participants, teams, drawLocked, teamsSource, prizeNote, colourTheme } = content;
+  const { participants, teams, drawLocked, teamsSource, prizeNote } = content;
   const unassigned = teams.filter(t => !t.assignedTo);
   const allAssigned = teams.length > 0 && unassigned.length === 0 && participants.length > 0;
 
@@ -116,10 +116,6 @@ export function computePoolGuidance(
   if (!prizeNote && drawLocked) {
     raw.push({ id: 'add-prize', icon: '🏆', label: 'Add a prize note to make it official', actionId: 'add-people', variant: 'tip', priority: 3 });
   }
-  if (!colourTheme) {
-    raw.push({ id: 'pick-theme', icon: '🎨', label: 'Personalise with a colour theme', actionId: 'change-theme', variant: 'tip', priority: 1 });
-  }
-
   const suggestions = raw.sort((a, b) => b.priority - a.priority).slice(0, 5);
 
   // ── Quick actions ─────────────────────────────────────────────────────────
@@ -135,8 +131,7 @@ export function computePoolGuidance(
       ? [{ id: 'lock-draw', label: 'Lock draw', icon: '🔒', variant: 'primary' as const }]
       : []),
     { id: 'edit-scoring', label: 'Scoring', icon: '📊' },
-    { id: 'change-theme', label: 'Colours',  icon: '🎨' },
-    { id: 'share',        label: 'Share',    icon: '📤' },
+    { id: 'share',        label: 'Share',   icon: '📤' },
   ];
 
   return {

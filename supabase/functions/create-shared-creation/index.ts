@@ -87,6 +87,7 @@ Deno.serve(async (req: Request) => {
 
   const PUBLIC_VIEW_BY_DEFAULT = new Set([
     'tournament_pool_tracker', // World Cup Pool is public-viewable by default
+    'workout_tracker',         // Partner Challenge leaderboard is public-viewable by default
   ]);
   const publicView = PUBLIC_VIEW_BY_DEFAULT.has(creationType as string);
 

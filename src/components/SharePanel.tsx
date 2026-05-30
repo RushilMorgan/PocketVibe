@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import type { Creation } from '../types';
+import type { WorkoutTrackerContent } from '../types';
 import {
   createSharedCreation,
   getStoredAdminToken,
   isShareAvailable,
   claimCreation,
+  createParticipantLink,
 } from '../services/shareService';
 
 interface SharePanelProps {
@@ -18,8 +20,15 @@ interface SharePanelProps {
 export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, onRequestAuth }: SharePanelProps) {
   const [phase, setPhase] = useState<'idle' | 'creating' | 'done' | 'error'>('idle');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareSlugState, setShareSlugState] = useState<string | null>(null);
+  const [adminTokenState, setAdminTokenState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Participant link state (for workout_tracker partner challenges)
+  const [participantLinks, setParticipantLinks] = useState<Record<string, string>>({});
+  const [participantGenerating, setParticipantGenerating] = useState<string | null>(null);
+  const [participantCopied, setParticipantCopied] = useState<string | null>(null);
 
   // If already shared, derive the view URL from the existing slug
   const existingSlug = creation.shareSlug;
@@ -27,6 +36,11 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
   const existingViewUrl = existingSlug
     ? `${window.location.origin}/s/${existingSlug}`
     : null;
+
+  const isWorkoutTracker = creation.creationType === 'workout_tracker';
+  const participants = isWorkoutTracker
+    ? ((creation.content as WorkoutTrackerContent).participants ?? [])
+    : [];
 
   async function handleCreate() {
     if (!isShareAvailable()) {
@@ -39,6 +53,8 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
     try {
       const result = await createSharedCreation(creation);
       setShareUrl(result.viewUrl);
+      setShareSlugState(result.shareSlug);
+      setAdminTokenState(result.adminToken);
       setPhase('done');
       onCreationShared?.(result.shareSlug);
       // Associate with account if signed in
@@ -69,14 +85,97 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
     }
   }
 
+  async function handleGenerateParticipantLink(participantId: string, displayName: string, emoji?: string) {
+    const slug = shareSlugState ?? existingSlug;
+    const token = adminTokenState ?? (slug ? getStoredAdminToken(slug) : undefined);
+    if (!slug || !token) return;
+
+    setParticipantGenerating(participantId);
+    try {
+      const result = await createParticipantLink(slug, token, participantId, displayName, emoji);
+      setParticipantLinks(prev => ({ ...prev, [participantId]: result.participantUrl }));
+    } catch {
+      // silently fail — button remains clickable to retry
+    } finally {
+      setParticipantGenerating(null);
+    }
+  }
+
+  async function handleCopyParticipantLink(participantId: string, url: string) {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${creation.title} — your link`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setParticipantCopied(participantId);
+      setTimeout(() => setParticipantCopied(null), 2000);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        setParticipantCopied(participantId);
+        setTimeout(() => setParticipantCopied(null), 2000);
+      } catch { /* blocked */ }
+    }
+  }
+
+  // ── Participant links section (workout_tracker only) ───────────────────────
+  function ParticipantLinksSection({ slug, token }: { slug: string; token: string | undefined }) {
+    if (!isWorkoutTracker || participants.length === 0) return null;
+    return (
+      <div className="mt-4 space-y-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Participant links
+        </p>
+        <p className="text-xs text-gray-400">
+          Each participant gets their own personal link so they can log their own activity.
+        </p>
+        {participants.map(p => {
+          const pUrl = participantLinks[p.id];
+          const isGenerating = participantGenerating === p.id;
+          const isCopied = participantCopied === p.id;
+          return (
+            <div key={p.id} className="flex items-center gap-2">
+              <span className="flex-shrink-0 text-base">{p.emoji ?? '🏃'}</span>
+              <span className="flex-1 text-sm text-gray-700 truncate">{p.name}</span>
+              {pUrl ? (
+                <button
+                  data-testid={`copy-participant-link-${p.id}`}
+                  onClick={() => handleCopyParticipantLink(p.id, pUrl)}
+                  className="flex-shrink-0 text-xs font-semibold text-white bg-violet-600 px-3 py-1.5 rounded-xl active:bg-violet-700"
+                >
+                  {isCopied ? '✓ Copied' : typeof navigator.share === 'function' ? '↗ Share' : 'Copy'}
+                </button>
+              ) : (
+                <button
+                  data-testid={`get-participant-link-${p.id}`}
+                  onClick={() => handleGenerateParticipantLink(p.id, p.name, p.emoji)}
+                  disabled={isGenerating || !token}
+                  className="flex-shrink-0 text-xs font-semibold text-violet-600 border border-violet-200 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 disabled:opacity-50"
+                >
+                  {isGenerating ? 'Getting…' : 'Get link'}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   // ── Already-shared view ────────────────────────────────────────────────────
   if (isAlreadyShared && existingViewUrl && phase !== 'done') {
+    const existingToken = existingSlug ? getStoredAdminToken(existingSlug) : undefined;
     return (
       <Sheet onClose={onClose}>
         <h2 className="text-base font-semibold text-gray-900 mb-1">Share this tool</h2>
         <p className="text-sm text-gray-500 mb-4">Copy the link and send it to anyone.</p>
 
         <UrlDisplay url={existingViewUrl} copied={copied} onCopy={() => handleCopy(existingViewUrl)} />
+
+        {existingSlug && (
+          <ParticipantLinksSection slug={existingSlug} token={existingToken} />
+        )}
 
         <button onClick={onClose} className="w-full py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-600 font-medium mt-3">
           Done
@@ -115,7 +214,9 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
       <Sheet onClose={onClose}>
         <h2 className="text-base font-semibold text-gray-900 mb-1">Share this tool</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Create a link so anyone can view this tool.
+          {isWorkoutTracker
+            ? 'Create a link to share the leaderboard, then generate personal links for each participant.'
+            : 'Create a link so anyone can view this tool.'}
         </p>
 
         {error && (
@@ -144,6 +245,10 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
         <p className="text-sm text-gray-500 mb-4">Copy the link and send it to anyone.</p>
 
         <UrlDisplay url={shareUrl} copied={copied} onCopy={() => handleCopy(shareUrl)} />
+
+        {shareSlugState && (
+          <ParticipantLinksSection slug={shareSlugState} token={adminTokenState ?? undefined} />
+        )}
 
         <button onClick={onClose} className="w-full py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-600 font-medium mt-3">
           Done

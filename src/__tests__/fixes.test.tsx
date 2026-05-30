@@ -109,11 +109,11 @@ describe('FIX 4 — privacy defaults by tool type', () => {
     expect(src).toContain('tournament_pool_tracker');
   });
 
-  it('workout_tracker is NOT in PUBLIC_VIEW_BY_DEFAULT', () => {
+  it('workout_tracker IS in PUBLIC_VIEW_BY_DEFAULT (partner can view the leaderboard)', () => {
     const src = readEdgeFn('create-shared-creation');
     // Extract the set body
     const setMatch = src.match(/PUBLIC_VIEW_BY_DEFAULT[\s\S]*?new Set\(\[[\s\S]*?\]\)/m)?.[0] ?? '';
-    expect(setMatch).not.toContain('workout_tracker');
+    expect(setMatch).toContain('workout_tracker');
   });
 });
 

@@ -20,7 +20,6 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [skipAuth, setSkipAuth] = useState(false);
 
   // If already shared, derive the view URL from the existing slug
   const existingSlug = creation.shareSlug;
@@ -88,38 +87,36 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
 
   // ── Not yet shared ─────────────────────────────────────────────────────────
   if (phase === 'idle' || phase === 'error' || phase === 'creating') {
+    // Not signed in — require auth before sharing
+    if (!isLoggedIn && onRequestAuth) {
+      return (
+        <Sheet onClose={onClose}>
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Share this tool</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            You need a free account to create a share link — so you can always edit it later.
+          </p>
+          <button
+            onClick={onRequestAuth}
+            className="w-full py-3 rounded-2xl bg-violet-600 text-white font-semibold text-sm active:bg-violet-700 transition-colors"
+          >
+            Sign in / create free account
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-2xl border border-gray-200 text-sm text-gray-500 font-medium mt-2"
+          >
+            Not now
+          </button>
+        </Sheet>
+      );
+    }
+
     return (
       <Sheet onClose={onClose}>
         <h2 className="text-base font-semibold text-gray-900 mb-1">Share this tool</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Create a link so anyone can view this tool — no account needed.
+          Create a link so anyone can view this tool.
         </p>
-
-        {/* Auth nudge */}
-        {!isLoggedIn && !skipAuth && onRequestAuth && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3 mb-3">
-            <div>
-              <p className="text-sm font-semibold text-amber-900">Save your access</p>
-              <p className="text-xs text-amber-700 mt-1">
-                Sign in so you can always edit this tool from any device.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={onRequestAuth}
-                className="flex-1 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold active:bg-amber-700"
-              >
-                Sign in / create account
-              </button>
-              <button
-                onClick={() => setSkipAuth(true)}
-                className="text-xs text-amber-600 font-medium px-3 py-2 rounded-xl hover:bg-amber-100"
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 mb-3">

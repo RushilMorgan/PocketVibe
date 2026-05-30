@@ -334,14 +334,14 @@ export default function App() {
           onSuccess={() => {
             setAuthModalOpen(false);
             dismissSaveNudge();
-            if (authModalVariant === 'account' || authModalVariant === 'claim') {
+            if (authModalVariant === 'share') {
+              // Signed in during share flow → go straight back to share panel
+              setSharePanelOpen(true);
+            } else if (authModalVariant === 'account' || authModalVariant === 'claim') {
               goToMyTools();
             }
           }}
-          onSkip={authModalVariant === 'share' ? () => {
-            setAuthModalOpen(false);
-            setSharePanelOpen(true);
-          } : undefined}
+          // No onSkip for the share variant — auth is now required to share
           onClose={() => setAuthModalOpen(false)}
         />
       )}

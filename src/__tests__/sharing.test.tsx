@@ -229,8 +229,8 @@ describe('remixContent — copy does not mutate original', () => {
 
 // ── Test 10: Sign-in prompt when anonymous ────────────────────────────────────
 
-describe('SharePanel — auth nudge for anonymous users', () => {
-  it('shows auth nudge when user is not logged in and sharing is attempted', () => {
+describe('SharePanel — auth required for anonymous users', () => {
+  it('shows sign-in gate when user is not logged in', () => {
     const onRequestAuth = vi.fn();
     const mockCreation = {
       id: 'c1',
@@ -253,12 +253,41 @@ describe('SharePanel — auth nudge for anonymous users', () => {
         onRequestAuth={onRequestAuth}
       />
     );
-    // The auth nudge is shown when isLoggedIn=false, user hasn't skipped
-    expect(screen.getByText(/Save your access/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sign in \/ create account/i)).toBeInTheDocument();
+    // Auth is now required — no skip, shows a sign-in prompt
+    expect(screen.getByText(/You need a free account/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in \/ create free account/i)).toBeInTheDocument();
+    // The "Create share link" button must NOT appear — auth is gated
+    expect(screen.queryByTestId('create-share-link-btn')).not.toBeInTheDocument();
   });
 
-  it('does not show auth nudge when user is already logged in', () => {
+  it('clicking sign-in button calls onRequestAuth', () => {
+    const onRequestAuth = vi.fn();
+    const mockCreation = {
+      id: 'c1',
+      title: 'My Pool',
+      creationType: 'tournament_pool_tracker' as const,
+      description: '',
+      summary: '',
+      originalRequest: '',
+      status: 'ready' as const,
+      version: 1,
+      createdAt: 0,
+      updatedAt: 0,
+      content: makePoolContent(),
+    };
+    render(
+      <SharePanel
+        creation={mockCreation}
+        onClose={vi.fn()}
+        isLoggedIn={false}
+        onRequestAuth={onRequestAuth}
+      />
+    );
+    fireEvent.click(screen.getByText(/Sign in \/ create free account/i));
+    expect(onRequestAuth).toHaveBeenCalledOnce();
+  });
+
+  it('shows create-share-link button when user is already logged in', () => {
     const mockCreation = {
       id: 'c1',
       title: 'My Pool',
@@ -280,7 +309,9 @@ describe('SharePanel — auth nudge for anonymous users', () => {
         onRequestAuth={vi.fn()}
       />
     );
-    expect(screen.queryByText(/Save your access/i)).not.toBeInTheDocument();
+    // Logged-in user goes straight to the share button — no auth gate
+    expect(screen.getByTestId('create-share-link-btn')).toBeInTheDocument();
+    expect(screen.queryByText(/You need a free account/i)).not.toBeInTheDocument();
   });
 });
 

@@ -21,6 +21,12 @@ export function getPoolGradient(theme: ColourTheme | undefined): string {
   return THEMES.find(t => t.id === theme)?.gradient ?? 'from-yellow-500 to-orange-500';
 }
 
+/** Returns the primary accent hex for use in inline styles throughout the tool. */
+export function getThemeAccent(theme: ColourTheme | undefined): string {
+  if (!theme) return '#f59e0b';
+  return THEMES.find(t => t.id === theme)?.fromHex ?? '#f59e0b';
+}
+
 export function getWorkoutGradient(theme: ColourTheme | undefined): string {
   if (!theme || theme === 'classic') return 'from-red-500 to-orange-500';
   return THEMES.find(t => t.id === theme)?.gradient ?? 'from-red-500 to-orange-500';

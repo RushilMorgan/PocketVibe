@@ -9,7 +9,7 @@ import type {
 } from '../../types';
 import { SmartGuidance } from '../SmartGuidance';
 import { computePoolGuidance } from '../../lib/guidance';
-import { THEMES, getPoolGradient } from '../../lib/themes';
+import { THEMES, getPoolGradient, getThemeAccent } from '../../lib/themes';
 import {
   shuffle,
   runFairSeededDraw,
@@ -160,6 +160,12 @@ const SCORING_FIELDS: [keyof TournamentScoringRules, string, string][] = [
 export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLink = false, pendingLocalAction, onLocalActionConsumed }: Props) {
   const update = (patch: Partial<TournamentPoolTrackerContent>) =>
     onChange({ ...content, ...patch });
+
+  // ── Theme accent colour ───────────────────────────────────────────────────
+  const accent = getThemeAccent(content.colourTheme);
+  const accentBg   = `${accent}18`;   // ~10% opacity — subtle tint for headers/badges
+  const accentBg40 = `${accent}40`;   // ~25% opacity — hover / divider
+  const accentText = accent;          // full colour for text and icons
 
   // ── Sheet navigation ─────────────────────────────────────────────────────
   const [sheetView, setSheetView] = useState<SheetView | null>(null);
@@ -490,8 +496,8 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
           {/* Draw actions */}
           <div className="grid grid-cols-2 gap-2">
-            <button data-testid="draw-all-btn"  onClick={drawAll}  className="col-span-2 rounded-xl bg-gray-900 px-3 py-2.5 text-sm font-semibold text-white">🎯 Run fair draw</button>
-            <button data-testid="lock-draw-btn" onClick={lockDraw} className="col-span-2 rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🔒 Lock draw</button>
+            <button data-testid="draw-all-btn" onClick={drawAll} className="col-span-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}>🎯 Run fair draw</button>
+            <button data-testid="lock-draw-btn" onClick={lockDraw} className="col-span-2 rounded-xl px-3 py-2.5 text-xs font-semibold" style={{ backgroundColor: accentBg, color: accentText, border: `1px solid ${accentBg40}` }}>🔒 Lock draw</button>
           </div>
 
           {/* Navigation to sub-views */}
@@ -692,13 +698,14 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                       return (
                         <span
                           key={pot}
-                          className="rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-600"
+                          className="rounded-full px-2 py-0.5 text-xs"
+                          style={{ backgroundColor: accentBg, border: `1px solid ${accentBg40}`, color: accentText }}
                         >
                           Pot {pot}: {count}
                         </span>
                       );
                     })}
-                    <span className="rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-xs text-blue-600">
+                    <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: accentBg40, color: accentText }}>
                       Strength: {s.strengthScore}
                     </span>
                   </div>
@@ -716,14 +723,16 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             <button
               data-testid="view-leaderboard-btn"
               onClick={() => setSheetView(null)}
-              className="w-full rounded-xl bg-gray-900 py-3 text-sm font-semibold text-white"
+              className="w-full rounded-xl py-3 text-sm font-semibold text-white"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
             >
               View leaderboard
             </button>
             {onShare && (
               <button
                 onClick={onShare}
-                className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+                className="w-full rounded-xl py-3 text-sm font-semibold"
+                style={{ backgroundColor: accentBg, color: accentText, border: `1px solid ${accentBg40}` }}
               >
                 Share pool
               </button>
@@ -778,9 +787,8 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             <button
               data-testid="save-scoring-btn"
               onClick={saveScoring}
-              className={`flex-1 rounded-xl py-3 text-sm font-semibold ${
-                scoringDirty ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
-              }`}
+              className="flex-1 rounded-xl py-3 text-sm font-semibold text-white transition-opacity"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, opacity: scoringDirty ? 1 : 0.4 }}
             >
               Save scoring
             </button>
@@ -873,7 +881,8 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             <button
               data-testid="save-match-btn"
               onClick={saveMatch}
-              className="w-full rounded-xl bg-gray-900 py-3 text-sm font-semibold text-white"
+              className="w-full rounded-xl py-3 text-sm font-semibold text-white"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
             >
               Save result
             </button>
@@ -962,10 +971,10 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
           </button>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-xl bg-white/15 p-2.5">Status: <span className="font-bold">{drawStatus}</span></div>
-          <div className="rounded-xl bg-white/15 p-2.5">People: <span className="font-bold">{content.participants.length}</span></div>
-          <div className="rounded-xl bg-white/15 p-2.5">Assigned: <span className="font-bold">{assignedCount}/{content.teams.length}</span></div>
-          <div className="rounded-xl bg-white/15 p-2.5">Share: <span className="font-bold">{hasShareLink ? 'Live' : 'Not shared'}</span></div>
+          <div className="rounded-xl bg-white/20 p-2.5">Status: <span className="font-bold">{drawStatus}</span></div>
+          <div className="rounded-xl bg-white/20 p-2.5">People: <span className="font-bold">{content.participants.length}</span></div>
+          <div className="rounded-xl bg-white/20 p-2.5">Assigned: <span className="font-bold">{assignedCount}/{content.teams.length}</span></div>
+          <div className="rounded-xl bg-white/20 p-2.5">Share: <span className="font-bold">{hasShareLink ? 'Live' : 'Not shared'}</span></div>
         </div>
       </div>
 
@@ -1000,13 +1009,13 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
       {/* Leaderboard */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
-        <div className="border-b border-gray-50 px-4 py-3">
-          <h3 className="text-sm font-bold text-gray-900">Leaderboard</h3>
+        <div className="border-b px-4 py-3" style={{ borderColor: accentBg40, backgroundColor: accentBg }}>
+          <h3 className="text-sm font-bold" style={{ color: accentText }}>Leaderboard</h3>
         </div>
         {leaderboard.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-gray-400">Add participants to see the leaderboard.</p>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y" style={{ borderColor: accentBg40 }}>
             {leaderboard.map((row, i) => {
               const topThree = row.teams
                 .slice(0, 3)
@@ -1017,7 +1026,10 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                   key={row.participant.id}
                   data-testid={`leaderboard-row-${row.participant.id}`}
                   onClick={() => setParticipantSheetId(row.participant.id)}
-                  className="w-full px-4 py-3 text-left active:bg-gray-50"
+                  className="w-full px-4 py-3 text-left transition-colors"
+                  style={{ ['--tw-bg-opacity' as string]: '1' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = accentBg)}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}
                 >
                   <div data-testid={`participant-row-${row.participant.id}`} className="flex items-center gap-3">
                     <span className="w-6 text-center text-base">{MEDAL[i] ?? `#${i + 1}`}</span>
@@ -1028,7 +1040,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                       <p className="mt-0.5 text-[11px] text-gray-400">{row.teams.length} teams · {row.activeTeams} active</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-gray-900">{row.points} pts</p>
+                      <p className="text-sm font-black" style={{ color: accentText }}>{row.points} pts</p>
                       <p className="text-[11px] text-gray-400">Tap for details</p>
                     </div>
                   </div>
@@ -1040,25 +1052,26 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       </div>
 
       {/* Teams (collapsed by default) */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-gray-900">Teams</h3>
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+        <div className="flex items-center justify-between gap-2 px-4 py-3" style={{ backgroundColor: accentBg, borderBottom: `1px solid ${accentBg40}` }}>
+          <h3 className="text-sm font-bold" style={{ color: accentText }}>Teams</h3>
           <button
             data-testid="view-all-teams-btn"
             onClick={() => setShowAllTeams(v => !v)}
-            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 active:bg-gray-200"
+            className="rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+            style={{ backgroundColor: accent }}
           >
             {showAllTeams ? 'Hide teams' : 'View all teams'}
           </button>
         </div>
         {!showAllTeams ? (
-          <p data-testid="teams-collapsed-hint" className="mt-2 text-xs text-gray-500">
+          <p data-testid="teams-collapsed-hint" className="px-4 py-3 text-xs text-gray-500">
             Tap "View all teams" to open the full team list.
           </p>
         ) : (
-          <div data-testid="all-teams-list" className="mt-3 flex flex-wrap gap-2">
+          <div data-testid="all-teams-list" className="flex flex-wrap gap-2 p-4">
             {content.teams.map(team => (
-              <div key={team.id} className="rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700">
+              <div key={team.id} className="rounded-xl border px-2.5 py-1.5 text-xs text-gray-700" style={{ borderColor: accentBg40, backgroundColor: accentBg }}>
                 {team.flagEmoji ?? '🏳'} {team.name} · Pot {team.pot}
               </div>
             ))}
@@ -1116,25 +1129,26 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                 )}
               </div>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
-              {participantDetails.points} points · {participantDetails.teams.length} teams
+            <p className="mt-1 text-sm font-semibold" style={{ color: accentText }}>
+              {participantDetails.points} pts · {participantDetails.teams.length} teams
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">Wins: <span className="font-bold text-gray-900">{participantDetails.wins}</span></div>
-              <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">Draws: <span className="font-bold text-gray-900">{participantDetails.draws}</span></div>
+              <div className="rounded-xl p-3 text-xs text-gray-600" style={{ backgroundColor: accentBg, border: `1px solid ${accentBg40}` }}>Wins: <span className="font-bold" style={{ color: accentText }}>{participantDetails.wins}</span></div>
+              <div className="rounded-xl p-3 text-xs text-gray-600" style={{ backgroundColor: accentBg, border: `1px solid ${accentBg40}` }}>Draws: <span className="font-bold" style={{ color: accentText }}>{participantDetails.draws}</span></div>
             </div>
             {[1, 2, 3, 4].map(pot => {
               const teams = participantDetails.teams.filter(t => t.pot === pot);
               if (teams.length === 0) return null;
               return (
                 <div key={pot} className="mt-4">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Pot {pot}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: accentText }}>Pot {pot}</p>
                   <div className="mt-2 space-y-2">
                     {teams.map(team => (
                       <div
                         key={team.id}
                         data-testid={`participant-detail-team-${team.id}`}
-                        className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-xl px-3 py-2 text-sm"
+                        style={{ backgroundColor: accentBg, border: `1px solid ${accentBg40}` }}
                       >
                         <span className="font-medium text-gray-800">{team.flagEmoji ?? '🏳'} {team.name}</span>
                         <span className="text-xs text-gray-500">{team.status.replaceAll('_', ' ')}</span>
@@ -1147,7 +1161,8 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             <div className="mt-4">
               <button
                 onClick={() => setParticipantSheetId(null)}
-                className="w-full rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white"
+                className="w-full rounded-xl py-2.5 text-sm font-semibold text-white"
+                style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
               >
                 Done
               </button>

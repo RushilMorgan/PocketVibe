@@ -37,8 +37,8 @@ export default function PVHeader({
 
   return (
     <div
-      className="flex items-center gap-3 px-4 shrink-0"
-      style={{ height: '52px', borderBottom: '1px solid #f0f0f5' }}
+      className="flex items-center gap-3 px-4 shrink-0 bg-white"
+      style={{ height: '56px', borderBottom: '1px solid #f0f0f5' }}
     >
       {/* Back button — min 44×44 touch target per Apple HIG */}
       {showBack ? (
@@ -52,12 +52,15 @@ export default function PVHeader({
           </svg>
         </button>
       ) : (
-        <span
-          className="text-sm font-black tracking-tight flex-shrink-0"
-          style={{ color: accentColor, transition: 'color 0.3s' }}
-        >
-          Hey Toolie
-        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-violet-500 text-base leading-none">✦</span>
+          <span
+            className="text-base font-black tracking-tight"
+            style={{ color: accentColor, transition: 'color 0.3s' }}
+          >
+            Hey Toolie
+          </span>
+        </div>
       )}
 
       {/* Title / spacer */}
@@ -76,30 +79,29 @@ export default function PVHeader({
       {creationsCount > 0 && view !== 'my-creations' && view !== 'my-tools' && (
         <button
           onClick={onGoMyCreations}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 active:bg-gray-200 transition-colors"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 active:bg-violet-100 transition-colors"
         >
-          <span className="text-xs font-semibold text-gray-600">My things</span>
-          <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-            style={{ background: accentColor }}>
+          <span className="text-xs font-semibold text-violet-700">My things</span>
+          <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold bg-violet-600">
             {creationsCount > 9 ? '9+' : creationsCount}
           </span>
         </button>
       )}
 
-      {/* User avatar (logged in) or Sign in button — hidden on my-tools (already "inside" account) */}
+      {/* User avatar (logged in) or Sign in button */}
       {view !== 'my-tools' && (userEmail && onGoMyTools ? (
         <button
           onClick={onGoMyTools}
           title={userEmail}
-          className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-white text-xs font-bold active:opacity-80"
-          style={{ background: accentColor }}
+          className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold active:opacity-80 ring-2 ring-violet-200"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
         >
           {userEmail[0].toUpperCase()}
         </button>
       ) : onSignIn ? (
         <button
           onClick={onSignIn}
-          className="flex-shrink-0 text-xs font-semibold text-gray-500 px-3 py-1.5 rounded-full bg-gray-100 active:bg-gray-200"
+          className="flex-shrink-0 text-xs font-semibold text-violet-600 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 active:bg-violet-100"
         >
           Sign in
         </button>

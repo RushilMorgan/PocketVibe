@@ -102,28 +102,37 @@ export function MyCreations({
   useEffect(() => () => { if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current); }, []);
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Count subtitle — title/back handled by PVHeader above */}
-      <div className="px-4 pt-3 pb-1 flex-shrink-0">
-        <p className="text-xs text-gray-400">{sorted.length} creation{sorted.length !== 1 ? 's' : ''}</p>
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Count subtitle */}
+      <div className="px-4 pt-3 pb-2 flex-shrink-0">
+        <p className="text-xs text-gray-400">{sorted.length} thing{sorted.length !== 1 ? 's' : ''} created</p>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-3 pb-4">
         {sorted.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-3">
-            <span className="text-4xl">📭</span>
-            <p className="text-gray-500 text-sm">Nothing here yet. Go to the home screen and make something!</p>
+          <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-4 py-16">
+            <div className="w-16 h-16 rounded-3xl bg-violet-100 flex items-center justify-center">
+              <span className="text-3xl">✦</span>
+            </div>
+            <div>
+              <p className="text-gray-700 text-sm font-semibold mb-1">Nothing yet</p>
+              <p className="text-gray-400 text-xs leading-relaxed">Go back home and tell Toolie what you want to make.</p>
+            </div>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="flex flex-col gap-2 pt-1">
             {sorted.map(creation => {
               const isActive = creation.id === activeCreationId;
               const isConfirming = confirmDeleteId === creation.id;
               return (
                 <div
                   key={creation.id}
-                  className={`px-4 py-4 ${isActive ? 'bg-violet-50' : ''}`}
+                  className={`rounded-2xl px-4 py-3.5 ${
+                    isActive
+                      ? 'bg-violet-600 shadow-lg shadow-violet-200/50'
+                      : 'bg-white border border-gray-100 shadow-sm'
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     {/* Tap area */}
@@ -147,65 +156,62 @@ export function MyCreations({
                             }}
                             onClick={e => e.stopPropagation()}
                             maxLength={100}
-                            className="w-full text-sm font-semibold border border-violet-400 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                            className="w-full text-sm font-semibold border border-violet-400 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-gray-900"
                           />
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-gray-900 text-sm truncate max-w-[140px]">
+                            <span className={`font-bold text-sm truncate max-w-[140px] ${isActive ? 'text-white' : 'text-gray-900'}`}>
                               {creation.title}
                             </span>
                             {creation.version > 1 && (
-                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full flex-shrink-0">
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-white/20 text-white/70' : 'bg-gray-100 text-gray-500'}`}>
                                 v{creation.version}
                               </span>
                             )}
                             {isActive && (
-                              <span className="text-xs px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded-full font-medium flex-shrink-0">
-                                Active
+                              <span className="text-xs px-1.5 py-0.5 bg-white/20 text-white rounded-full font-medium flex-shrink-0">
+                                Open
                               </span>
                             )}
                           </div>
                         )}
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                        <p className={`text-xs mt-0.5 line-clamp-1 ${isActive ? 'text-white/60' : 'text-gray-400'}`}>
                           {TYPE_LABEL[creation.creationType]} · {timeAgo(creation.updatedAt)}
                         </p>
-                        {creation.description && (
-                          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{creation.description}</p>
-                        )}
                       </div>
                     </button>
 
-                    {/* Action buttons — min 44×44 touch targets */}
-                    <div className="flex items-center flex-shrink-0 ml-1">
+                    {/* Action buttons */}
+                    <div className="flex items-center flex-shrink-0">
                       <button
                         onClick={e => { e.stopPropagation(); startRename(creation); }}
-                        className="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
+                        className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-300 active:bg-gray-100'}`}
                         aria-label="Rename"
                         title="Rename"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); onDuplicate(creation.id); }}
-                        className="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 active:bg-gray-100"
+                        className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-300 active:bg-gray-100'}`}
                         aria-label="Duplicate"
                         title="Duplicate"
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                         </svg>
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); handleDelete(creation.id); }}
-                        className={`w-11 h-11 rounded-full flex items-center justify-center active:bg-red-50 ${isConfirming ? 'text-red-500' : 'text-gray-300'}`}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-400 active:bg-red-50' : isActive ? 'text-white/30 active:bg-white/10' : 'text-gray-200 active:bg-gray-100'}`}
                         aria-label={isConfirming ? 'Tap again to confirm delete' : 'Delete'}
                         title={isConfirming ? 'Tap again to confirm' : 'Delete'}
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6" />
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                         </svg>
@@ -214,7 +220,7 @@ export function MyCreations({
                   </div>
 
                   {isConfirming && (
-                    <p className="text-xs text-red-500 mt-1.5 ml-10">Tap delete again to confirm</p>
+                    <p className="text-xs text-red-400 mt-1.5 ml-9">Tap delete again to confirm</p>
                   )}
                 </div>
               );

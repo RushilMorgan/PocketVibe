@@ -50,7 +50,6 @@ function buildPoolSuggestions(creation: Creation): ContextSuggestion[] {
     { id: 'scoring', label: 'Change scoring', prompt: 'Change scoring for this pool.', localActionId: 'edit-scoring' },
     { id: 'leaderboard', label: 'Explain the leaderboard', prompt: 'Explain the leaderboard for this pool.' },
     { id: 'share', label: shared ? 'Copy share link' : 'Share this pool', prompt: shared ? 'Copy share link for this pool.' : 'Share this pool with everyone.', localActionId: 'share' },
-    { id: 'colours', label: 'Change colours', prompt: 'Change colours for this pool.', localActionId: 'change-theme' },
   ];
 }
 
@@ -172,8 +171,13 @@ export function CreationComposer({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="absolute bottom-6 right-5 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white text-xl z-20"
-          style={{ background: hasActive ? 'linear-gradient(135deg, #111827, #374151)' : 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+          className="absolute bottom-6 right-5 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-xl z-20 ring-2 ring-white/20"
+          style={{
+            background: hasActive
+              ? 'linear-gradient(135deg, #4c1d95, #7c3aed)'
+              : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+            boxShadow: '0 4px 24px rgba(124,58,237,0.45)',
+          }}
           aria-label={hasActive ? context.title : 'Make something'}
         >
           ✨
@@ -185,26 +189,30 @@ export function CreationComposer({
         <div className="absolute inset-0 z-30 flex flex-col justify-end">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Sheet */}
-          <div className="relative bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[82%] z-10">
+          {/* Sheet — dark Toolie space */}
+          <div className="relative bg-gray-950 rounded-t-3xl shadow-2xl flex flex-col max-h-[82%] z-10 border-t border-white/8">
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              <div className="w-10 h-1 bg-white/20 rounded-full" />
             </div>
 
-            <div className="px-4 pb-2 flex-shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">Toolie</p>
-              <h3 className="text-base font-bold text-gray-900">{context.title}</h3>
+            {/* Header */}
+            <div className="px-4 pb-3 pt-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-violet-400 text-xs">✦</span>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">Toolie</p>
+              </div>
+              <h3 className="text-base font-bold text-white">{context.title}</h3>
             </div>
 
             {isGenerating && processingStatus && (
-              <div className="mx-4 mb-2 px-4 py-2 bg-violet-50 rounded-xl flex items-center gap-2 flex-shrink-0">
-                <span className="text-base animate-spin">⚙️</span>
-                <span className="text-sm text-violet-700 font-medium">{processingStatus}</span>
+              <div className="mx-4 mb-2 px-4 py-2.5 bg-violet-600/20 border border-violet-500/25 rounded-xl flex items-center gap-2 flex-shrink-0">
+                <span className="text-sm animate-spin">⚙️</span>
+                <span className="text-sm text-violet-300 font-medium">{processingStatus}</span>
               </div>
             )}
 
@@ -212,17 +220,22 @@ export function CreationComposer({
             {!aiStatus.connected && (
               <div
                 data-testid="ai-status-banner"
-                className="mx-4 mb-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 flex-shrink-0"
+                className="mx-4 mb-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 flex-shrink-0"
               >
-                <span className="text-base">⚠️</span>
-                <span className="text-sm text-amber-700">
+                <span className="text-sm">⚠️</span>
+                <span className="text-sm text-amber-300">
                   AI updates are not connected yet. You can still edit this tool directly.
                 </span>
               </div>
             )}
 
+            {/* Context suggestions */}
             {context.suggestions.length > 0 && !isGenerating && (
-              <div data-testid="contextual-chat-suggestions" className="flex gap-2 overflow-x-auto px-4 pb-2 flex-shrink-0" style={{ scrollbarWidth: 'none' }}>
+              <div
+                data-testid="contextual-chat-suggestions"
+                className="flex gap-2 overflow-x-auto px-4 pb-3 flex-shrink-0"
+                style={{ scrollbarWidth: 'none' }}
+              >
                 {context.suggestions.map(suggestion => (
                   <button
                     key={suggestion.id}
@@ -235,7 +248,7 @@ export function CreationComposer({
                         sendPrompt(suggestion.prompt);
                       }
                     }}
-                    className="flex-shrink-0 whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-100"
+                    className="flex-shrink-0 whitespace-nowrap rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-medium text-white/65 active:bg-white/12"
                   >
                     {suggestion.label}
                   </button>
@@ -243,6 +256,7 @@ export function CreationComposer({
               </div>
             )}
 
+            {/* Chat history */}
             {messages.length > 0 && (
               <div className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
                 {messages.map(msg => (
@@ -253,8 +267,8 @@ export function CreationComposer({
                     <div
                       className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                         msg.role === 'user'
-                          ? 'bg-gray-900 text-white rounded-br-sm'
-                          : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                          ? 'bg-violet-600 text-white rounded-br-sm'
+                          : 'bg-white/8 text-white/85 rounded-bl-sm border border-white/8'
                       }`}
                     >
                       {msg.text}
@@ -265,23 +279,20 @@ export function CreationComposer({
               </div>
             )}
 
+            {/* Input bar */}
             <form onSubmit={handleSubmit} className="flex gap-2 items-center px-4 pb-6 pt-2 flex-shrink-0">
               <input
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder={
-                  isGenerating
-                    ? 'Working on it…'
-                    : context.placeholder
-                }
+                placeholder={isGenerating ? 'Working on it…' : context.placeholder}
                 disabled={isGenerating}
-                className="flex-1 rounded-full border border-gray-200 px-4 py-3 text-sm bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50"
+                className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={isGenerating || !input.trim()}
-                className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-900 text-white disabled:opacity-40 active:bg-black transition-colors flex-shrink-0"
+                className="w-11 h-11 rounded-full flex items-center justify-center bg-violet-600 text-white disabled:opacity-40 active:bg-violet-700 transition-colors flex-shrink-0"
                 aria-label="Send"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

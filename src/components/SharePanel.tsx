@@ -229,9 +229,9 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
           data-testid="create-share-link-btn"
           onClick={handleCreate}
           disabled={phase === 'creating' || !isShareAvailable()}
-          className="w-full py-3 rounded-2xl bg-violet-600 text-white font-semibold text-sm disabled:opacity-50 active:bg-violet-700 transition-colors"
+          className="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-black text-sm disabled:opacity-50 active:bg-black transition-colors"
         >
-          {phase === 'creating' ? 'Creating link…' : '✨ Create share link'}
+          {phase === 'creating' ? '⚙️ Creating…' : '✨ Create share link'}
         </button>
       </Sheet>
     );
@@ -266,16 +266,19 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
   return (
     <div
       data-testid="share-panel"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/30"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-sm bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl">
-        <div className="flex justify-center mb-4">
+      <div className="w-full max-w-sm bg-white rounded-t-3xl px-5 pt-4 pb-8 shadow-2xl">
+        <div className="flex justify-center mb-3">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex-1" />
-          <button onClick={onClose} className="text-gray-400 text-xl leading-none p-1">×</button>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-violet-500 text-xs">✦</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">Hey Toolie</span>
+          </div>
+          <button onClick={onClose} className="text-gray-300 text-xl leading-none p-1 active:text-gray-500">×</button>
         </div>
         {children}
       </div>
@@ -285,8 +288,8 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
 
 function UrlDisplay({ url, copied, onCopy }: { url: string; copied: boolean; onCopy: () => void }) {
   return (
-    <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 flex items-center gap-3">
-      <p className="flex-1 text-xs text-violet-700 font-mono truncate">{url}</p>
+    <div className="rounded-2xl border border-gray-100 bg-gray-950 px-4 py-3 flex items-center gap-3">
+      <p className="flex-1 text-xs text-white/50 font-mono truncate">{url}</p>
       <button
         data-testid="copy-share-link-btn"
         onClick={onCopy}

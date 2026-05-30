@@ -57,15 +57,15 @@ export function SmartGuidance({ guidance, onAction }: SmartGuidanceProps) {
       {next && (
         <div
           data-testid="next-best-action"
-          className="rounded-2xl border border-gray-200 bg-white/90 px-4 py-3 shadow-sm"
+          className="rounded-2xl border border-violet-100 bg-violet-50/60 px-4 py-3 shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-900 text-sm font-bold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-600 text-sm font-bold text-white flex-shrink-0">
               {next.icon}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">
-                Next Best Action
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
+                ✦ Toolie suggests
               </p>
               <p className="text-sm font-semibold text-gray-900">{next.label}</p>
             </div>
@@ -73,7 +73,7 @@ export function SmartGuidance({ guidance, onAction }: SmartGuidanceProps) {
               <button
                 data-testid="next-best-action-button"
                 onClick={() => onAction(next.actionId!)}
-                className="rounded-full bg-gray-900 px-3 py-2 text-xs font-semibold text-white active:bg-black"
+                className="rounded-full bg-violet-600 px-3 py-2 text-xs font-semibold text-white active:bg-violet-700 flex-shrink-0"
               >
                 Do it
               </button>
@@ -91,7 +91,7 @@ export function SmartGuidance({ guidance, onAction }: SmartGuidanceProps) {
               onClick={() => onAction(action.id)}
               className={`flex-shrink-0 rounded-full px-3 py-2 text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${
                 action.variant === 'primary'
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-violet-600 text-white active:bg-violet-700'
                   : 'bg-gray-100 text-gray-700 active:bg-gray-200'
               }`}
             >

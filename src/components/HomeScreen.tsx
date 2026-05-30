@@ -138,20 +138,28 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
       <div className="flex-1 overflow-y-auto">
 
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <div className="px-5 pt-7 pb-6">
-          <h1 data-testid="landing-headline" className="text-2xl font-black text-gray-900 leading-tight tracking-tight">
+        <div className="relative overflow-hidden px-5 pt-8 pb-7 bg-gradient-to-b from-violet-950/6 to-transparent">
+          {/* Subtle geometric accent */}
+          <div className="absolute top-4 right-4 w-24 h-24 rounded-full bg-violet-500/5 pointer-events-none" />
+          <div className="absolute top-8 right-8 w-12 h-12 rounded-full bg-violet-500/5 pointer-events-none" />
+
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="text-violet-500 text-xs">✦</span>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">AI-powered tools</p>
+          </div>
+          <h1 data-testid="landing-headline" className="text-3xl font-black text-gray-900 leading-tight tracking-tight">
             Make little tools for real life.
           </h1>
-          <p className="text-sm text-gray-500 mt-2 leading-relaxed max-w-xs">
-            Start with a World Cup pool or a partner challenge. Create it, share it, and keep it going together.
+          <p className="text-sm text-gray-500 mt-2.5 leading-relaxed max-w-xs">
+            Just tell Toolie what you need. It builds the tool, you use it — share it and keep going together.
           </p>
           {onSignIn && (
             <button
               data-testid="signin-link"
               onClick={onSignIn}
-              className="mt-3 text-xs text-violet-600 font-medium hover:underline"
+              className="mt-3 text-xs text-violet-600 font-semibold bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 active:bg-violet-100"
             >
-              Already have an account? Sign in
+              Already have an account? Sign in →
             </button>
           )}
         </div>
@@ -333,27 +341,35 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
 
         {/* ── How it works ─────────────────────────────────────────────────── */}
         <div data-testid="how-it-works" className="px-5 pb-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">How it works</p>
-          <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-px flex-1 bg-gray-100" />
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">How it works</p>
+            <div className="h-px flex-1 bg-gray-100" />
+          </div>
+          <div className="flex flex-col gap-3.5">
             {[
-              { step: '1', label: 'Pick what you want to make', icon: '👆' },
-              { step: '2', label: 'Toolie creates it for you', icon: '✨' },
-              { step: '3', label: 'Edit, share and use it', icon: '🔗' },
-            ].map(({ step, label, icon }) => (
-              <div key={step} className="flex items-center gap-4">
-                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-base flex-shrink-0">
+              { step: '1', label: 'Describe what you want to Toolie', icon: '💬', sub: 'In plain English — no tech knowledge needed' },
+              { step: '2', label: 'Toolie builds it instantly', icon: '✨', sub: 'A real working tool, not just a template' },
+              { step: '3', label: 'Share it and keep it going', icon: '🔗', sub: 'Everyone stays in sync in real time' },
+            ].map(({ step, label, icon, sub }) => (
+              <div key={step} className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-violet-600 flex items-center justify-center text-base flex-shrink-0 shadow-sm shadow-violet-200">
                   {icon}
                 </div>
-                <p className="text-sm font-medium text-gray-700">{label}</p>
+                <div className="pt-0.5">
+                  <p className="text-sm font-semibold text-gray-800">{label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
         {/* ── Trust note ───────────────────────────────────────────────────── */}
-        <div className="mx-4 mb-6 px-4 py-3 bg-gray-50 rounded-2xl border border-gray-100">
-          <p className="text-xs text-gray-500 leading-relaxed">
-            🔒 You own what you create. People you share with can view or take part — they can't edit your original tool.
+        <div className="mx-4 mb-6 px-4 py-3.5 bg-gray-900 rounded-2xl">
+          <p className="text-xs text-white/60 leading-relaxed">
+            <span className="text-white/80 font-semibold">🔒 You own what you create.</span>
+            {' '}People you share with can view or take part — they can't edit your original tool.
           </p>
         </div>
 

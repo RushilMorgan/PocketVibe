@@ -138,20 +138,20 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
     if (accessMode === 'admin') {
       return (
-        <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">
+        <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
           Admin
         </span>
       );
     }
     if (accessMode === 'participant') {
       return (
-        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-          {participantName ? `Viewing as ${participantName}` : 'Participant'}
+        <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+          {participantName ? `${participantName}` : 'Participant'}
         </span>
       );
     }
     return (
-      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
+      <span className="text-xs bg-white/10 text-white/40 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
         Viewing
       </span>
     );
@@ -161,10 +161,12 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
   if (phase === 'loading') {
     return (
-      <div data-testid="shared-tool-loading" className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center space-y-2">
-          <div className="text-2xl animate-pulse">⟳</div>
-          <p className="text-sm text-gray-400">Loading…</p>
+      <div data-testid="shared-tool-loading" className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-violet-600/20 flex items-center justify-center mx-auto">
+            <span className="text-violet-400 text-xl animate-pulse">✦</span>
+          </div>
+          <p className="text-sm text-white/40">Loading…</p>
         </div>
       </div>
     );
@@ -172,12 +174,12 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
   if (phase === 'error' || !creation) {
     return (
-      <div data-testid="shared-tool-error" className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div data-testid="shared-tool-error" className="min-h-screen flex items-center justify-center bg-gray-950">
         <div className="text-center px-6 space-y-3 max-w-xs">
           <p className="text-4xl">😕</p>
-          <h1 className="text-base font-semibold text-gray-800">Couldn't load this tool</h1>
-          <p className="text-sm text-gray-500">{errorMsg ?? 'This link may have expired or the tool is private.'}</p>
-          <button onClick={load} className="text-sm text-violet-600 font-medium underline">
+          <h1 className="text-base font-semibold text-white/80">Couldn't load this tool</h1>
+          <p className="text-sm text-white/40">{errorMsg ?? 'This link may have expired or the tool is private.'}</p>
+          <button onClick={load} className="text-sm text-violet-400 font-medium underline">
             Try again
           </button>
         </div>
@@ -187,25 +189,30 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
   return (
     <div data-testid="shared-tool-page" className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
+      {/* Dark header */}
+      <header className="bg-gray-900 px-4 py-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <h1 className="text-sm font-semibold text-gray-900 truncate">{creation.title}</h1>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-violet-400 text-xs">✦</span>
+            <span className="text-xs font-black text-white/60 tracking-tight">Hey Toolie</span>
+          </div>
+          <span className="text-white/20 text-xs">·</span>
+          <h1 className="text-sm font-semibold text-white truncate">{creation.title}</h1>
           <RoleBadge />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {saveStatus === 'saving' && <span className="text-xs text-gray-400">Saving…</span>}
-          {saveStatus === 'saved' && <span className="text-xs text-green-600">Saved</span>}
-          {saveStatus === 'error' && <span className="text-xs text-red-600">Save failed — try again</span>}
+          {saveStatus === 'saving' && <span className="text-xs text-white/40">Saving…</span>}
+          {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
+          {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
           {saveStatus === 'conflict' && (
-            <button onClick={load} className="text-xs text-amber-600 underline">
+            <button onClick={load} className="text-xs text-amber-400 underline">
               Refresh to sync
             </button>
           )}
           <button
             data-testid="shared-tool-refresh-btn"
             onClick={load}
-            className="text-sm text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-100"
+            className="text-sm text-white/40 px-2 py-1 rounded-lg hover:text-white/70"
             aria-label="Refresh"
           >
             ⟳
@@ -213,35 +220,38 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
         </div>
       </header>
 
-      {/* Admin banner — explains why the creator sees "Admin" on their own link */}
+      {/* Admin banner */}
       {accessMode === 'admin' && (
-        <div className="bg-violet-50 border-b border-violet-100 px-4 py-2.5 flex items-center gap-2">
-          <span className="text-xs text-violet-700 flex-1">
-            🔑 You're the creator — you have full edit access. People you share with see view-only.
+        <div className="bg-violet-600/10 border-b border-violet-500/20 px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs text-violet-400 flex-1">
+            🔑 You're the creator — full edit access. People you share with see view-only.
           </span>
         </div>
       )}
 
       {/* Viewer banner */}
       {accessMode === 'viewer' && (
-        <div className="bg-gray-50 border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-400">View only — changes won't be saved</p>
+        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-400">View only</p>
           <button
             data-testid="viewer-remix-btn"
             onClick={handleRemix}
-            className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-lg active:bg-violet-100 flex-shrink-0"
+            className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 active:bg-violet-100 flex-shrink-0"
           >
             Make my own version
           </button>
         </div>
       )}
 
-      {/* Sticky CTA bar — lets viewers create their own tools */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400 truncate">Made with Hey Toolie</p>
+      {/* Sticky brand footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-gray-900 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-violet-400 text-xs">✦</span>
+          <p className="text-xs text-white/50 font-medium">Made with Hey Toolie</p>
+        </div>
         <a
           href="/"
-          className="flex-shrink-0 text-xs font-semibold text-white bg-violet-600 px-4 py-2 rounded-xl active:bg-violet-700"
+          className="flex-shrink-0 text-xs font-black text-gray-900 bg-violet-400 px-4 py-1.5 rounded-full active:bg-violet-300"
         >
           Create your own ✨
         </a>

@@ -1292,14 +1292,10 @@ describe('TournamentPoolRenderer', () => {
     );
   });
 
-  it('draws one team for the next participant', () => {
-    const onChange = vi.fn();
-    render(<TournamentPoolRenderer content={makePool()} onChange={onChange} />);
+  it('draw-one-btn does not exist in the manage panel', () => {
+    render(<TournamentPoolRenderer content={makePool()} onChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
-    fireEvent.click(screen.getByTestId('draw-one-btn'));
-    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
-    const assigned = updated.teams.filter(t => t.assignedTo !== undefined);
-    expect(assigned.length).toBe(1);
+    expect(screen.queryByTestId('draw-one-btn')).not.toBeInTheDocument();
   });
 
   it('draws all teams with no duplicates', () => {
@@ -1311,24 +1307,6 @@ describe('TournamentPoolRenderer', () => {
     const assignedTeamIds = updated.teams.filter(t => t.assignedTo).map(t => t.id);
     expect(assignedTeamIds.length).toBe(4);
     expect(new Set(assignedTeamIds).size).toBe(assignedTeamIds.length);
-  });
-
-  it('does not assign the same team twice', () => {
-    const alreadyAssigned = makePool({
-      teams: [
-        { id: 't1', name: 'Brazil', pot: 1, status: 'active', assignedTo: 'p1' },
-        { id: 't2', name: 'France', pot: 1, status: 'active' },
-        { id: 't3', name: 'Germany', pot: 2, status: 'active' },
-        { id: 't4', name: 'Spain', pot: 2, status: 'active' },
-      ],
-    });
-    const onChange = vi.fn();
-    render(<TournamentPoolRenderer content={alreadyAssigned} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId('manage-pool-btn'));
-    fireEvent.click(screen.getByTestId('draw-one-btn'));
-    const updated = onChange.mock.calls[0][0] as TournamentPoolTrackerContent;
-    const brazil = updated.teams.find(t => t.id === 't1')!;
-    expect(brazil.assignedTo).toBe('p1');
   });
 
   it('locks the draw', () => {

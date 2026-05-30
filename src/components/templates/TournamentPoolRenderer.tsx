@@ -34,14 +34,6 @@ interface ParticipantScore {
   activeTeams: number;
 }
 
-interface DrawOneResult {
-  ownerName: string;
-  teamName: string;
-  teamFlag: string;
-  pot: number;
-  remaining: number;
-}
-
 interface DrawCompleteResult {
   totalAssigned: number;
   summaries: Array<{
@@ -56,22 +48,12 @@ interface DrawCompleteResult {
   fairnessWarning: string | null;
 }
 
-type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'drawOneResult' | 'addResult' | 'lockConfirm';
+type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'colours' | 'drawComplete' | 'addResult' | 'lockConfirm';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
-function nextParticipantIndex(
-  participants: TournamentParticipant[],
-  teams: TournamentTeam[],
-): number {
-  const counts = participants.map((p, i) => ({
-    i,
-    count: teams.filter(t => t.assignedTo === p.id).length,
-  }));
-  return counts.reduce((min, cur) => (cur.count < min.count ? cur : min)).i;
-}
 
 let _uid = 0;
 function uid(prefix: string): string {
@@ -185,7 +167,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
   const [showAllTeams, setShowAllTeams] = useState(false);
 
   // ── Draw result data ─────────────────────────────────────────────────────
-  const [drawOneResultData, setDrawOneResultData] = useState<DrawOneResult | null>(null);
   const [drawCompleteData, setDrawCompleteData] = useState<DrawCompleteResult | null>(null);
 
   // ── Toast ────────────────────────────────────────────────────────────────
@@ -413,27 +394,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
     update({ drawLocked: true });
   }
 
-  function drawOne() {
-    if (content.participants.length === 0) return;
-    const unassigned = shuffle(content.teams.filter(t => !t.assignedTo));
-    if (unassigned.length === 0) return;
-    const picked = unassigned[0];
-    const pidx = nextParticipantIndex(content.participants, content.teams);
-    const owner = content.participants[pidx];
-    const updatedTeams = content.teams.map(t =>
-      t.id === picked.id ? { ...t, assignedTo: owner.id } : t,
-    );
-    update({ teams: updatedTeams });
-    setDrawOneResultData({
-      ownerName: owner.name,
-      teamName: picked.name,
-      teamFlag: picked.flagEmoji ?? '',
-      pot: picked.pot,
-      remaining: updatedTeams.filter(t => !t.assignedTo).length,
-    });
-    setSheetView('drawOneResult');
-  }
-
   function buildDrawCompleteResult(
     updatedTeams: TournamentTeam[],
     potBreakdown: Map<string, PotBreakdown>,
@@ -496,9 +456,8 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
           {/* Draw actions */}
           <div className="grid grid-cols-2 gap-2">
-            <button data-testid="draw-one-btn"  onClick={drawOne}  className="rounded-xl bg-gray-900 px-3 py-2.5 text-xs font-semibold text-white">🎲 Draw one</button>
-            <button data-testid="draw-all-btn"  onClick={drawAll}  className="rounded-xl bg-gray-900 px-3 py-2.5 text-xs font-semibold text-white">🎯 Run fair draw</button>
-            <button data-testid="lock-draw-btn" onClick={lockDraw} className="rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🔒 Lock draw</button>
+            <button data-testid="draw-all-btn"  onClick={drawAll}  className="col-span-2 rounded-xl bg-gray-900 px-3 py-2.5 text-sm font-semibold text-white">🎯 Run fair draw</button>
+            <button data-testid="lock-draw-btn" onClick={lockDraw} className="col-span-2 rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-semibold text-gray-800">🔒 Lock draw</button>
           </div>
 
           {/* Navigation to sub-views */}
@@ -650,54 +609,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             ) : (
               <button data-testid="add-team-btn" onClick={() => setAddingTeam(true)} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-800">+ Add team</button>
             )}
-          </div>
-        </>
-      );
-    }
-
-    if (sheetView === 'drawOneResult' && drawOneResultData) {
-      return (
-        <>
-          <SheetHeader title="Draw reveal 🎲" onClose={() => setSheetView(null)} />
-          <div data-testid="draw-one-result" className="mt-2 text-center">
-            <p className="text-5xl">🎉</p>
-            <p className="mt-3 text-2xl font-black text-gray-900">{drawOneResultData.ownerName}</p>
-            <p className="text-sm text-gray-500">received</p>
-            <div className="mx-auto mt-3 max-w-xs rounded-2xl border border-amber-200 bg-amber-50 px-6 py-4">
-              <p className="text-2xl font-black text-amber-900">
-                {drawOneResultData.teamFlag} {drawOneResultData.teamName}
-              </p>
-              <p className="mt-1 text-xs text-amber-600">Pot {drawOneResultData.pot}</p>
-            </div>
-            {drawOneResultData.remaining > 0 && (
-              <p className="mt-3 text-sm text-gray-500">
-                {drawOneResultData.remaining} team{drawOneResultData.remaining !== 1 ? 's' : ''} still to draw
-              </p>
-            )}
-          </div>
-          <div className="mt-6 flex flex-col gap-2">
-            {drawOneResultData.remaining > 0 && (
-              <button
-                data-testid="draw-one-next-btn"
-                onClick={drawOne}
-                className="w-full rounded-xl bg-gray-900 py-3 text-sm font-semibold text-white"
-              >
-                🎲 Draw next
-              </button>
-            )}
-            <button
-              onClick={() => setSheetView('manage')}
-              className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
-            >
-              ← Back to Manage pool
-            </button>
-            <button
-              data-testid="view-leaderboard-btn"
-              onClick={() => setSheetView(null)}
-              className="w-full rounded-xl bg-gray-50 border border-gray-200 py-3 text-sm font-semibold text-gray-600"
-            >
-              View leaderboard
-            </button>
           </div>
         </>
       );

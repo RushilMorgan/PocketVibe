@@ -24,6 +24,8 @@ interface WcTeamRow {
   flag_url: string | null;
   group_name: string | null;
   stage: string;
+  pot: number | null;
+  fifa_rank: number | null;
 }
 
 interface WcMatchRow {
@@ -59,11 +61,13 @@ function authHeaders(): Record<string, string> {
 function toTeam(row: WcTeamRow): WorldCupTeam {
   return {
     providerTeamId: row.provider_team_id,
-    name: row.name,
-    code:    row.code    ?? undefined,
-    flagUrl: row.flag_url ?? undefined,
+    name:    row.name,
+    code:    row.code      ?? undefined,
+    flagUrl: row.flag_url  ?? undefined,
     group:   row.group_name ?? undefined,
     stage:   row.stage,
+    pot:     row.pot       ?? undefined,
+    fifaRank: row.fifa_rank ?? undefined,
   };
 }
 

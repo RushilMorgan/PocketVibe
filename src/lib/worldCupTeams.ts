@@ -29,61 +29,64 @@ interface FallbackTeam {
   name: string;
   flagEmoji: string;
   pot: number;
+  fifaRank: number;
 }
 
+// FIFA rankings are approximate as of WC 2026 draw (May 2026).
+// Within each pot, rank fine-tunes the strengthScore used by the draw engine.
 const FALLBACK_LIST: FallbackTeam[] = [
   // ── Pot 1 (hosts + top FIFA-ranked) ─────────────────────────────────────
-  { name: 'Argentina',   flagEmoji: '🇦🇷', pot: 1 },
-  { name: 'France',      flagEmoji: '🇫🇷', pot: 1 },
-  { name: 'Spain',       flagEmoji: '🇪🇸', pot: 1 },
-  { name: 'England',     flagEmoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', pot: 1 },
-  { name: 'Brazil',      flagEmoji: '🇧🇷', pot: 1 },
-  { name: 'Portugal',    flagEmoji: '🇵🇹', pot: 1 },
-  { name: 'Netherlands', flagEmoji: '🇳🇱', pot: 1 },
-  { name: 'Germany',     flagEmoji: '🇩🇪', pot: 1 },
-  { name: 'USA',         flagEmoji: '🇺🇸', pot: 1 },
-  { name: 'Mexico',      flagEmoji: '🇲🇽', pot: 1 },
-  { name: 'Canada',      flagEmoji: '🇨🇦', pot: 1 },
-  { name: 'Belgium',     flagEmoji: '🇧🇪', pot: 1 },
+  { name: 'Argentina',   flagEmoji: '🇦🇷', pot: 1, fifaRank: 1  },
+  { name: 'France',      flagEmoji: '🇫🇷', pot: 1, fifaRank: 2  },
+  { name: 'Spain',       flagEmoji: '🇪🇸', pot: 1, fifaRank: 3  },
+  { name: 'England',     flagEmoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', pot: 1, fifaRank: 4  },
+  { name: 'Brazil',      flagEmoji: '🇧🇷', pot: 1, fifaRank: 5  },
+  { name: 'Portugal',    flagEmoji: '🇵🇹', pot: 1, fifaRank: 6  },
+  { name: 'Netherlands', flagEmoji: '🇳🇱', pot: 1, fifaRank: 7  },
+  { name: 'Germany',     flagEmoji: '🇩🇪', pot: 1, fifaRank: 10 },
+  { name: 'Belgium',     flagEmoji: '🇧🇪', pot: 1, fifaRank: 12 },
+  { name: 'USA',         flagEmoji: '🇺🇸', pot: 1, fifaRank: 13 },
+  { name: 'Mexico',      flagEmoji: '🇲🇽', pot: 1, fifaRank: 16 },
+  { name: 'Canada',      flagEmoji: '🇨🇦', pot: 1, fifaRank: 48 },
   // ── Pot 2 ────────────────────────────────────────────────────────────────
-  { name: 'Morocco',     flagEmoji: '🇲🇦', pot: 2 },
-  { name: 'Japan',       flagEmoji: '🇯🇵', pot: 2 },
-  { name: 'Croatia',     flagEmoji: '🇭🇷', pot: 2 },
-  { name: 'Colombia',    flagEmoji: '🇨🇴', pot: 2 },
-  { name: 'Uruguay',     flagEmoji: '🇺🇾', pot: 2 },
-  { name: 'Switzerland', flagEmoji: '🇨🇭', pot: 2 },
-  { name: 'Denmark',     flagEmoji: '🇩🇰', pot: 2 },
-  { name: 'South Korea', flagEmoji: '🇰🇷', pot: 2 },
-  { name: 'Austria',     flagEmoji: '🇦🇹', pot: 2 },
-  { name: 'Senegal',     flagEmoji: '🇸🇳', pot: 2 },
-  { name: 'Ecuador',     flagEmoji: '🇪🇨', pot: 2 },
-  { name: 'Australia',   flagEmoji: '🇦🇺', pot: 2 },
+  { name: 'Croatia',     flagEmoji: '🇭🇷', pot: 2, fifaRank: 9  },
+  { name: 'Morocco',     flagEmoji: '🇲🇦', pot: 2, fifaRank: 14 },
+  { name: 'Japan',       flagEmoji: '🇯🇵', pot: 2, fifaRank: 18 },
+  { name: 'Switzerland', flagEmoji: '🇨🇭', pot: 2, fifaRank: 19 },
+  { name: 'Uruguay',     flagEmoji: '🇺🇾', pot: 2, fifaRank: 20 },
+  { name: 'Denmark',     flagEmoji: '🇩🇰', pot: 2, fifaRank: 21 },
+  { name: 'Colombia',    flagEmoji: '🇨🇴', pot: 2, fifaRank: 22 },
+  { name: 'South Korea', flagEmoji: '🇰🇷', pot: 2, fifaRank: 23 },
+  { name: 'Senegal',     flagEmoji: '🇸🇳', pot: 2, fifaRank: 24 },
+  { name: 'Austria',     flagEmoji: '🇦🇹', pot: 2, fifaRank: 25 },
+  { name: 'Australia',   flagEmoji: '🇦🇺', pot: 2, fifaRank: 26 },
+  { name: 'Ecuador',     flagEmoji: '🇪🇨', pot: 2, fifaRank: 28 },
   // ── Pot 3 ────────────────────────────────────────────────────────────────
-  { name: 'Italy',       flagEmoji: '🇮🇹', pot: 3 },
-  { name: 'Poland',      flagEmoji: '🇵🇱', pot: 3 },
-  { name: 'Serbia',      flagEmoji: '🇷🇸', pot: 3 },
-  { name: 'Ukraine',     flagEmoji: '🇺🇦', pot: 3 },
-  { name: 'Turkey',      flagEmoji: '🇹🇷', pot: 3 },
-  { name: 'Iran',        flagEmoji: '🇮🇷', pot: 3 },
-  { name: 'Saudi Arabia',flagEmoji: '🇸🇦', pot: 3 },
-  { name: 'Egypt',       flagEmoji: '🇪🇬', pot: 3 },
-  { name: 'Nigeria',     flagEmoji: '🇳🇬', pot: 3 },
-  { name: "Ivory Coast", flagEmoji: '🇨🇮', pot: 3 },
-  { name: 'Venezuela',   flagEmoji: '🇻🇪', pot: 3 },
-  { name: 'Chile',       flagEmoji: '🇨🇱', pot: 3 },
+  { name: 'Italy',       flagEmoji: '🇮🇹', pot: 3, fifaRank: 8  },
+  { name: 'Ukraine',     flagEmoji: '🇺🇦', pot: 3, fifaRank: 22 },
+  { name: 'Turkey',      flagEmoji: '🇹🇷', pot: 3, fifaRank: 29 },
+  { name: 'Nigeria',     flagEmoji: '🇳🇬', pot: 3, fifaRank: 30 },
+  { name: 'Iran',        flagEmoji: '🇮🇷', pot: 3, fifaRank: 32 },
+  { name: 'Poland',      flagEmoji: '🇵🇱', pot: 3, fifaRank: 27 },
+  { name: 'Serbia',      flagEmoji: '🇷🇸', pot: 3, fifaRank: 33 },
+  { name: 'Egypt',       flagEmoji: '🇪🇬', pot: 3, fifaRank: 35 },
+  { name: 'Chile',       flagEmoji: '🇨🇱', pot: 3, fifaRank: 46 },
+  { name: 'Venezuela',   flagEmoji: '🇻🇪', pot: 3, fifaRank: 50 },
+  { name: "Ivory Coast", flagEmoji: '🇨🇮', pot: 3, fifaRank: 57 },
+  { name: 'Saudi Arabia',flagEmoji: '🇸🇦', pot: 3, fifaRank: 56 },
   // ── Pot 4 ────────────────────────────────────────────────────────────────
-  { name: 'Cameroon',    flagEmoji: '🇨🇲', pot: 4 },
-  { name: 'Ghana',       flagEmoji: '🇬🇭', pot: 4 },
-  { name: 'Algeria',     flagEmoji: '🇩🇿', pot: 4 },
-  { name: 'Tunisia',     flagEmoji: '🇹🇳', pot: 4 },
-  { name: 'Panama',      flagEmoji: '🇵🇦', pot: 4 },
-  { name: 'Costa Rica',  flagEmoji: '🇨🇷', pot: 4 },
-  { name: 'Honduras',    flagEmoji: '🇭🇳', pot: 4 },
-  { name: 'New Zealand', flagEmoji: '🇳🇿', pot: 4 },
-  { name: 'Iraq',        flagEmoji: '🇮🇶', pot: 4 },
-  { name: 'Czech Republic', flagEmoji: '🇨🇿', pot: 4 },
-  { name: 'Scotland',    flagEmoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', pot: 4 },
-  { name: 'DR Congo',    flagEmoji: '🇨🇩', pot: 4 },
+  { name: 'Czech Republic', flagEmoji: '🇨🇿', pot: 4, fifaRank: 37 },
+  { name: 'Scotland',    flagEmoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', pot: 4, fifaRank: 39 },
+  { name: 'Algeria',     flagEmoji: '🇩🇿', pot: 4, fifaRank: 52 },
+  { name: 'Tunisia',     flagEmoji: '🇹🇳', pot: 4, fifaRank: 54 },
+  { name: 'Ghana',       flagEmoji: '🇬🇭', pot: 4, fifaRank: 60 },
+  { name: 'Cameroon',    flagEmoji: '🇨🇲', pot: 4, fifaRank: 63 },
+  { name: 'Costa Rica',  flagEmoji: '🇨🇷', pot: 4, fifaRank: 67 },
+  { name: 'Panama',      flagEmoji: '🇵🇦', pot: 4, fifaRank: 75 },
+  { name: 'Iraq',        flagEmoji: '🇮🇶', pot: 4, fifaRank: 80 },
+  { name: 'Honduras',    flagEmoji: '🇭🇳', pot: 4, fifaRank: 88 },
+  { name: 'New Zealand', flagEmoji: '🇳🇿', pot: 4, fifaRank: 95 },
+  { name: 'DR Congo',    flagEmoji: '🇨🇩', pot: 4, fifaRank: 105 },
 ];
 
 /** Pool-ready TournamentTeam[] built from the hardcoded fallback list. */
@@ -92,6 +95,7 @@ export const WC2026_FALLBACK_TEAMS: TournamentTeam[] = FALLBACK_LIST.map(f => ({
   name: f.name,
   flagEmoji: f.flagEmoji,
   pot: f.pot,
+  fifaRank: f.fifaRank,
   status: 'active' as const,
 }));
 
@@ -118,6 +122,7 @@ export function toPoolTeams(wcTeams: WorldCupTeam[]): TournamentTeam[] {
     flagEmoji: wt.code ? countryCodeToEmoji(wt.code) : '🏳',
     pot: wt.pot ?? NAME_TO_POT[wt.name.toLowerCase()] ?? derivePot(wt),
     group: wt.group,
+    fifaRank: wt.fifaRank,
     status: mapStageToStatus(wt.stage),
     providerTeamId: wt.providerTeamId,
   }));
@@ -146,7 +151,11 @@ export function resolveTeamSource(wcTeams: WorldCupTeam[]): {
       warning: 'World Cup teams are still loading. Using built-in demo teams for now.',
     };
   }
-  return { teams: fallback, teamsSource: 'demo_fallback' };
+  return {
+    teams: fallback,
+    teamsSource: 'demo_fallback',
+    warning: 'Using built-in demo team list — check teams before locking draw.',
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -25,6 +25,63 @@ const API_BASE = 'https://v3.football.api-sports.io';
 const WC_LEAGUE_ID = 1;
 const WC_SEASON = 2026;
 
+// ── Local WC2026 verified team mapping ───────────────────────────────────────
+// Used to enrich DB rows with pot and FIFA rank after API sync.
+// Keys are lowercased team names matching API-Football response.
+
+interface TeamMeta { pot: number; fifaRank: number }
+
+const WC2026_TEAM_META: Record<string, TeamMeta> = {
+  'argentina':       { pot: 1, fifaRank: 1  },
+  'france':          { pot: 1, fifaRank: 2  },
+  'spain':           { pot: 1, fifaRank: 3  },
+  'england':         { pot: 1, fifaRank: 4  },
+  'brazil':          { pot: 1, fifaRank: 5  },
+  'portugal':        { pot: 1, fifaRank: 6  },
+  'netherlands':     { pot: 1, fifaRank: 7  },
+  'germany':         { pot: 1, fifaRank: 10 },
+  'belgium':         { pot: 1, fifaRank: 12 },
+  'usa':             { pot: 1, fifaRank: 13 },
+  'mexico':          { pot: 1, fifaRank: 16 },
+  'canada':          { pot: 1, fifaRank: 48 },
+  'croatia':         { pot: 2, fifaRank: 9  },
+  'morocco':         { pot: 2, fifaRank: 14 },
+  'japan':           { pot: 2, fifaRank: 18 },
+  'switzerland':     { pot: 2, fifaRank: 19 },
+  'uruguay':         { pot: 2, fifaRank: 20 },
+  'denmark':         { pot: 2, fifaRank: 21 },
+  'colombia':        { pot: 2, fifaRank: 22 },
+  'south korea':     { pot: 2, fifaRank: 23 },
+  'senegal':         { pot: 2, fifaRank: 24 },
+  'austria':         { pot: 2, fifaRank: 25 },
+  'australia':       { pot: 2, fifaRank: 26 },
+  'ecuador':         { pot: 2, fifaRank: 28 },
+  'italy':           { pot: 3, fifaRank: 8  },
+  'ukraine':         { pot: 3, fifaRank: 22 },
+  'turkey':          { pot: 3, fifaRank: 29 },
+  'nigeria':         { pot: 3, fifaRank: 30 },
+  'iran':            { pot: 3, fifaRank: 32 },
+  'poland':          { pot: 3, fifaRank: 27 },
+  'serbia':          { pot: 3, fifaRank: 33 },
+  'egypt':           { pot: 3, fifaRank: 35 },
+  'chile':           { pot: 3, fifaRank: 46 },
+  'venezuela':       { pot: 3, fifaRank: 50 },
+  "ivory coast":     { pot: 3, fifaRank: 57 },
+  'saudi arabia':    { pot: 3, fifaRank: 56 },
+  'czech republic':  { pot: 4, fifaRank: 37 },
+  'scotland':        { pot: 4, fifaRank: 39 },
+  'algeria':         { pot: 4, fifaRank: 52 },
+  'tunisia':         { pot: 4, fifaRank: 54 },
+  'ghana':           { pot: 4, fifaRank: 60 },
+  'cameroon':        { pot: 4, fifaRank: 63 },
+  'costa rica':      { pot: 4, fifaRank: 67 },
+  'panama':          { pot: 4, fifaRank: 75 },
+  'iraq':            { pot: 4, fifaRank: 80 },
+  'honduras':        { pot: 4, fifaRank: 88 },
+  'new zealand':     { pot: 4, fifaRank: 95 },
+  'dr congo':        { pot: 4, fifaRank: 105 },
+};
+
 function safeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -140,14 +197,19 @@ Deno.serve(async (req: Request) => {
     );
 
     teamsFromApi = (teamsData.response ?? []).length;
-    const teamRows = (teamsData.response ?? []).map((item: any) => ({
-      provider_team_id: item.team.id,
-      name: item.team.name,
-      code: item.team.code ?? null,
-      country: item.team.country ?? null,
-      flag_url: item.team.logo ?? null,
-      updated_at: new Date().toISOString(),
-    }));
+    const teamRows = (teamsData.response ?? []).map((item: any) => {
+      const meta = WC2026_TEAM_META[item.team.name?.toLowerCase() ?? ''];
+      return {
+        provider_team_id: item.team.id,
+        name: item.team.name,
+        code: item.team.code ?? null,
+        country: item.team.country ?? null,
+        flag_url: item.team.logo ?? null,
+        pot: meta?.pot ?? null,
+        fifa_rank: meta?.fifaRank ?? null,
+        updated_at: new Date().toISOString(),
+      };
+    });
 
     if (teamRows.length > 0) {
       const { error: teamErr } = await supabase

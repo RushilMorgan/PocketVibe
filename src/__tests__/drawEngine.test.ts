@@ -168,6 +168,26 @@ describe('runFairSeededDraw — strength balancing', () => {
     expect(extraPot2?.strengthScore).toBe(100);
   });
 
+  it('strength gap between strongest and weakest participant is smaller than naive worst-case', () => {
+    // Fair draw should produce less strength variance than purely random.
+    // With 12 Pot1 (strength ~499), 12 Pot2 (~399), 12 Pot3 (~299), 12 Pot4 (~199) among 9 participants:
+    // Worst case: one participant gets all Pot 1, another gets all Pot 4. Gap would be enormous.
+    // Fair draw: gap should be well under 2000 (avg strength per participant is ~240*48/9 ≈ 1280).
+    const participants = makeParticipants(9);
+    const teams: TournamentTeam[] = [
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `p1t${i}`, name: `P1T${i}`, pot: 1, status: 'active' as const, fifaRank: i + 1 })),
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `p2t${i}`, name: `P2T${i}`, pot: 2, status: 'active' as const, fifaRank: i + 10 })),
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `p3t${i}`, name: `P3T${i}`, pot: 3, status: 'active' as const, fifaRank: i + 20 })),
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `p4t${i}`, name: `P4T${i}`, pot: 4, status: 'active' as const, fifaRank: i + 60 })),
+    ];
+    const result = runFairSeededDraw(teams, participants);
+    const strengths = participants.map(p => result.participantSummaries.get(p.id)!.strengthScore);
+    const gap = Math.max(...strengths) - Math.min(...strengths);
+    // Max theoretical gap if perfectly balanced: ~600 (difference of one Pot 1 team vs one Pot 4 team).
+    // In practice the balancing keeps it tighter. Threshold: 1000.
+    expect(gap).toBeLessThan(1000);
+  });
+
   it('total teams per participant differs by at most 1', () => {
     const participants = makeParticipants(9);
     const teams = makeTeams(12, 12, 12, 12); // 48 total, 48/9 = 5r3

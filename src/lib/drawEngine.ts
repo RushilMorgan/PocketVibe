@@ -142,17 +142,20 @@ export function runFairSeededDraw(
     const potTeams = shuffle(result.filter(t => t.pot === pot));
 
     if (pot === 1) {
-      // Distribute Pot 1 evenly; if there is a remainder, a random subset gets one extra.
+      // Sort Pot 1 by strength desc so strongest teams are assigned in the base
+      // rounds and any remainder teams (the weakest Pot 1 teams) go last.
+      const sortedPot1 = [...potTeams].sort((a, b) => teamStrength(b) - teamStrength(a));
       const shuffledP = shuffle([...participants]);
-      const base = Math.floor(potTeams.length / n);
-      const rem = potTeams.length % n;
+      const base = Math.floor(sortedPot1.length / n);
+      const rem = sortedPot1.length % n;
       if (rem > 0) pot1Uneven = true;
 
       let idx = 0;
       for (const p of shuffledP) {
-        for (let j = 0; j < base; j++) assignTeam(potTeams[idx++].id, p.id);
+        for (let j = 0; j < base; j++) assignTeam(sortedPot1[idx++].id, p.id);
       }
-      for (let i = 0; i < rem; i++) assignTeam(potTeams[idx++].id, shuffledP[i].id);
+      // Remainder: the weakest remaining Pot 1 teams go to a random subset.
+      for (let i = 0; i < rem; i++) assignTeam(sortedPot1[idx++].id, shuffledP[i].id);
     } else {
       // Lower pots: sort teams by strength descending, assign in rounds.
       // Each round: participant with lowest current strength gets the strongest remaining team.

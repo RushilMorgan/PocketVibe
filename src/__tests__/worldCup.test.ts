@@ -477,6 +477,16 @@ describe('toPoolTeams — pot resolution', () => {
     expect(team.pot).toBe(3); // DB value wins
   });
 
+  it('preserves fifaRank from DB through toPoolTeams', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 1, name: 'Argentina', stage: 'active', fifaRank: 1 }]);
+    expect(team.fifaRank).toBe(1);
+  });
+
+  it('fifaRank is undefined when not set on WC team', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 1, name: 'Argentina', stage: 'active' }]);
+    expect(team.fifaRank).toBeUndefined();
+  });
+
   it('does NOT return pot 2 for all non-host teams (old derivePot bug)', () => {
     const wcTeams: WorldCupTeam[] = [
       { providerTeamId: 1, name: 'France',  stage: 'active' },
@@ -535,7 +545,7 @@ describe('resolveTeamSource', () => {
   it('returns demo_fallback for 0 teams', () => {
     const { teamsSource, warning } = resolveTeamSource([]);
     expect(teamsSource).toBe('demo_fallback');
-    expect(warning).toBeUndefined();
+    expect(warning).toBeTruthy();
   });
 
   it('uses fallback teams when demo_fallback', () => {

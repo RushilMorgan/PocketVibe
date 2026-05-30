@@ -948,46 +948,86 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Hero card */}
-      <div className={`rounded-3xl bg-gradient-to-br ${getPoolGradient(content.colourTheme)} p-5 text-white shadow-lg`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            {editingPoolName ? (
-              <input
-                ref={poolNameInputRef}
-                data-testid="pool-name-input"
-                value={poolNameDraft}
-                onChange={e => setPoolNameDraft(e.target.value)}
-                onBlur={commitPoolName}
-                onKeyDown={e => { if (e.key === 'Enter') commitPoolName(); if (e.key === 'Escape') { setPoolNameDraft(content.poolName); setEditingPoolName(false); } }}
-                className="w-full rounded-lg bg-white/20 px-2 py-0.5 text-xl font-black text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
-                autoFocus
-              />
-            ) : (
-              <button
-                data-testid="pool-name-btn"
-                onClick={() => { setPoolNameDraft(content.poolName); setEditingPoolName(true); setTimeout(() => poolNameInputRef.current?.select(), 0); }}
-                className="flex items-center gap-1.5 text-left active:opacity-70"
-              >
-                <h2 className="truncate text-xl font-black">{content.poolName}</h2>
-                <span className="shrink-0 text-sm opacity-60">✏️</span>
-              </button>
-            )}
-            <p className="mt-0.5 text-sm opacity-90">{content.tournamentName}</p>
+
+      {/* ── Hero card — FIFA dark navy + gold ───────────────────────────────── */}
+      <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-1 ring-yellow-400/35">
+        <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-5 overflow-hidden">
+
+          {/* Stadium arc decorations */}
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-96 h-48 rounded-t-full border-2 border-white/10 pointer-events-none" />
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-60 h-28 rounded-t-full border border-white/10 pointer-events-none" />
+          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full border-4 border-white/5 pointer-events-none" />
+          <div className="absolute -right-2 top-10 w-18 h-18 rounded-full border-2 border-white/5 pointer-events-none" />
+
+          {/* Top row: host flags + manage button */}
+          <div className="relative z-10 flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+              <span className="text-sm leading-none">🇺🇸</span>
+              <span className="text-sm leading-none">🇨🇦</span>
+              <span className="text-sm leading-none">🇲🇽</span>
+              <span className="text-xs text-white/60 font-semibold ml-1">2026</span>
+            </div>
+            <button
+              data-testid="manage-pool-btn"
+              onClick={() => setSheetView('manage')}
+              className="flex-shrink-0 bg-yellow-400 text-slate-900 text-xs font-black px-3 py-1.5 rounded-full active:bg-yellow-300 transition-colors"
+            >
+              Manage pool
+            </button>
           </div>
-          <button
-            data-testid="manage-pool-btn"
-            onClick={() => setSheetView('manage')}
-            className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/30"
-          >
-            Manage pool
-          </button>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-xl bg-white/20 p-2.5">Status: <span className="font-bold">{drawStatus}</span></div>
-          <div className="rounded-xl bg-white/20 p-2.5">People: <span className="font-bold">{content.participants.length}</span></div>
-          <div className="rounded-xl bg-white/20 p-2.5">Assigned: <span className="font-bold">{assignedCount}/{content.teams.length}</span></div>
-          <div className="rounded-xl bg-white/20 p-2.5">Share: <span className="font-bold">{hasShareLink ? 'Live' : 'Not shared'}</span></div>
+
+          {/* Trophy + pool name */}
+          <div className="relative z-10 flex items-center gap-3 mb-4">
+            <span className="text-5xl leading-none flex-shrink-0">🏆</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <div className="h-px w-6 bg-yellow-400" />
+                <div className="h-px w-3 bg-yellow-400/40" />
+              </div>
+              {editingPoolName ? (
+                <input
+                  ref={poolNameInputRef}
+                  data-testid="pool-name-input"
+                  value={poolNameDraft}
+                  onChange={e => setPoolNameDraft(e.target.value)}
+                  onBlur={commitPoolName}
+                  onKeyDown={e => { if (e.key === 'Enter') commitPoolName(); if (e.key === 'Escape') { setPoolNameDraft(content.poolName); setEditingPoolName(false); } }}
+                  className="w-full rounded-lg bg-white/20 px-2 py-0.5 text-xl font-black text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                  autoFocus
+                />
+              ) : (
+                <button
+                  data-testid="pool-name-btn"
+                  onClick={() => { setPoolNameDraft(content.poolName); setEditingPoolName(true); setTimeout(() => poolNameInputRef.current?.select(), 0); }}
+                  className="flex items-center gap-1.5 text-left active:opacity-70 w-full"
+                >
+                  <h2 className="truncate text-xl font-black text-white">{content.poolName}</h2>
+                  <span className="shrink-0 text-sm opacity-50">✏️</span>
+                </button>
+              )}
+              <p className="text-yellow-400 text-xs font-semibold tracking-wide uppercase mt-0.5">{content.tournamentName}</p>
+            </div>
+          </div>
+
+          {/* Stats grid */}
+          <div className="relative z-10 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Draw</p>
+              <p className="font-bold text-white text-sm">{drawStatus}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Players</p>
+              <p className="font-bold text-white text-sm">{content.participants.length}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Teams</p>
+              <p className="font-bold text-white text-sm">{assignedCount}/{content.teams.length} assigned</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Share</p>
+              <p className="font-bold text-white text-sm">{hasShareLink ? '🟢 Live' : 'Not shared'}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1020,15 +1060,17 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       {/* SmartGuidance */}
       <SmartGuidance guidance={poolGuidance} onAction={handleAction} />
 
-      {/* Leaderboard */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
-        <div className="border-b px-4 py-3" style={{ borderColor: accentBg40, backgroundColor: accentBg }}>
-          <h3 className="text-sm font-bold" style={{ color: accentText }}>Leaderboard</h3>
+      {/* ── Leaderboard ─────────────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+        {/* Dark navy header */}
+        <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+          <span className="text-base">🏆</span>
+          <h3 className="text-sm font-black text-white tracking-wide">Leaderboard</h3>
         </div>
         {leaderboard.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-gray-400">Add participants to see the leaderboard.</p>
+          <p className="bg-white px-4 py-8 text-center text-sm text-gray-400">Add participants to see the leaderboard.</p>
         ) : (
-          <div className="divide-y" style={{ borderColor: accentBg40 }}>
+          <div className="bg-white divide-y divide-gray-50">
             {leaderboard.map((row, i) => {
               const topThree = row.teams
                 .slice(0, 3)
@@ -1039,10 +1081,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                   key={row.participant.id}
                   data-testid={`leaderboard-row-${row.participant.id}`}
                   onClick={() => setParticipantSheetId(row.participant.id)}
-                  className="w-full px-4 py-3 text-left transition-colors"
-                  style={{ ['--tw-bg-opacity' as string]: '1' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = accentBg)}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}
+                  className="w-full px-4 py-3 text-left transition-colors hover:bg-yellow-400/5 active:bg-yellow-400/10"
                 >
                   <div data-testid={`participant-row-${row.participant.id}`} className="flex items-center gap-3">
                     <span className="w-6 text-center text-base">{MEDAL[i] ?? `#${i + 1}`}</span>
@@ -1053,7 +1092,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                       <p className="mt-0.5 text-[11px] text-gray-400">{row.teams.length} teams · {row.activeTeams} active</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black" style={{ color: accentText }}>{row.points} pts</p>
+                      <p className="text-sm font-black text-yellow-500">{row.points} pts</p>
                       <p className="text-[11px] text-gray-400">Tap for details</p>
                     </div>
                   </div>
@@ -1064,27 +1103,29 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
         )}
       </div>
 
-      {/* Teams (collapsed by default) */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
-        <div className="flex items-center justify-between gap-2 px-4 py-3" style={{ backgroundColor: accentBg, borderBottom: `1px solid ${accentBg40}` }}>
-          <h3 className="text-sm font-bold" style={{ color: accentText }}>Teams</h3>
+      {/* ── Teams ───────────────────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+        {/* Dark navy header */}
+        <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-black text-white flex items-center gap-2">
+            <span>⚽</span> Teams
+          </h3>
           <button
             data-testid="view-all-teams-btn"
             onClick={() => setShowAllTeams(v => !v)}
-            className="rounded-full px-3 py-1.5 text-xs font-semibold text-white"
-            style={{ backgroundColor: accent }}
+            className="bg-yellow-400 text-slate-900 text-xs font-black px-3 py-1.5 rounded-full active:bg-yellow-300 transition-colors"
           >
             {showAllTeams ? 'Hide teams' : 'View all teams'}
           </button>
         </div>
         {!showAllTeams ? (
-          <p data-testid="teams-collapsed-hint" className="px-4 py-3 text-xs text-gray-500">
+          <p data-testid="teams-collapsed-hint" className="bg-white px-4 py-3 text-xs text-gray-500">
             Tap "View all teams" to open the full team list.
           </p>
         ) : (
-          <div data-testid="all-teams-list" className="flex flex-wrap gap-2 p-4">
+          <div data-testid="all-teams-list" className="bg-white flex flex-wrap gap-2 p-4">
             {content.teams.map(team => (
-              <div key={team.id} className="rounded-xl border px-2.5 py-1.5 text-xs text-gray-700" style={{ borderColor: accentBg40, backgroundColor: accentBg }}>
+              <div key={team.id} className="rounded-xl border border-yellow-200 bg-yellow-50 px-2.5 py-1.5 text-xs text-gray-700">
                 {team.flagEmoji ?? '🏳'} {team.name} · Pot {team.pot}
               </div>
             ))}

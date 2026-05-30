@@ -18,7 +18,7 @@ interface Props {
   participantRef: string;
   shareSlug: string;
   token: string;
-  onUpdate: (updated: WorkoutTrackerContent) => void;
+  onUpdate: (updated: WorkoutTrackerContent, version: number) => void;
 }
 
 const ACTIVITY_ICON: Record<string, string> = {
@@ -126,7 +126,7 @@ export function PartnerChallengeParticipantView({ content, participantRef, share
     setActionError(null);
     try {
       const result = await applyCreationAction(shareSlug, token, action, payload);
-      onUpdate(result.content as WorkoutTrackerContent);
+      onUpdate(result.content as WorkoutTrackerContent, result.version);
       return true;
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Action failed. Please try again.');

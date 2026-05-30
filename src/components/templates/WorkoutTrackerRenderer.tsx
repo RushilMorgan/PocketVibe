@@ -38,16 +38,12 @@ const ACTIVITY_ICON: Record<string, string> = {
   other: '⭐',
 };
 
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function weekKey(dateStr: string): string {
-  return getMonday(new Date(dateStr + 'T12:00:00')).toISOString().slice(0, 10);
+  // Always work in UTC to avoid timezone day-boundary shifts (matches challengeStats.ts).
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const day = d.getUTCDay(); // 0=Sun, 1=Mon, …, 6=Sat
+  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().slice(0, 10);
 }
 
 function calcScores(

@@ -240,6 +240,12 @@ function applyParticipantAction(
   creationType: string,
   content: Record<string, unknown>,
 ): { ok: boolean; content?: Record<string, unknown>; reason?: string } {
+  // Extend VALID_ACTIVITIES with any custom activity types stored on the content.
+  const customTypes = (content.activityTypes as string[] | undefined) ?? [];
+  const allowedActivities = customTypes.length > 0
+    ? new Set([...VALID_ACTIVITIES, ...customTypes])
+    : VALID_ACTIVITIES;
+
   if (action === 'log_activity') {
     if (creationType !== 'workout_tracker') {
       return { ok: false, reason: 'log_activity is only valid for workout_tracker' };
@@ -248,7 +254,7 @@ function applyParticipantAction(
     if (participantId !== participantRef) {
       return { ok: false, reason: 'You can only log your own activity' };
     }
-    if (!activityType || !VALID_ACTIVITIES.has(activityType as string)) {
+    if (!activityType || !allowedActivities.has(activityType as string)) {
       return { ok: false, reason: `Invalid activityType: ${activityType}` };
     }
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date as string)) {
@@ -277,7 +283,7 @@ function applyParticipantAction(
     if (log.participantId !== participantRef) {
       return { ok: false, reason: 'You can only edit your own logs' };
     }
-    if (activityType && !VALID_ACTIVITIES.has(activityType as string)) {
+    if (activityType && !allowedActivities.has(activityType as string)) {
       return { ok: false, reason: `Invalid activityType: ${activityType}` };
     }
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date as string)) {
@@ -468,7 +474,7 @@ Deno.serve(async (req: Request) => {
       const newVersion = currentRow.version + 1;
       const { data: updated, error: updateError } = await supabase
         .from('shared_creations')
-        .update({ content: result.content, version: newVersion })
+        .update({ content: result.content, version: newVersion, updated_at: new Date().toISOString() })
         .eq('id', currentRow.id)
         .eq('version', currentRow.version)  // optimistic lock
         .select('id');
@@ -503,7 +509,7 @@ Deno.serve(async (req: Request) => {
     const newVersion = row.version + 1;
     const { data: updated, error: updateError } = await supabase
       .from('shared_creations')
-      .update({ content: result.content, version: newVersion })
+      .update({ content: result.content, version: newVersion, updated_at: new Date().toISOString() })
       .eq('id', row.id)
       .eq('version', row.version)  // optimistic lock
       .select('id');

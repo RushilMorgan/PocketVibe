@@ -459,6 +459,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
   }
 
   function drawAll() {
+    if (content.drawLocked) { showToast('Draw is locked — unlock it first.'); return; }
     if (content.participants.length === 0) return;
     if (content.teams.length === 0) return;
     const result = runFairSeededDraw(content.teams, content.participants);
@@ -497,7 +498,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
           {/* Draw actions */}
           <div className="grid grid-cols-2 gap-2">
             <button data-testid="draw-all-btn" onClick={drawAll} className="col-span-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}>🎯 Run fair draw</button>
-            <button data-testid="lock-draw-btn" onClick={lockDraw} className="col-span-2 rounded-xl px-3 py-2.5 text-xs font-semibold" style={{ backgroundColor: accentBg, color: accentText, border: `1px solid ${accentBg40}` }}>🔒 Lock draw</button>
+            <button data-testid="lock-draw-btn" onClick={() => setSheetView('lockConfirm')} className="col-span-2 rounded-xl px-3 py-2.5 text-xs font-semibold" style={{ backgroundColor: accentBg, color: accentText, border: `1px solid ${accentBg40}` }}>🔒 Lock draw</button>
           </div>
 
           {/* Navigation to sub-views */}

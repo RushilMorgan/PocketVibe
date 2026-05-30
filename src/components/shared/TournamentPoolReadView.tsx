@@ -30,7 +30,7 @@ interface Props {
   participantRef?: string;
   shareSlug: string;
   token?: string;
-  onUpdate: (updated: TournamentPoolTrackerContent) => void;
+  onUpdate: (updated: TournamentPoolTrackerContent, version: number) => void;
   onRemix?: () => void;
 }
 
@@ -151,7 +151,7 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
         participantId: participantRef,
         description: changeDescription,
       });
-      onUpdate(result.content as TournamentPoolTrackerContent);
+      onUpdate(result.content as TournamentPoolTrackerContent, result.version);
       setChangeRequestOpen(false);
       setChangeDescription('');
       setSubmitSuccess(true);

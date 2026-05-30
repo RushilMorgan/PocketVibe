@@ -448,21 +448,6 @@ function handleWorkoutUpdate(req: string, content: WorkoutTrackerContent): Local
     };
   }
 
-  // ── Streak bonus: "add streak bonus" / "set streak bonus to N" ───────────
-  m = req.match(/(?:add|set|enable)\s+streak\s+bonus(?:\s+(?:to\s+)?(\d+))?/i);
-  if (m) {
-    const value = m[1] ? parseInt(m[1], 10) : 10;
-    const scoringRules = {
-      ...(content.scoringRules ?? { pointsPerActivity: 10, weeklyTargetBonus: 20, runningBonus: 5 }),
-      streakBonus: value,
-    };
-    return {
-      handled: true,
-      updatedContent: { ...content, scoringRules },
-      message: `Streak bonus set to ${value} points.`,
-    };
-  }
-
   // ── Make it harder: increase weekly target by 1 ───────────────────────────
   if (/\bmake\s+(?:it|this)\s+harder\b/i.test(req) || /\bincrease\s+(?:the\s+)?(?:weekly\s+)?target\b/i.test(req)) {
     const current = content.weeklyTarget ?? 3;

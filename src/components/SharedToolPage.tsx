@@ -40,7 +40,7 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
   const [accessMode, setAccessMode] = useState<AccessMode>('viewer');
   const [participantRef, setParticipantRef] = useState<string | undefined>();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'conflict'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'conflict' | 'error'>('idle');
 
   // Prefer stored admin token from localStorage over URL param
   const resolvedAdminToken = adminToken ?? getStoredAdminToken(shareSlug);
@@ -96,7 +96,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       if (err instanceof Error && err.message.includes('Version conflict')) {
         setSaveStatus('conflict');
       } else {
-        setSaveStatus('idle');
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 4000);
       }
     }
   }, [creation, accessMode, resolvedAdminToken, participantToken, shareSlug]);
@@ -195,6 +196,7 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
         <div className="flex items-center gap-2 flex-shrink-0">
           {saveStatus === 'saving' && <span className="text-xs text-gray-400">Saving…</span>}
           {saveStatus === 'saved' && <span className="text-xs text-green-600">Saved</span>}
+          {saveStatus === 'error' && <span className="text-xs text-red-600">Save failed — try again</span>}
           {saveStatus === 'conflict' && (
             <button onClick={load} className="text-xs text-amber-600 underline">
               Refresh to sync
@@ -234,8 +236,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
             participantRef={participantRef}
             shareSlug={shareSlug}
             token={resolvedAdminToken ?? participantToken ?? ''}
-            onUpdate={updatedContent =>
-              setCreation(prev => prev ? { ...prev, content: updatedContent, version: prev.version + 1 } : prev)
+            onUpdate={(updatedContent, version) =>
+              setCreation(prev => prev ? { ...prev, content: updatedContent, version } : prev)
             }
           />
         ) : creation.creationType === 'workout_tracker' && accessMode === 'viewer' ? (
@@ -252,8 +254,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
             participantRef={participantRef}
             shareSlug={shareSlug}
             token={resolvedAdminToken ?? participantToken}
-            onUpdate={updatedContent =>
-              setCreation(prev => prev ? { ...prev, content: updatedContent, version: prev.version + 1 } : prev)
+            onUpdate={(updatedContent, version) =>
+              setCreation(prev => prev ? { ...prev, content: updatedContent, version } : prev)
             }
             onRemix={accessMode === 'viewer' ? handleRemix : undefined}
           />

@@ -200,6 +200,40 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
   const [editTeamFlag, setEditTeamFlag] = useState('');
   const [editTeamStatus, setEditTeamStatus] = useState<TournamentTeam['status']>('active');
 
+  // ── Inline pool name editing ─────────────────────────────────────────────
+  const [editingPoolName, setEditingPoolName] = useState(false);
+  const [poolNameDraft, setPoolNameDraft] = useState(content.poolName);
+  const poolNameInputRef = useRef<HTMLInputElement>(null);
+
+  function commitPoolName() {
+    const name = poolNameDraft.trim();
+    if (name && name !== content.poolName) update({ poolName: name });
+    else setPoolNameDraft(content.poolName);
+    setEditingPoolName(false);
+  }
+
+  // ── Participant inline rename (from detail sheet) ─────────────────────────
+  const [renamingParticipantId, setRenamingParticipantId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+
+  function startRenameParticipant(p: TournamentParticipant) {
+    setRenamingParticipantId(p.id);
+    setRenameDraft(p.name);
+  }
+
+  function commitRenameParticipant() {
+    const name = renameDraft.trim();
+    if (name && renamingParticipantId) {
+      update({
+        participants: content.participants.map(p =>
+          p.id === renamingParticipantId ? { ...p, name } : p,
+        ),
+      });
+      showToast('Name updated');
+    }
+    setRenamingParticipantId(null);
+  }
+
   // ── Match state ──────────────────────────────────────────────────────────
   const [matchTeamA, setMatchTeamA] = useState('');
   const [matchTeamB, setMatchTeamB] = useState('');
@@ -896,7 +930,27 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       <div className={`rounded-3xl bg-gradient-to-br ${getPoolGradient(content.colourTheme)} p-5 text-white shadow-lg`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-xl font-black">{content.poolName}</h2>
+            {editingPoolName ? (
+              <input
+                ref={poolNameInputRef}
+                data-testid="pool-name-input"
+                value={poolNameDraft}
+                onChange={e => setPoolNameDraft(e.target.value)}
+                onBlur={commitPoolName}
+                onKeyDown={e => { if (e.key === 'Enter') commitPoolName(); if (e.key === 'Escape') { setPoolNameDraft(content.poolName); setEditingPoolName(false); } }}
+                className="w-full rounded-lg bg-white/20 px-2 py-0.5 text-xl font-black text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                autoFocus
+              />
+            ) : (
+              <button
+                data-testid="pool-name-btn"
+                onClick={() => { setPoolNameDraft(content.poolName); setEditingPoolName(true); setTimeout(() => poolNameInputRef.current?.select(), 0); }}
+                className="flex items-center gap-1.5 text-left active:opacity-70"
+              >
+                <h2 className="truncate text-xl font-black">{content.poolName}</h2>
+                <span className="shrink-0 text-sm opacity-60">✏️</span>
+              </button>
+            )}
             <p className="mt-0.5 text-sm opacity-90">{content.tournamentName}</p>
           </div>
           <button
@@ -1022,8 +1076,47 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             onClick={e => e.stopPropagation()}
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" />
-            <h3 className="text-lg font-black text-gray-900">{participantDetails.participant.name}</h3>
-            <p className="text-sm text-gray-500">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                {renamingParticipantId === participantDetails.participant.id ? (
+                  <div className="flex gap-2">
+                    <input
+                      data-testid="rename-participant-input"
+                      value={renameDraft}
+                      onChange={e => setRenameDraft(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') commitRenameParticipant(); if (e.key === 'Escape') setRenamingParticipantId(null); }}
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-lg font-black text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                      autoFocus
+                    />
+                    <button
+                      data-testid="rename-participant-save"
+                      onClick={commitRenameParticipant}
+                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setRenamingParticipantId(null)}
+                      className="rounded-lg bg-gray-100 px-2 py-1.5 text-sm font-semibold text-gray-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-gray-900">{participantDetails.participant.name}</h3>
+                    <button
+                      data-testid="rename-participant-btn"
+                      onClick={() => startRenameParticipant(participantDetails.participant)}
+                      className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 active:bg-gray-200"
+                    >
+                      Rename
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
               {participantDetails.points} points · {participantDetails.teams.length} teams
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">

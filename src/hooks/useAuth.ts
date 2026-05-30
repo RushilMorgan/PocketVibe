@@ -15,6 +15,9 @@ export interface UseAuthReturn {
   isAvailable: boolean;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithApple: () => Promise<{ error: string | null }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -36,13 +39,11 @@ export function useAuth(): UseAuthReturn {
       return;
     }
 
-    // Resolve initial session
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ? toAuthUser(data.session.user) : null);
       setLoading(false);
     });
 
-    // Keep in sync with auth state changes (sign in/out, token refresh, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ? toAuthUser(session.user) : null);
     });
@@ -62,9 +63,43 @@ export function useAuth(): UseAuthReturn {
     return { error: error?.message ?? null };
   }
 
+  async function signInWithGoogle() {
+    if (!supabase) return { error: 'Auth not available' };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+    });
+    return { error: error?.message ?? null };
+  }
+
+  async function signInWithApple() {
+    if (!supabase) return { error: 'Auth not available' };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+    });
+    return { error: error?.message ?? null };
+  }
+
+  async function signInWithMagicLink(email: string) {
+    if (!supabase) return { error: 'Auth not available' };
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    return { error: error?.message ?? null };
+  }
+
   async function signOut() {
     await supabase?.auth.signOut();
   }
 
-  return { user, loading, isAvailable: Boolean(supabase), signUp, signIn, signOut };
+  return {
+    user,
+    loading,
+    isAvailable: Boolean(supabase),
+    signUp,
+    signIn,
+    signInWithGoogle,
+    signInWithApple,
+    signInWithMagicLink,
+    signOut,
+  };
 }

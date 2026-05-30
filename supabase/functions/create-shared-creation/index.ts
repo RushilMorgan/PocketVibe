@@ -64,6 +64,15 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  // Resolve calling user from JWT (if present) so we can set owner_user_id.
+  let ownerUserId: string | null = null;
+  const authHeader = req.headers.get('authorization') ?? '';
+  const bearerJwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (bearerJwt) {
+    const { data: { user } } = await supabase.auth.getUser(bearerJwt);
+    if (user) ownerUserId = user.id;
+  }
+
   // Generate unique slug (retry on collision — very unlikely)
   let shareSlug = generateSlug();
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -92,6 +101,8 @@ Deno.serve(async (req: Request) => {
     owner_token_hash: ownerTokenHash,
     public_view: publicView,
     version: 1,
+    owner_user_id: ownerUserId,
+    created_by_anonymous: !ownerUserId,
   });
 
   if (error) {

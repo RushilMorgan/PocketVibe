@@ -108,6 +108,15 @@ CREATE POLICY "owner_can_read_own"
   TO authenticated
   USING (owner_user_id = auth.uid());
 
+-- Track when a creation was claimed by an authenticated user.
+ALTER TABLE shared_creations
+  ADD COLUMN IF NOT EXISTS owner_claimed_at timestamptz;
+
+-- Flag whether the tool was created by an anonymous (signed-out) user.
+-- False when the creator was signed in at share time.
+ALTER TABLE shared_creations
+  ADD COLUMN IF NOT EXISTS created_by_anonymous boolean DEFAULT false;
+
 -- ── claim_creation DB function ────────────────────────────────────────────────
 -- Called from the client via supabase.rpc('claim_creation', ...) after the user
 -- registers/signs in. Verifies the raw admin token by comparing its SHA-256 hash

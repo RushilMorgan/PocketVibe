@@ -61,6 +61,22 @@ function authHeaders(): Record<string, string> {
   };
 }
 
+/** Returns headers with the user's JWT when signed in (so the edge function can set owner_user_id). */
+async function userAuthHeaders(): Promise<Record<string, string>> {
+  const key = getSupabaseAnonKey();
+  if (!key) throw new Error('Supabase anon key not configured');
+  let bearerToken = key;
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) bearerToken = data.session.access_token;
+  }
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${bearerToken}`,
+    apikey: key,
+  };
+}
+
 async function requireOk(res: Response): Promise<Response> {
   if (res.ok) return res;
   let msg = `Request failed (${res.status})`;
@@ -80,7 +96,7 @@ async function requireOk(res: Response): Promise<Response> {
 export async function createSharedCreation(creation: Creation): Promise<CreateSharedResult> {
   const res = await fetch(edgeFunctionUrl('create-shared-creation'), {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await userAuthHeaders(),
     body: JSON.stringify({
       title: creation.title,
       creationType: creation.creationType,

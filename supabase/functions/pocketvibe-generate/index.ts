@@ -361,6 +361,179 @@ function buildBuilderMessage(
   return parts.join('\n');
 }
 
+// ── Chat prompt builder ───────────────────────────────────────────────────────
+/**
+ * Builds a context-aware system + user prompt for mode:'chat'.
+ * The AI answers factual questions from tool data, or responds
+ * with exactly "ACTION:MODIFY" when the user wants to change something.
+ */
+function buildChatPrompt(
+  creationType: string,
+  content: Record<string, unknown>,
+  userMessage: string,
+  today: string,
+): string {
+  let dataSummary = '';
+
+  if (creationType === 'tournament_pool_tracker') {
+    const poolName     = (content.poolName as string) ?? 'Pool';
+    const tournament   = (content.tournamentName as string) ?? 'Tournament';
+    const drawLocked   = Boolean(content.drawLocked);
+    const participants = (content.participants as Array<{ id: string; name: string; emoji?: string }>) ?? [];
+    const teams        = (content.teams as Array<{ id: string; name: string; pot: number; flagEmoji?: string; assignedTo?: string; status?: string }>) ?? [];
+    const matches      = (content.matches as Array<{ teamAId: string; teamBId: string; scoreA?: number; scoreB?: number }>) ?? [];
+    const scoring      = content.scoringRules as Record<string, number> | undefined;
+
+    // Points per participant from match results
+    const pointsMap: Record<string, number> = {};
+    for (const p of participants) pointsMap[p.id] = 0;
+    const teamOwner: Record<string, string> = {};
+    for (const t of teams) { if (t.assignedTo) teamOwner[t.id] = t.assignedTo; }
+    for (const m of matches) {
+      if (m.scoreA !== undefined && m.scoreB !== undefined) {
+        for (const [teamId, ownerId] of Object.entries(teamOwner)) {
+          const p = participants.find(p => p.id === ownerId || p.name === ownerId);
+          if (!p) continue;
+          if (teamId === m.teamAId) {
+            if (m.scoreA > m.scoreB) pointsMap[p.id] = (pointsMap[p.id] ?? 0) + (scoring?.pointsPerWin ?? 3);
+            else if (m.scoreA === m.scoreB) pointsMap[p.id] = (pointsMap[p.id] ?? 0) + (scoring?.pointsPerDraw ?? 1);
+          } else if (teamId === m.teamBId) {
+            if (m.scoreB > m.scoreA) pointsMap[p.id] = (pointsMap[p.id] ?? 0) + (scoring?.pointsPerWin ?? 3);
+            else if (m.scoreB === m.scoreA) pointsMap[p.id] = (pointsMap[p.id] ?? 0) + (scoring?.pointsPerDraw ?? 1);
+          }
+        }
+      }
+    }
+
+    const standings = participants
+      .map(p => {
+        const myTeams = teams.filter(t => t.assignedTo === p.id || t.assignedTo === p.name);
+        return { name: p.name, emoji: p.emoji ?? '', pts: pointsMap[p.id] ?? 0, myTeams };
+      })
+      .sort((a, b) => b.pts - a.pts);
+
+    const unassigned = teams.filter(t => !t.assignedTo).length;
+    const lines: string[] = [
+      `Pool: ${poolName} — ${tournament}`,
+      `Draw: ${drawLocked ? 'Locked' : 'Not yet drawn'} | Teams not yet assigned: ${unassigned}`,
+      `Participants (${participants.length}): ${participants.map(p => `${p.emoji ?? ''} ${p.name}`).join(', ')}`,
+    ];
+    if (standings.some(s => s.myTeams.length > 0)) {
+      lines.push('Assignments & points:');
+      for (const s of standings) {
+        const teamStr = s.myTeams.length
+          ? s.myTeams.map(t => `${t.flagEmoji ?? ''} ${t.name} (Pot ${t.pot})`).join(', ')
+          : 'no teams yet';
+        lines.push(`  ${s.emoji} ${s.name}: ${teamStr} — ${s.pts} pts`);
+      }
+    } else {
+      lines.push(`Total teams: ${teams.length}`);
+    }
+    if (matches.length > 0) {
+      lines.push(`Results entered: ${matches.length}`);
+      for (const m of matches.slice(-3)) {
+        const tA = teams.find(t => t.id === m.teamAId);
+        const tB = teams.find(t => t.id === m.teamBId);
+        if (tA && tB && m.scoreA !== undefined && m.scoreB !== undefined) {
+          lines.push(`  ${tA.name} ${m.scoreA}–${m.scoreB} ${tB.name}`);
+        }
+      }
+    } else {
+      lines.push('No match results yet');
+    }
+    if (scoring) {
+      lines.push(`Scoring: Win=${scoring.pointsPerWin}pts, Draw=${scoring.pointsPerDraw}pt, Knockout bonus=${scoring.knockoutBonus}pts, Winner bonus=${scoring.winnerBonus}pts`);
+    }
+    dataSummary = lines.join('\n');
+
+  } else if (creationType === 'workout_tracker') {
+    const planName      = (content.planName as string) ?? 'Challenge';
+    const challengeMode = Boolean(content.challengeMode);
+
+    if (challengeMode) {
+      const participants = (content.participants as Array<{ id: string; name: string; emoji?: string }>) ?? [];
+      const logs         = (content.logs as Array<{ participantId: string; date: string; activityType: string; duration?: string; distance?: string; note?: string }>) ?? [];
+      const weeklyTarget = (content.weeklyTarget as number) ?? 3;
+      const scoring      = content.scoringRules as Record<string, number> | undefined;
+
+      const pointsMap:  Record<string, number> = {};
+      const countMap:   Record<string, number> = {};
+      for (const p of participants) { pointsMap[p.id] = 0; countMap[p.id] = 0; }
+      for (const log of logs) {
+        const base     = scoring?.pointsPerActivity ?? 10;
+        const runBonus = log.activityType === 'run' ? (scoring?.runningBonus ?? 5) : 0;
+        pointsMap[log.participantId] = (pointsMap[log.participantId] ?? 0) + base + runBonus;
+        countMap[log.participantId]  = (countMap[log.participantId]  ?? 0) + 1;
+      }
+
+      // This-week count
+      const weekStart = new Date(today);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekKey = weekStart.toISOString().slice(0, 10);
+      const weekMap: Record<string, number> = {};
+      for (const log of logs.filter(l => l.date >= weekKey)) {
+        weekMap[log.participantId] = (weekMap[log.participantId] ?? 0) + 1;
+      }
+
+      const standings = participants
+        .map(p => ({ name: p.name, emoji: p.emoji ?? '', pts: pointsMap[p.id] ?? 0, total: countMap[p.id] ?? 0, week: weekMap[p.id] ?? 0 }))
+        .sort((a, b) => b.pts - a.pts);
+
+      const lines = [
+        `Challenge: ${planName}`,
+        `Weekly target: ${weeklyTarget} activities`,
+        `Total logs: ${logs.length}`,
+        '',
+        'Standings:',
+        ...standings.map((s, i) => `  ${i + 1}. ${s.emoji} ${s.name} — ${s.pts} pts | ${s.total} total activities | ${s.week} this week (target: ${weeklyTarget})`),
+      ];
+      if (scoring) {
+        lines.push(`Scoring: ${scoring.pointsPerActivity ?? 10}pts/activity, runs +${scoring.runningBonus ?? 5}pts, weekly target bonus: ${scoring.weeklyTargetBonus ?? 20}pts`);
+      }
+      if (logs.length > 0) {
+        lines.push('Recent activity:');
+        for (const log of logs.slice(-3)) {
+          const p = participants.find(p => p.id === log.participantId);
+          const detail = [log.distance && `${log.distance}`, log.duration && `${log.duration}`].filter(Boolean).join(', ');
+          lines.push(`  ${p?.name ?? log.participantId}: ${log.activityType} on ${log.date}${detail ? ` (${detail})` : ''}`);
+        }
+      }
+      dataSummary = lines.join('\n');
+    } else {
+      const days = (content.days as Array<{ label: string; completed: boolean }>) ?? [];
+      const done = days.filter(d => d.completed).length;
+      dataSummary = [
+        `Plan: ${planName}`,
+        `Progress: ${done}/${days.length} days completed`,
+        `Days: ${days.map(d => `${d.label} (${d.completed ? '✓' : 'pending'})`).join('; ')}`,
+      ].join('\n');
+    }
+
+  } else {
+    // Generic — send a condensed JSON snapshot (first 400 chars)
+    dataSummary = `Type: ${creationType}\nData: ${JSON.stringify(content).slice(0, 400)}`;
+  }
+
+  return [
+    'You are Toolie, a friendly AI assistant embedded in a PocketVibe tool.',
+    `Today is ${today}.`,
+    '',
+    '=== TOOL DATA ===',
+    dataSummary,
+    '=== END TOOL DATA ===',
+    '',
+    `User says: "${userMessage}"`,
+    '',
+    'Your job:',
+    '1. If this is a QUESTION about the tool data (standings, points, who has which team, progress, how scoring works, what has been logged, etc.) — answer clearly and factually in 1-3 short sentences. Plain English, no markdown.',
+    '2. If the user wants to CHANGE, ADD, UPDATE, or MODIFY the tool in any way — respond with exactly: ACTION:MODIFY',
+    '   Modifications include: logging an activity, adding a result, changing scoring, running the draw, adding a person, renaming something, changing the target, etc.',
+    '3. Never combine an answer with ACTION:MODIFY — it is one or the other.',
+    '4. If unsure whether it is a question or a change request, answer the question.',
+    '5. Keep answers short and friendly. No bullet points, no markdown.',
+  ].join('\n');
+}
+
 // ── HTML safety check ─────────────────────────────────────────────────────────
 const HTML_MARKERS = ['<html', '<!doctype', '<script', '<div', '</', 'onclick=', 'oninput=', 'class='];
 
@@ -457,6 +630,48 @@ Deno.serve(async (req: Request) => {
   const locale = body.locale as Record<string, string> | undefined;
   const today = locale?.date ?? new Date().toISOString().slice(0, 10);
   const mode = (body.mode as string) ?? 'new';
+
+  // ── Fast chat path ────────────────────────────────────────────────────────────
+  // mode: 'chat' → single Gemini call with tool context. Returns either
+  // { answer: string } for Q&A or { action: 'modify' } to escalate to the full pipeline.
+  if (mode === 'chat') {
+    const userMessage = body.userMessage as string | undefined;
+    const creationType = body.creationType as string | undefined;
+    const content = body.content as Record<string, unknown> | undefined;
+
+    if (!userMessage || !creationType || !content) {
+      return new Response(JSON.stringify({ error: 'chat mode requires userMessage, creationType, and content' }), {
+        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (userMessage.length > 500) {
+      return new Response(JSON.stringify({ error: 'userMessage too long (max 500 chars)' }), {
+        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const chatPrompt = buildChatPrompt(creationType, content, userMessage, today);
+    const chatModel = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
+    try {
+      const result = await chatModel.generateContent(chatPrompt);
+      const raw = result.response.text().trim();
+      if (raw === 'ACTION:MODIFY') {
+        return new Response(JSON.stringify({ action: 'modify' }), {
+          status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      // Strip any accidental ACTION:MODIFY prefix from a verbose response
+      const answer = raw.replace(/^ACTION:MODIFY\s*/i, '').trim() || "I'm not sure — try asking in a different way.";
+      return new Response(JSON.stringify({ answer }), {
+        status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    } catch (e) {
+      console.error('[chat] Gemini error:', e);
+      return new Response(JSON.stringify({ error: 'Chat failed. Please try again.' }), {
+        status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+  }
   const currentCreation = body.currentCreation as Record<string, unknown> | undefined;
   const oldContent = (currentCreation?.content as Record<string, unknown> | undefined) ?? null;
   const oldSig = oldContent ? getVisibleSignature(oldContent) : null;

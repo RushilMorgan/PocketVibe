@@ -23,6 +23,7 @@ export default function App() {
     goToMyTools,
     startNewCreation,
     improveCreation,
+    chatMessage,
     confirmNewCreation,
     dismissPendingAction,
     deleteCreation,
@@ -224,6 +225,7 @@ export default function App() {
               onNew={startNewCreation}
               onImprove={(req) => improveCreation(req, 'improve')}
               onAdd={(req) => improveCreation(req, 'add')}
+              onChat={chatMessage}
               onToolAction={setPendingToolAction}
             />
           </div>

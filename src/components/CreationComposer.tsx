@@ -10,6 +10,8 @@ interface CreationComposerProps {
   onNew: (request: string) => void;
   onImprove: (request: string) => void;
   onAdd: (request: string) => void;
+  /** Fast chat path: Q&A or modification routing for an active creation. */
+  onChat?: (request: string) => void;
   onToolAction?: (actionId: string) => void;
 }
 
@@ -126,6 +128,7 @@ export function CreationComposer({
   onNew,
   onImprove,
   onAdd: _onAdd,
+  onChat,
   onToolAction,
 }: CreationComposerProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -147,8 +150,14 @@ export function CreationComposer({
 
   function sendPrompt(prompt: string) {
     if (!prompt.trim() || isGenerating) return;
-    if (hasActive) onImprove(prompt.trim());
-    else onNew(prompt.trim());
+    if (hasActive) {
+      // Use the smart chat path when available: the AI decides whether this is
+      // a Q&A question (gets a direct answer) or a modification (full pipeline).
+      if (onChat) onChat(prompt.trim());
+      else onImprove(prompt.trim());
+    } else {
+      onNew(prompt.trim());
+    }
     setInput('');
   }
 

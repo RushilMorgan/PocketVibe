@@ -355,6 +355,94 @@ export function getAIConnectionStatus(): AIConnectionStatus {
   return { connected: false, activeProvider: 'missing', reason: 'unknown' };
 }
 
+// ── Chat with an existing creation (fast path) ────────────────────────────────
+
+export type ChatResult =
+  | { type: 'answer'; text: string }
+  | { type: 'modify' };
+
+/**
+ * Sends a single message to the AI with the creation's current data as context.
+ * Returns either a factual answer (Q&A) or { type: 'modify' } to escalate to
+ * the full generation pipeline.
+ *
+ * Production: calls the Supabase Edge Function (mode:'chat').
+ * Dev fallback: calls Gemini directly with a simplified prompt.
+ */
+export async function chatWithCreation(
+  creation: Creation,
+  userMessage: string,
+): Promise<ChatResult> {
+  const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  const placeholder     = 'https://your-project-ref.supabase.co';
+
+  // ── Production: Supabase Edge Function ───────────────────────────────────────
+  if (supabaseUrl && supabaseUrl !== placeholder && supabaseAnonKey) {
+    const res = await fetch(`${supabaseUrl}/functions/v1/pocketvibe-generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        apikey: supabaseAnonKey,
+      },
+      body: JSON.stringify({
+        mode: 'chat',
+        // userRequest is required by the edge function's top-level guard
+        userRequest: userMessage,
+        userMessage,
+        creationType: creation.creationType,
+        content: creation.content,
+      }),
+    });
+
+    if (!res.ok) {
+      let detail = res.statusText;
+      try { detail = await res.text(); } catch { /* ignore */ }
+      console.error('[chatWithCreation] Edge function error:', res.status, detail.slice(0, 200));
+      throw new AIGenerationError('Chat failed. Please try again.');
+    }
+
+    const data = await res.json() as { answer?: string; action?: string; error?: string };
+    if (data.error) throw new AIGenerationError(data.error);
+    if (data.action === 'modify') return { type: 'modify' };
+    if (data.answer)              return { type: 'answer', text: data.answer };
+    throw new AIGenerationError('Unexpected response. Please try again.');
+  }
+
+  // ── Dev fallback: direct Gemini ───────────────────────────────────────────────
+  if (!import.meta.env.DEV) {
+    throw new AIConfigError('Production requires the Supabase Edge Function.');
+  }
+
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  if (!apiKey) throw new AIConfigError('No AI configured for chat.');
+
+  const today  = new Date().toISOString().slice(0, 10);
+  const genAI  = new GoogleGenerativeAI(apiKey);
+  const model  = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  // Inline dev prompt — mirrors the edge function's buildChatPrompt logic
+  const prompt = [
+    'You are Toolie, a friendly AI assistant embedded in a PocketVibe tool.',
+    `Today is ${today}.`,
+    `Creation type: ${creation.creationType}`,
+    `Tool data (JSON): ${JSON.stringify(creation.content).slice(0, 600)}`,
+    '',
+    `User says: "${userMessage}"`,
+    '',
+    'Answer factual questions in 1-3 plain sentences.',
+    'If the user wants to change/add/update anything, respond with exactly: ACTION:MODIFY',
+    'Never mix an answer with ACTION:MODIFY.',
+  ].join('\n');
+
+  const result = await model.generateContent(prompt);
+  const raw    = result.response.text().trim();
+
+  if (raw === 'ACTION:MODIFY' || raw.startsWith('ACTION:MODIFY')) return { type: 'modify' };
+  return { type: 'answer', text: raw || "I'm not sure — try asking in a different way." };
+}
+
 // ── Offline fallback ──────────────────────────────────────────────────────────
 
 export function generateOfflineFallback(userRequest: string): GenerateResponse {

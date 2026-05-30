@@ -10,7 +10,7 @@ import type {
   GenerateRequest,
   TournamentTeam,
 } from '../types';
-import { generateCreation, generateOfflineFallback, AIConfigError } from '../services/aiService';
+import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError } from '../services/aiService';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
@@ -686,6 +686,84 @@ export function usePocketVibe() {
     dispatch({ type: 'SET_PROCESSING_STATUS', payload: null });
   }, []);
 
+  // ── Chat fast path ────────────────────────────────────────────────────────────
+  // Sends a single message with the creation's data as context.
+  // If the AI decides the user wants to modify the tool, hands off to _runGeneration
+  // directly (bypassing improveCreation's isGenerating guard, which would already
+  // be true at that point).
+  const chatMessage = useCallback(async (text: string) => {
+    const current = stateRef.current.activeCreationId
+      ? stateRef.current.creations.find(c => c.id === stateRef.current.activeCreationId)
+      : null;
+
+    if (!current || stateRef.current.isGenerating) return;
+
+    dispatch({ type: 'SET_GENERATING', payload: true });
+    dispatch({ type: 'SET_PROCESSING_STATUS', payload: 'Thinking…' });
+
+    // Flag so the finally block knows not to clear isGenerating when we hand
+    // off to _runGeneration (which will manage it from that point on).
+    let handedOffToModify = false;
+
+    try {
+      const result = await chatWithCreation(current, text);
+
+      if (result.type === 'modify') {
+        handedOffToModify = true;
+        // _runGeneration sets isGenerating: true itself and adds the user message,
+        // so we stay in generating state with no gap.
+        const locale = {
+          date: new Date().toISOString().slice(0, 10),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+        void _runGeneration(
+          {
+            userRequest: text,
+            mode: 'improve',
+            currentCreation: {
+              id: current.id,
+              title: current.title,
+              creationType: current.creationType,
+              content: current.content,
+              originalRequest: current.originalRequest,
+              version: current.version,
+            },
+            locale,
+          },
+          current.id,
+        );
+        return;
+      }
+
+      // Q&A — add user message then assistant answer
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: { id: `u-${Date.now()}`, role: 'user', text },
+      });
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: { id: `a-${Date.now()}`, role: 'assistant', text: result.text },
+      });
+    } catch (err) {
+      // Show the user's message even on failure so the thread makes sense
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: { id: `u-${Date.now()}`, role: 'user', text },
+      });
+      const message = toUserSafeErrorMessage(err);
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: { id: `e-${Date.now()}`, role: 'assistant', text: `Sorry — ${message}` },
+      });
+    } finally {
+      if (!handedOffToModify) {
+        dispatch({ type: 'SET_GENERATING', payload: false });
+        dispatch({ type: 'SET_PROCESSING_STATUS', payload: null });
+      }
+      // If handedOffToModify, _runGeneration owns isGenerating from here.
+    }
+  }, [_runGeneration]);
+
   return {
     state,
     dispatch,
@@ -696,6 +774,7 @@ export function usePocketVibe() {
     goToMyTools,
     startNewCreation,
     improveCreation,
+    chatMessage,
     confirmNewCreation,
     dismissPendingAction,
     deleteCreation,

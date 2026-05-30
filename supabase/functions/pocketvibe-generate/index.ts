@@ -549,6 +549,48 @@ function containsHtmlDeep(value: unknown): boolean {
   return false;
 }
 
+// ── Content normalizer ────────────────────────────────────────────────────────
+// Fills in required numeric sub-fields so partially-generated AI output never
+// causes NaN or missing-field runtime errors in the client or in scoring logic.
+// Runs server-side before validation AND before the content is stored in the DB.
+function normalizeContentFields(parsed: Record<string, unknown>): void {
+  const content = parsed.content as Record<string, unknown> | undefined;
+  if (!content) return;
+  const type = content.type as string;
+
+  if (type === 'workout_tracker') {
+    if (content.challengeMode || Array.isArray(content.participants)) {
+      if (!Array.isArray(content.participants)) content.participants = [];
+      if (!Array.isArray(content.logs)) content.logs = [];
+      if (!Array.isArray(content.activityTypes)) content.activityTypes = ['walk', 'run', 'gym', 'other'];
+      if (typeof content.weeklyTarget !== 'number') content.weeklyTarget = 3;
+      const sr = (content.scoringRules ?? {}) as Record<string, unknown>;
+      content.scoringRules = {
+        pointsPerActivity: typeof sr.pointsPerActivity === 'number' ? sr.pointsPerActivity : 10,
+        weeklyTargetBonus: typeof sr.weeklyTargetBonus === 'number' ? sr.weeklyTargetBonus : 20,
+        runningBonus:      typeof sr.runningBonus      === 'number' ? sr.runningBonus      : 5,
+      };
+    }
+  }
+
+  if (type === 'tournament_pool_tracker') {
+    if (!Array.isArray(content.participants)) content.participants = [];
+    if (!Array.isArray(content.teams))        content.teams = [];
+    if (!Array.isArray(content.matches))      content.matches = [];
+    if (typeof content.drawLocked !== 'boolean') content.drawLocked = false;
+    const sr = (content.scoringRules ?? {}) as Record<string, unknown>;
+    content.scoringRules = {
+      pointsPerWin:      typeof sr.pointsPerWin      === 'number' ? sr.pointsPerWin      : 3,
+      pointsPerDraw:     typeof sr.pointsPerDraw     === 'number' ? sr.pointsPerDraw     : 1,
+      knockoutBonus:     typeof sr.knockoutBonus     === 'number' ? sr.knockoutBonus     : 5,
+      quarterFinalBonus: typeof sr.quarterFinalBonus === 'number' ? sr.quarterFinalBonus : 10,
+      semiFinalBonus:    typeof sr.semiFinalBonus    === 'number' ? sr.semiFinalBonus    : 15,
+      finalBonus:        typeof sr.finalBonus        === 'number' ? sr.finalBonus        : 20,
+      winnerBonus:       typeof sr.winnerBonus       === 'number' ? sr.winnerBonus       : 30,
+    };
+  }
+}
+
 // ── Server-side validation ────────────────────────────────────────────────────
 function validateServerResponse(parsed: Record<string, unknown>): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
@@ -744,7 +786,10 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ── Step 5: Server-side validation ───────────────────────────────────────
+  // ── Step 5: Normalize + server-side validation ───────────────────────────
+  // Normalize first so missing numeric sub-fields get defaults before validation
+  // and before the content is stored in the DB.
+  normalizeContentFields(parsed);
   const serverValidation = validateServerResponse(parsed);
   if (!serverValidation.valid) {
     try {
@@ -752,6 +797,7 @@ Deno.serve(async (req: Request) => {
         `${builderMessage}\n\n[VALIDATION FAILED: ${serverValidation.errors.join('; ')}. Fix all issues and return valid JSON only.]`,
       );
       const repairParsed = parseJson(repairResult.response.text()) as Record<string, unknown>;
+      normalizeContentFields(repairParsed); // normalize the repair too
       if (validateServerResponse(repairParsed).valid) {
         parsed = repairParsed;
       } else {

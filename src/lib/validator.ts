@@ -148,7 +148,51 @@ export function validateGenerateResponse(raw: unknown): ValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
-/** Apply safe defaults to missing array fields so minor omissions don't fail validation. */
+/**
+ * Normalize a content object in-place, filling in all required sub-fields with
+ * safe defaults so partially-generated AI output never causes NaN or runtime errors.
+ * Called after every AI response — both from the edge function and the dev fallback.
+ */
+export function normalizeContentFields(content: Record<string, unknown>): void {
+  const type = content.type as string;
+
+  if (type === 'workout_tracker') {
+    // Ensure challenge-mode arrays always exist
+    if (content.challengeMode || Array.isArray(content.participants)) {
+      if (!Array.isArray(content.participants)) content.participants = [];
+      if (!Array.isArray(content.logs)) content.logs = [];
+      if (!Array.isArray(content.activityTypes)) content.activityTypes = ['walk', 'run', 'gym', 'other'];
+      if (typeof content.weeklyTarget !== 'number') content.weeklyTarget = 3;
+      // Normalize scoringRules — spread defaults so missing numeric fields never produce NaN
+      const sr = (content.scoringRules ?? {}) as Record<string, unknown>;
+      content.scoringRules = {
+        pointsPerActivity: typeof sr.pointsPerActivity === 'number' ? sr.pointsPerActivity : 10,
+        weeklyTargetBonus: typeof sr.weeklyTargetBonus === 'number' ? sr.weeklyTargetBonus : 20,
+        runningBonus:      typeof sr.runningBonus      === 'number' ? sr.runningBonus      : 5,
+      };
+    }
+  }
+
+  if (type === 'tournament_pool_tracker') {
+    if (!Array.isArray(content.participants)) content.participants = [];
+    if (!Array.isArray(content.teams))        content.teams = [];
+    if (!Array.isArray(content.matches))      content.matches = [];
+    if (typeof content.drawLocked !== 'boolean') content.drawLocked = false;
+    // Normalize scoringRules
+    const sr = (content.scoringRules ?? {}) as Record<string, unknown>;
+    content.scoringRules = {
+      pointsPerWin:      typeof sr.pointsPerWin      === 'number' ? sr.pointsPerWin      : 3,
+      pointsPerDraw:     typeof sr.pointsPerDraw     === 'number' ? sr.pointsPerDraw     : 1,
+      knockoutBonus:     typeof sr.knockoutBonus     === 'number' ? sr.knockoutBonus     : 5,
+      quarterFinalBonus: typeof sr.quarterFinalBonus === 'number' ? sr.quarterFinalBonus : 10,
+      semiFinalBonus:    typeof sr.semiFinalBonus    === 'number' ? sr.semiFinalBonus    : 15,
+      finalBonus:        typeof sr.finalBonus        === 'number' ? sr.finalBonus        : 20,
+      winnerBonus:       typeof sr.winnerBonus       === 'number' ? sr.winnerBonus       : 30,
+    };
+  }
+}
+
+/** Apply safe defaults to missing array/object fields so minor AI omissions don't fail validation. */
 export function coerceGenerateResponse(raw: Record<string, unknown>): void {
   const content = raw.content as Record<string, unknown> | undefined;
   if (!content) return;
@@ -166,6 +210,9 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
   if (type === 'workout_tracker' && !Array.isArray(content.days) && !content.challengeMode && !Array.isArray(content.participants)) content.days = [];
   if (type === 'task_planner' && !Array.isArray(content.sections)) content.sections = [];
   if (type === 'landing_page' && !Array.isArray(content.features)) content.features = [];
+
+  // Always normalize sub-object fields (scoringRules etc.) regardless of type
+  normalizeContentFields(content);
 }
 
 export { SUPPORTED_TYPES };

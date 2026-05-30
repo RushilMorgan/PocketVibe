@@ -46,6 +46,22 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
   const resolvedAdminToken = adminToken ?? getStoredAdminToken(shareSlug);
   const token = resolvedAdminToken ?? participantToken;
 
+  // ── Strip sensitive tokens from URL after reading them ─────────────────────
+  // Tokens in the query string leak via the Referer header when a user clicks
+  // any external link from the admin/participant view. Remove them from the
+  // visible URL immediately (they're already saved to localStorage).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('admin') || params.has('p')) {
+      params.delete('admin');
+      params.delete('p');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []); // runs once on mount, tokens already captured in props
+
   const load = useCallback(async () => {
     setPhase('loading');
     setErrorMsg(null);

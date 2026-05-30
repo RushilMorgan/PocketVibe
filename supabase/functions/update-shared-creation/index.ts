@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: row, error: fetchError } = await supabase
     .from('shared_creations')
-    .select('*')
+    .select('id, creation_type, content, version, owner_token_hash, updated_at')
     .eq('share_slug', shareSlug)
     .maybeSingle();
 

@@ -12,6 +12,24 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
 };
 
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Protects against slug enumeration and content scraping.
+const _rateCounts = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 120;  // reads per window (generous for real users)
+const RATE_WINDOW = 60_000; // 1 minute
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = _rateCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    _rateCounts.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT) return true;
+  entry.count++;
+  return false;
+}
+
 async function sha256Hex(token: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
   return Array.from(new Uint8Array(buf))
@@ -36,6 +54,11 @@ function json(body: unknown, status = 200): Response {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
   if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
+
+  const clientIp = req.headers.get('x-forwarded-for') ?? 'unknown';
+  if (isRateLimited(clientIp)) {
+    return json({ error: 'Too many requests. Please wait a moment and try again.' }, 429);
+  }
 
   const url = new URL(req.url);
   const shareSlug = url.searchParams.get('shareSlug');

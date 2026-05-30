@@ -58,6 +58,24 @@ function nextParticipantIdx(participants: any[], teams: any[]): number {
   return counts.reduce((min: any, cur: any) => (cur.count < min.count ? cur : min)).i;
 }
 
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Keyed by IP; resets each minute. Limits abuse of write endpoints.
+const _rateCounts = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 60;   // max actions per window
+const RATE_WINDOW = 60_000; // 1 minute
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = _rateCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    _rateCounts.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT) return true;
+  entry.count++;
+  return false;
+}
+
 const VALID_ACTIVITIES = new Set(['walk', 'run', 'gym', 'other']);
 const VALID_TEAM_STATUSES = new Set([
   'active', 'round_of_16', 'quarter_final', 'semi_final', 'final', 'winner', 'eliminated',
@@ -342,6 +360,11 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  const clientIp = req.headers.get('x-forwarded-for') ?? 'unknown';
+  if (isRateLimited(clientIp)) {
+    return json({ error: 'Too many requests. Please wait a moment and try again.' }, 429);
+  }
+
   let body: { shareSlug?: string; token?: string; action?: string; payload?: Record<string, unknown>; expectedVersion?: number };
   try {
     body = await req.json();
@@ -355,6 +378,10 @@ Deno.serve(async (req: Request) => {
   }
   if (!ADMIN_ACTIONS.has(action) && !PARTICIPANT_ACTIONS.has(action)) {
     return json({ error: `Unknown action: ${action}` }, 400);
+  }
+  // Reject oversized payloads (protects server memory; 64 KB is generous for any valid action)
+  if (JSON.stringify(payload).length > 65_536) {
+    return json({ error: 'Payload too large' }, 413);
   }
 
   const supabase = createClient(

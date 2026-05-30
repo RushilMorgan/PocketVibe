@@ -254,8 +254,8 @@ describe('SharePanel — auth nudge for anonymous users', () => {
       />
     );
     // The auth nudge is shown when isLoggedIn=false, user hasn't skipped
-    expect(screen.getByText(/Keep your admin link safe/i)).toBeInTheDocument();
-    expect(screen.getByText(/Create free account/i)).toBeInTheDocument();
+    expect(screen.getByText(/Save your access/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in \/ create account/i)).toBeInTheDocument();
   });
 
   it('does not show auth nudge when user is already logged in', () => {
@@ -280,7 +280,7 @@ describe('SharePanel — auth nudge for anonymous users', () => {
         onRequestAuth={vi.fn()}
       />
     );
-    expect(screen.queryByText(/Keep your admin link safe/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Save your access/i)).not.toBeInTheDocument();
   });
 });
 

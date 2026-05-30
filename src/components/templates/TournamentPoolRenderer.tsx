@@ -61,7 +61,18 @@ function uid(prefix: string): string {
 }
 
 function calcScores(content: TournamentPoolTrackerContent): ParticipantScore[] {
-  const { participants, teams, matches, scoringRules: r } = content;
+  const { participants, teams, matches } = content;
+  // Spread defaults so partially-generated or missing scoringRules never produce NaN.
+  const r: TournamentScoringRules = {
+    pointsPerWin:      3,
+    pointsPerDraw:     1,
+    knockoutBonus:     5,
+    quarterFinalBonus: 10,
+    semiFinalBonus:    15,
+    finalBonus:        20,
+    winnerBonus:       30,
+    ...(content.scoringRules ?? {}),
+  };
   return participants
     .map(p => {
       const myTeams = teams.filter(t => t.assignedTo === p.id);

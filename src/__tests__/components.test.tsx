@@ -1397,7 +1397,10 @@ describe('TournamentPoolRenderer', () => {
     });
     render(<TournamentPoolRenderer content={withAssignments} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('manage-pool-btn'));
+    // lock-draw-btn now opens a confirmation sheet (to warn about demo teams)
     fireEvent.click(screen.getByTestId('lock-draw-btn'));
+    // confirm-lock-btn on the confirmation sheet actually fires the update
+    fireEvent.click(screen.getByTestId('confirm-lock-btn'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ drawLocked: true }));
   });
 

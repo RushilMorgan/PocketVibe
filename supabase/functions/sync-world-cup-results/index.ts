@@ -31,55 +31,80 @@ const WC_SEASON = 2026;
 
 interface TeamMeta { pot: number; fifaRank: number }
 
+// All 48 confirmed 2026 FIFA World Cup qualifiers.
+// Pots and FIFA ranks are from the official draw (December 5, 2025),
+// using the November 19, 2025 FIFA Men's World Ranking.
+// Playoff winners (Pot 4) carried their Nov-2025 rank but were seeded as Pot 4
+// regardless of rank because they qualified via playoffs.
+// Keys are lowercased to match API-Football team name responses.
 const WC2026_TEAM_META: Record<string, TeamMeta> = {
-  'argentina':       { pot: 1, fifaRank: 1  },
-  'france':          { pot: 1, fifaRank: 2  },
-  'spain':           { pot: 1, fifaRank: 3  },
-  'england':         { pot: 1, fifaRank: 4  },
-  'brazil':          { pot: 1, fifaRank: 5  },
-  'portugal':        { pot: 1, fifaRank: 6  },
-  'netherlands':     { pot: 1, fifaRank: 7  },
-  'germany':         { pot: 1, fifaRank: 10 },
-  'belgium':         { pot: 1, fifaRank: 12 },
-  'usa':             { pot: 1, fifaRank: 13 },
-  'mexico':          { pot: 1, fifaRank: 16 },
-  'canada':          { pot: 1, fifaRank: 48 },
-  'croatia':         { pot: 2, fifaRank: 9  },
-  'morocco':         { pot: 2, fifaRank: 14 },
-  'japan':           { pot: 2, fifaRank: 18 },
-  'switzerland':     { pot: 2, fifaRank: 19 },
-  'uruguay':         { pot: 2, fifaRank: 20 },
-  'denmark':         { pot: 2, fifaRank: 21 },
-  'colombia':        { pot: 2, fifaRank: 22 },
-  'south korea':     { pot: 2, fifaRank: 23 },
-  'senegal':         { pot: 2, fifaRank: 24 },
-  'austria':         { pot: 2, fifaRank: 25 },
-  'australia':       { pot: 2, fifaRank: 26 },
-  'ecuador':         { pot: 2, fifaRank: 28 },
-  'italy':           { pot: 3, fifaRank: 8  },
-  'ukraine':         { pot: 3, fifaRank: 22 },
-  'turkey':          { pot: 3, fifaRank: 29 },
-  'nigeria':         { pot: 3, fifaRank: 30 },
-  'iran':            { pot: 3, fifaRank: 32 },
-  'poland':          { pot: 3, fifaRank: 27 },
-  'serbia':          { pot: 3, fifaRank: 33 },
-  'egypt':           { pot: 3, fifaRank: 35 },
-  'chile':           { pot: 3, fifaRank: 46 },
-  'venezuela':       { pot: 3, fifaRank: 50 },
-  "ivory coast":     { pot: 3, fifaRank: 57 },
-  'saudi arabia':    { pot: 3, fifaRank: 56 },
-  'czech republic':  { pot: 4, fifaRank: 37 },
-  'scotland':        { pot: 4, fifaRank: 39 },
-  'algeria':         { pot: 4, fifaRank: 52 },
-  'tunisia':         { pot: 4, fifaRank: 54 },
-  'ghana':           { pot: 4, fifaRank: 60 },
-  'cameroon':        { pot: 4, fifaRank: 63 },
-  'costa rica':      { pot: 4, fifaRank: 67 },
-  'panama':          { pot: 4, fifaRank: 75 },
-  'iraq':            { pot: 4, fifaRank: 80 },
-  'honduras':        { pot: 4, fifaRank: 88 },
-  'new zealand':     { pot: 4, fifaRank: 95 },
-  'dr congo':        { pot: 4, fifaRank: 105 },
+  // ── Pot 1 ─────────────────────────────────────────────────────────────────
+  'spain':                    { pot: 1, fifaRank: 1  },
+  'argentina':                { pot: 1, fifaRank: 2  },
+  'france':                   { pot: 1, fifaRank: 3  },
+  'england':                  { pot: 1, fifaRank: 4  },
+  'brazil':                   { pot: 1, fifaRank: 5  },
+  'portugal':                 { pot: 1, fifaRank: 6  },
+  'netherlands':              { pot: 1, fifaRank: 7  },
+  'belgium':                  { pot: 1, fifaRank: 8  },
+  'germany':                  { pot: 1, fifaRank: 9  },
+  'usa':                      { pot: 1, fifaRank: 14 },
+  'mexico':                   { pot: 1, fifaRank: 15 },
+  'canada':                   { pot: 1, fifaRank: 27 },
+
+  // ── Pot 2 ─────────────────────────────────────────────────────────────────
+  'croatia':                  { pot: 2, fifaRank: 10 },
+  'morocco':                  { pot: 2, fifaRank: 11 },
+  'colombia':                 { pot: 2, fifaRank: 13 },
+  'uruguay':                  { pot: 2, fifaRank: 16 },
+  'switzerland':              { pot: 2, fifaRank: 17 },
+  'japan':                    { pot: 2, fifaRank: 18 },
+  'senegal':                  { pot: 2, fifaRank: 19 },
+  'iran':                     { pot: 2, fifaRank: 20 },
+  'south korea':              { pot: 2, fifaRank: 22 },
+  'korea republic':           { pot: 2, fifaRank: 22 }, // alternate API name
+  'ecuador':                  { pot: 2, fifaRank: 23 },
+  'austria':                  { pot: 2, fifaRank: 24 },
+  'australia':                { pot: 2, fifaRank: 26 },
+
+  // ── Pot 3 ─────────────────────────────────────────────────────────────────
+  'norway':                   { pot: 3, fifaRank: 29 },
+  'panama':                   { pot: 3, fifaRank: 30 },
+  'egypt':                    { pot: 3, fifaRank: 34 },
+  'algeria':                  { pot: 3, fifaRank: 35 },
+  'scotland':                 { pot: 3, fifaRank: 36 },
+  'paraguay':                 { pot: 3, fifaRank: 39 },
+  'tunisia':                  { pot: 3, fifaRank: 40 },
+  'ivory coast':              { pot: 3, fifaRank: 42 },
+  "côte d'ivoire":            { pot: 3, fifaRank: 42 }, // alternate name
+  'uzbekistan':               { pot: 3, fifaRank: 50 },
+  'qatar':                    { pot: 3, fifaRank: 51 },
+  'saudi arabia':             { pot: 3, fifaRank: 60 },
+  'south africa':             { pot: 3, fifaRank: 61 },
+
+  // ── Pot 4 — ranked qualifiers ─────────────────────────────────────────────
+  'jordan':                   { pot: 4, fifaRank: 66 },
+  'cape verde':               { pot: 4, fifaRank: 68 },
+  'cabo verde':               { pot: 4, fifaRank: 68 }, // alternate API name
+  'ghana':                    { pot: 4, fifaRank: 72 },
+  'curacao':                  { pot: 4, fifaRank: 82 },
+  'curaçao':                  { pot: 4, fifaRank: 82 }, // alternate spelling
+  'haiti':                    { pot: 4, fifaRank: 84 },
+  'new zealand':              { pot: 4, fifaRank: 86 },
+
+  // ── Pot 4 — European playoff winners (seeded Pot 4 regardless of rank) ──
+  'bosnia':                   { pot: 4, fifaRank: 57 },
+  'bosnia and herzegovina':   { pot: 4, fifaRank: 57 }, // alternate API name
+  'sweden':                   { pot: 4, fifaRank: 25 }, // high rank but Pot 4 via playoff
+  'turkey':                   { pot: 4, fifaRank: 28 },
+  'türkiye':                  { pot: 4, fifaRank: 28 }, // alternate spelling
+  'czechia':                  { pot: 4, fifaRank: 38 },
+  'czech republic':           { pot: 4, fifaRank: 38 }, // alternate API name
+
+  // ── Pot 4 — Intercontinental playoff winners ───────────────────────────
+  'dr congo':                 { pot: 4, fifaRank: 100 },
+  'congo dr':                 { pot: 4, fifaRank: 100 }, // alternate API name
+  'iraq':                     { pot: 4, fifaRank: 80  },
 };
 
 function safeCompare(a: string, b: string): boolean {

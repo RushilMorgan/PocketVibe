@@ -32,61 +32,65 @@ interface FallbackTeam {
   fifaRank: number;
 }
 
-// FIFA rankings are approximate as of WC 2026 draw (May 2026).
-// Within each pot, rank fine-tunes the strengthScore used by the draw engine.
+// All 48 confirmed FIFA World Cup 2026 qualifiers.
+// Pots from the official draw (December 5, 2025), FIFA ranks from the
+// November 19, 2025 FIFA Men's World Ranking used for draw seeding.
+// Playoff winners were placed in Pot 4 regardless of their FIFA rank.
 const FALLBACK_LIST: FallbackTeam[] = [
-  // ── Pot 1 (hosts + top FIFA-ranked) ─────────────────────────────────────
-  { name: 'Argentina',   flagEmoji: '🇦🇷', pot: 1, fifaRank: 1  },
-  { name: 'France',      flagEmoji: '🇫🇷', pot: 1, fifaRank: 2  },
-  { name: 'Spain',       flagEmoji: '🇪🇸', pot: 1, fifaRank: 3  },
-  { name: 'England',     flagEmoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', pot: 1, fifaRank: 4  },
-  { name: 'Brazil',      flagEmoji: '🇧🇷', pot: 1, fifaRank: 5  },
-  { name: 'Portugal',    flagEmoji: '🇵🇹', pot: 1, fifaRank: 6  },
-  { name: 'Netherlands', flagEmoji: '🇳🇱', pot: 1, fifaRank: 7  },
-  { name: 'Germany',     flagEmoji: '🇩🇪', pot: 1, fifaRank: 10 },
-  { name: 'Belgium',     flagEmoji: '🇧🇪', pot: 1, fifaRank: 12 },
-  { name: 'USA',         flagEmoji: '🇺🇸', pot: 1, fifaRank: 13 },
-  { name: 'Mexico',      flagEmoji: '🇲🇽', pot: 1, fifaRank: 16 },
-  { name: 'Canada',      flagEmoji: '🇨🇦', pot: 1, fifaRank: 48 },
-  // ── Pot 2 ────────────────────────────────────────────────────────────────
-  { name: 'Croatia',     flagEmoji: '🇭🇷', pot: 2, fifaRank: 9  },
-  { name: 'Morocco',     flagEmoji: '🇲🇦', pot: 2, fifaRank: 14 },
-  { name: 'Japan',       flagEmoji: '🇯🇵', pot: 2, fifaRank: 18 },
-  { name: 'Switzerland', flagEmoji: '🇨🇭', pot: 2, fifaRank: 19 },
-  { name: 'Uruguay',     flagEmoji: '🇺🇾', pot: 2, fifaRank: 20 },
-  { name: 'Denmark',     flagEmoji: '🇩🇰', pot: 2, fifaRank: 21 },
-  { name: 'Colombia',    flagEmoji: '🇨🇴', pot: 2, fifaRank: 22 },
-  { name: 'South Korea', flagEmoji: '🇰🇷', pot: 2, fifaRank: 23 },
-  { name: 'Senegal',     flagEmoji: '🇸🇳', pot: 2, fifaRank: 24 },
-  { name: 'Austria',     flagEmoji: '🇦🇹', pot: 2, fifaRank: 25 },
-  { name: 'Australia',   flagEmoji: '🇦🇺', pot: 2, fifaRank: 26 },
-  { name: 'Ecuador',     flagEmoji: '🇪🇨', pot: 2, fifaRank: 28 },
-  // ── Pot 3 ────────────────────────────────────────────────────────────────
-  { name: 'Italy',       flagEmoji: '🇮🇹', pot: 3, fifaRank: 8  },
-  { name: 'Ukraine',     flagEmoji: '🇺🇦', pot: 3, fifaRank: 22 },
-  { name: 'Turkey',      flagEmoji: '🇹🇷', pot: 3, fifaRank: 29 },
-  { name: 'Nigeria',     flagEmoji: '🇳🇬', pot: 3, fifaRank: 30 },
-  { name: 'Iran',        flagEmoji: '🇮🇷', pot: 3, fifaRank: 32 },
-  { name: 'Poland',      flagEmoji: '🇵🇱', pot: 3, fifaRank: 27 },
-  { name: 'Serbia',      flagEmoji: '🇷🇸', pot: 3, fifaRank: 33 },
-  { name: 'Egypt',       flagEmoji: '🇪🇬', pot: 3, fifaRank: 35 },
-  { name: 'Chile',       flagEmoji: '🇨🇱', pot: 3, fifaRank: 46 },
-  { name: 'Venezuela',   flagEmoji: '🇻🇪', pot: 3, fifaRank: 50 },
-  { name: "Ivory Coast", flagEmoji: '🇨🇮', pot: 3, fifaRank: 57 },
-  { name: 'Saudi Arabia',flagEmoji: '🇸🇦', pot: 3, fifaRank: 56 },
-  // ── Pot 4 ────────────────────────────────────────────────────────────────
-  { name: 'Czech Republic', flagEmoji: '🇨🇿', pot: 4, fifaRank: 37 },
-  { name: 'Scotland',    flagEmoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', pot: 4, fifaRank: 39 },
-  { name: 'Algeria',     flagEmoji: '🇩🇿', pot: 4, fifaRank: 52 },
-  { name: 'Tunisia',     flagEmoji: '🇹🇳', pot: 4, fifaRank: 54 },
-  { name: 'Ghana',       flagEmoji: '🇬🇭', pot: 4, fifaRank: 60 },
-  { name: 'Cameroon',    flagEmoji: '🇨🇲', pot: 4, fifaRank: 63 },
-  { name: 'Costa Rica',  flagEmoji: '🇨🇷', pot: 4, fifaRank: 67 },
-  { name: 'Panama',      flagEmoji: '🇵🇦', pot: 4, fifaRank: 75 },
-  { name: 'Iraq',        flagEmoji: '🇮🇶', pot: 4, fifaRank: 80 },
-  { name: 'Honduras',    flagEmoji: '🇭🇳', pot: 4, fifaRank: 88 },
-  { name: 'New Zealand', flagEmoji: '🇳🇿', pot: 4, fifaRank: 95 },
-  { name: 'DR Congo',    flagEmoji: '🇨🇩', pot: 4, fifaRank: 105 },
+  // ── Pot 1 — hosts + 9 highest-ranked qualified teams ─────────────────────
+  { name: 'Spain',              flagEmoji: '🇪🇸', pot: 1, fifaRank: 1  },
+  { name: 'Argentina',          flagEmoji: '🇦🇷', pot: 1, fifaRank: 2  },
+  { name: 'France',             flagEmoji: '🇫🇷', pot: 1, fifaRank: 3  },
+  { name: 'England',            flagEmoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', pot: 1, fifaRank: 4  },
+  { name: 'Brazil',             flagEmoji: '🇧🇷', pot: 1, fifaRank: 5  },
+  { name: 'Portugal',           flagEmoji: '🇵🇹', pot: 1, fifaRank: 6  },
+  { name: 'Netherlands',        flagEmoji: '🇳🇱', pot: 1, fifaRank: 7  },
+  { name: 'Belgium',            flagEmoji: '🇧🇪', pot: 1, fifaRank: 8  },
+  { name: 'Germany',            flagEmoji: '🇩🇪', pot: 1, fifaRank: 9  },
+  { name: 'USA',                flagEmoji: '🇺🇸', pot: 1, fifaRank: 14 }, // host
+  { name: 'Mexico',             flagEmoji: '🇲🇽', pot: 1, fifaRank: 15 }, // host
+  { name: 'Canada',             flagEmoji: '🇨🇦', pot: 1, fifaRank: 27 }, // host
+  // ── Pot 2 — qualified teams ranked 13–24 among all qualifiers ────────────
+  { name: 'Croatia',            flagEmoji: '🇭🇷', pot: 2, fifaRank: 10 },
+  { name: 'Morocco',            flagEmoji: '🇲🇦', pot: 2, fifaRank: 11 },
+  { name: 'Colombia',           flagEmoji: '🇨🇴', pot: 2, fifaRank: 13 },
+  { name: 'Uruguay',            flagEmoji: '🇺🇾', pot: 2, fifaRank: 16 },
+  { name: 'Switzerland',        flagEmoji: '🇨🇭', pot: 2, fifaRank: 17 },
+  { name: 'Japan',              flagEmoji: '🇯🇵', pot: 2, fifaRank: 18 },
+  { name: 'Senegal',            flagEmoji: '🇸🇳', pot: 2, fifaRank: 19 },
+  { name: 'Iran',               flagEmoji: '🇮🇷', pot: 2, fifaRank: 20 },
+  { name: 'South Korea',        flagEmoji: '🇰🇷', pot: 2, fifaRank: 22 },
+  { name: 'Ecuador',            flagEmoji: '🇪🇨', pot: 2, fifaRank: 23 },
+  { name: 'Austria',            flagEmoji: '🇦🇹', pot: 2, fifaRank: 24 },
+  { name: 'Australia',          flagEmoji: '🇦🇺', pot: 2, fifaRank: 26 },
+  // ── Pot 3 — qualified teams ranked 25–36 among all qualifiers ────────────
+  { name: 'Norway',             flagEmoji: '🇳🇴', pot: 3, fifaRank: 29 },
+  { name: 'Panama',             flagEmoji: '🇵🇦', pot: 3, fifaRank: 30 },
+  { name: 'Egypt',              flagEmoji: '🇪🇬', pot: 3, fifaRank: 34 },
+  { name: 'Algeria',            flagEmoji: '🇩🇿', pot: 3, fifaRank: 35 },
+  { name: 'Scotland',           flagEmoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', pot: 3, fifaRank: 36 },
+  { name: 'Paraguay',           flagEmoji: '🇵🇾', pot: 3, fifaRank: 39 },
+  { name: 'Tunisia',            flagEmoji: '🇹🇳', pot: 3, fifaRank: 40 },
+  { name: 'Ivory Coast',        flagEmoji: '🇨🇮', pot: 3, fifaRank: 42 },
+  { name: 'Uzbekistan',         flagEmoji: '🇺🇿', pot: 3, fifaRank: 50 },
+  { name: 'Qatar',              flagEmoji: '🇶🇦', pot: 3, fifaRank: 51 },
+  { name: 'Saudi Arabia',       flagEmoji: '🇸🇦', pot: 3, fifaRank: 60 },
+  { name: 'South Africa',       flagEmoji: '🇿🇦', pot: 3, fifaRank: 61 },
+  // ── Pot 4 — lowest-ranked direct qualifiers ───────────────────────────────
+  { name: 'Jordan',             flagEmoji: '🇯🇴', pot: 4, fifaRank: 66 },
+  { name: 'Cape Verde',         flagEmoji: '🇨🇻', pot: 4, fifaRank: 68 },
+  { name: 'Ghana',              flagEmoji: '🇬🇭', pot: 4, fifaRank: 72 },
+  { name: 'Curaçao',            flagEmoji: '🇨🇼', pot: 4, fifaRank: 82 },
+  { name: 'Haiti',              flagEmoji: '🇭🇹', pot: 4, fifaRank: 84 },
+  { name: 'New Zealand',        flagEmoji: '🇳🇿', pot: 4, fifaRank: 86 },
+  // ── Pot 4 — European playoff winners (Pot 4 regardless of FIFA rank) ──────
+  { name: 'Bosnia',             flagEmoji: '🇧🇦', pot: 4, fifaRank: 57 }, // beat Italy in final
+  { name: 'Sweden',             flagEmoji: '🇸🇪', pot: 4, fifaRank: 25 }, // beat Ukraine/Poland
+  { name: 'Turkey',             flagEmoji: '🇹🇷', pot: 4, fifaRank: 28 }, // playoff C winner
+  { name: 'Czechia',            flagEmoji: '🇨🇿', pot: 4, fifaRank: 38 }, // beat Denmark in final
+  // ── Pot 4 — Intercontinental playoff winners ──────────────────────────────
+  { name: 'DR Congo',           flagEmoji: '🇨🇩', pot: 4, fifaRank: 100 },
+  { name: 'Iraq',               flagEmoji: '🇮🇶', pot: 4, fifaRank: 80  },
 ];
 
 /** Pool-ready TournamentTeam[] built from the hardcoded fallback list. */

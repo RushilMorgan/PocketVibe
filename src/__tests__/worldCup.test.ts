@@ -441,7 +441,7 @@ describe('NAME_TO_POT lookup', () => {
   it('Argentina is pot 1', () => expect(NAME_TO_POT['argentina']).toBe(1));
   it('France is pot 1',    () => expect(NAME_TO_POT['france']).toBe(1));
   it('Morocco is pot 2',   () => expect(NAME_TO_POT['morocco']).toBe(2));
-  it('Italy is pot 3',     () => expect(NAME_TO_POT['italy']).toBe(3));
+  it('Norway is pot 3',    () => expect(NAME_TO_POT['norway']).toBe(3));
   it('Ghana is pot 4',     () => expect(NAME_TO_POT['ghana']).toBe(4));
 
   it('covers all 48 teams', () => {
@@ -462,8 +462,8 @@ describe('toPoolTeams — pot resolution', () => {
     expect(team.pot).toBe(2);
   });
 
-  it('uses NAME_TO_POT: Italy → pot 3', () => {
-    const [team] = toPoolTeams([{ providerTeamId: 3, name: 'Italy', stage: 'active' }]);
+  it('uses NAME_TO_POT: Norway → pot 3', () => {
+    const [team] = toPoolTeams([{ providerTeamId: 3, name: 'Norway', stage: 'active' }]);
     expect(team.pot).toBe(3);
   });
 
@@ -490,12 +490,12 @@ describe('toPoolTeams — pot resolution', () => {
   it('does NOT return pot 2 for all non-host teams (old derivePot bug)', () => {
     const wcTeams: WorldCupTeam[] = [
       { providerTeamId: 1, name: 'France',  stage: 'active' },
-      { providerTeamId: 2, name: 'Italy',   stage: 'active' },
+      { providerTeamId: 2, name: 'Norway',  stage: 'active' },
       { providerTeamId: 3, name: 'Ghana',   stage: 'active' },
     ];
     const poolTeams = toPoolTeams(wcTeams);
     expect(poolTeams.find(t => t.name === 'France')!.pot).toBe(1);
-    expect(poolTeams.find(t => t.name === 'Italy')!.pot).toBe(3);
+    expect(poolTeams.find(t => t.name === 'Norway')!.pot).toBe(3);
     expect(poolTeams.find(t => t.name === 'Ghana')!.pot).toBe(4);
   });
 });

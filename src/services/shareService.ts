@@ -121,8 +121,9 @@ export async function getSharedCreation(
   url.searchParams.set('shareSlug', shareSlug);
   if (token) url.searchParams.set('token', token);
 
+  // Send the user's JWT so the edge function can recognise signed-in owners as admin.
   const res = await fetch(url.toString(), {
-    headers: authHeaders(),
+    headers: await userAuthHeaders(),
   });
   await requireOk(res);
   return res.json();

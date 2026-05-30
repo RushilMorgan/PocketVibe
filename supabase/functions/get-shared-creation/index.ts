@@ -82,10 +82,22 @@ Deno.serve(async (req: Request) => {
   let accessMode: 'admin' | 'participant' | 'viewer' = 'viewer';
   let participantRef: string | undefined;
 
-  if (token) {
+  // ── 1. JWT-based admin recognition (signed-in creator, no token needed) ──────
+  const authHeader = req.headers.get('authorization') ?? '';
+  const bearerJwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (bearerJwt && row.owner_user_id) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser(bearerJwt);
+      if (user && user.id === row.owner_user_id) {
+        accessMode = 'admin';
+      }
+    } catch { /* not a valid user JWT — fall through */ }
+  }
+
+  // ── 2. Token-based access (admin token in URL, or participant token) ──────────
+  if (accessMode !== 'admin' && token) {
     const tokenHash = await sha256Hex(token);
 
-    // Check admin
     if (safeCompare(tokenHash, row.owner_token_hash)) {
       accessMode = 'admin';
     } else {
@@ -107,7 +119,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // If no valid token resolved and the creation is private, deny access.
+  // If still viewer and the creation is private, deny access.
   if (accessMode === 'viewer' && !row.public_view) {
     return json({ error: 'This creation is private' }, 403);
   }

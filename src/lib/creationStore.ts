@@ -1,5 +1,5 @@
 /**
- * Local persistence for PocketVibe creations.
+ * Local persistence for Hey Toolie creations.
  * Uses localStorage with versioned keys so future schema changes can migrate safely.
  */
 import type { Creation } from '../types';

@@ -24,7 +24,7 @@ export function normalizeGenerateResponse(
 
   // 2. Reject mismatched content.type / creationType
   if (res.content.type !== res.creationType) {
-    console.warn('[PocketVibe] creationType mismatch:', res.creationType, '!==', res.content.type);
+    console.warn('[HeyToolie] creationType mismatch:', res.creationType, '!==', res.content.type);
     return null;
   }
 
@@ -32,14 +32,14 @@ export function normalizeGenerateResponse(
 
   // 3. Strip HTML from user-visible text fields
   if (containsHtmlLikeText(normalized.title)) {
-    console.warn('[PocketVibe] HTML detected in title — replacing');
+    console.warn('[HeyToolie] HTML detected in title — replacing');
     normalized = { ...normalized, title: 'Your creation' };
   }
   if (containsHtmlLikeText(normalized.description)) {
     normalized = { ...normalized, description: '' };
   }
   if (containsHtmlLikeText(normalized.summary)) {
-    console.warn('[PocketVibe] HTML detected in summary — replacing');
+    console.warn('[HeyToolie] HTML detected in summary — replacing');
     normalized = { ...normalized, summary: SAFE_SUMMARY_FALLBACK };
   }
 

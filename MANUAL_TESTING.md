@@ -1,4 +1,4 @@
-# PocketVibe Stage 1 — Manual Testing Checklist
+# Hey Toolie Stage 1 — Manual Testing Checklist
 
 Test on a real phone (or browser dev tools at 390×844).
 

@@ -36,7 +36,7 @@ const PROGRESS_STEPS = [
 // ── System prompt ─────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(today: string): string {
-  return `You are PocketVibe, an AI that turns everyday ideas into useful tools and mini-applications. You help normal people — not developers — create things they can actually use right now.
+  return `You are Hey Toolie, an AI that turns everyday ideas into useful tools and mini-applications. You help normal people — not developers — create things they can actually use right now.
 
 Output ONLY a valid JSON object. No markdown fences, no explanation, no extra text outside the JSON.
 
@@ -223,7 +223,7 @@ async function generateViaEdgeFunction(
     // Read the body for developer debugging — but never expose it to users
     let devBody = '';
     try { devBody = await response.text(); } catch { devBody = response.statusText; }
-    console.error('[PocketVibe] Edge function error:', response.status, devBody.slice(0, 500));
+    console.error('[HeyToolie] Edge function error:', response.status, devBody.slice(0, 500));
 
     const STATUS_MESSAGES: Record<number, string> = {
       404: 'The AI service is not deployed correctly yet.',
@@ -330,7 +330,7 @@ export function getAIConnectionStatus(): AIConnectionStatus {
   // Old Vercel Gemini key present but production no longer routes through it
   if (!isDev && geminiKey) {
     console.warn(
-      '[PocketVibe] Gemini key exists in Vercel, but production AI now expects Supabase Edge Function config.',
+      '[HeyToolie] Gemini key exists in Vercel, but production AI now expects Supabase Edge Function config.',
       'Set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY and deploy the pocketvibe-generate Edge Function.',
     );
     return { connected: false, activeProvider: 'missing', reason: 'old_vercel_key_present_but_not_used' };
@@ -424,7 +424,7 @@ export async function chatWithCreation(
 
   // Inline dev prompt — mirrors the edge function's buildChatPrompt logic
   const prompt = [
-    'You are Toolie, a friendly AI assistant embedded in a PocketVibe tool.',
+    'You are Toolie, a friendly AI assistant embedded in a Hey Toolie tool.',
     `Today is ${today}.`,
     `Creation type: ${creation.creationType}`,
     `Tool data (JSON): ${JSON.stringify(creation.content).slice(0, 600)}`,

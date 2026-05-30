@@ -1,4 +1,4 @@
-# PocketVibe — Deployment Checklist
+# Hey Toolie — Deployment Checklist
 
 ## Which AI setup does this app currently use?
 

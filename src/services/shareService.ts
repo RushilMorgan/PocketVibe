@@ -1,5 +1,5 @@
 /**
- * Client-side service for PocketVibe shared tool operations.
+ * Client-side service for Hey Toolie shared tool operations.
  * All calls go through Supabase Edge Functions; tokens are never stored server-side in raw form.
  */
 import type {

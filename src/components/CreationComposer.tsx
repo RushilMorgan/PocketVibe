@@ -139,7 +139,7 @@ export function CreationComposer({
   const aiStatus = getAIConnectionStatus();
   const context = getContext(activeCreation);
   if (isOpen && !aiStatus.connected) {
-    console.log('[PocketVibe] AI not connected:', aiStatus.reason);
+    console.log('[HeyToolie] AI not connected:', aiStatus.reason);
   }
 
   useEffect(() => {

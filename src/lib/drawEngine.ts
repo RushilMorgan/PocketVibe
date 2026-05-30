@@ -1,38 +1,36 @@
 /**
- * drawEngine — pure, deterministic draw logic for tournament pools.
+ * drawEngine — Fair Seeded Draw for tournament pools.
  *
- * Two modes:
- *  - strict_fair_seeded (default): every participant gets the same number of
- *    teams from each pot. Remainder teams stay unassigned ("bonus pool").
- *  - assign_all_teams: every team is assigned. Remainder Pot 1 teams go to
- *    randomly-selected participants, and a fairness warning is raised.
+ * One algorithm: every team is assigned. Pot 1 is distributed as evenly as
+ * mathematically possible (±1 when counts don't divide evenly). Lower pots are
+ * assigned in rounds so every participant receives an equal share (±1), with
+ * the strongest available teams going to participants who have the least
+ * accumulated strength — compensating participants who missed out on extra Pot 1.
  */
 import type { TournamentTeam, TournamentParticipant } from '../types';
-
-export type DrawMode = 'strict_fair_seeded' | 'assign_all_teams';
 
 export interface PotBreakdown {
   [pot: number]: number;
 }
 
+export interface ParticipantDrawSummary {
+  id: string;
+  totalTeams: number;
+  potBreakdown: PotBreakdown;
+  strengthScore: number;
+}
+
 export interface DrawResult {
-  /** All teams with `assignedTo` updated (unmodified teams keep their value). */
+  /** All teams with `assignedTo` populated — no team is left unassigned. */
   teams: TournamentTeam[];
-  /** Teams that remain unassigned after the draw. */
+  /** Always empty — every team is assigned by the fair draw. */
   unassigned: TournamentTeam[];
   /** participantId → { potNumber: teamCount } */
   potBreakdown: Map<string, PotBreakdown>;
-  /** Non-null in assign_all mode when Pot 1 is uneven. */
+  /** Non-null when Pot 1 cannot divide evenly across participants. */
   fairnessWarning: string | null;
-}
-
-export interface FairnessCheck {
-  /** True when any pot's unassigned team count is not divisible by participantCount. */
-  hasRemainder: boolean;
-  /** Number of Pot 1 teams that would be left unassigned in strict_fair mode. */
-  pot1Remainder: number;
-  /** Total teams that would be left unassigned in strict_fair mode. */
-  strictUnassignedCount: number;
+  /** Per-participant summary after the draw. */
+  participantSummaries: Map<string, ParticipantDrawSummary>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -46,158 +44,150 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/**
+ * Derive a strength score for a team.
+ * Higher = stronger. Pot 1 teams score highest; within a pot, lower FIFA rank = higher score.
+ * Uses `team.strengthScore` if already set; otherwise computes from pot + fifaRank.
+ */
+export function teamStrength(team: TournamentTeam): number {
+  if (team.strengthScore != null) return team.strengthScore;
+  // Pot 1 → base 400, Pot 2 → 300, Pot 3 → 200, Pot 4 → 100
+  const base = Math.max(1, 5 - team.pot) * 100;
+  // FIFA rank bonus: rank 1 = +99, rank 100 = +0 (clamped at 0)
+  const rankBonus = team.fifaRank != null ? Math.max(0, 100 - team.fifaRank) : 50;
+  return base + rankBonus;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Check whether a draw will be perfectly fair (no pot remainder).
- * Call this before running a draw to decide whether to show a warning.
- */
-export function checkDrawFairness(
-  teams: TournamentTeam[],
-  participantCount: number,
-): FairnessCheck {
-  if (participantCount === 0) {
-    return { hasRemainder: false, pot1Remainder: 0, strictUnassignedCount: 0 };
-  }
-
-  const unassigned = teams.filter(t => !t.assignedTo);
-  const pots = [...new Set(unassigned.map(t => t.pot))];
-
-  let hasRemainder = false;
-  let pot1Remainder = 0;
-  let strictUnassignedCount = 0;
-
-  for (const pot of pots) {
-    const count = unassigned.filter(t => t.pot === pot).length;
-    const rem = count % participantCount;
-    if (rem > 0) {
-      hasRemainder = true;
-      strictUnassignedCount += rem;
-    }
-    if (pot === 1) pot1Remainder = rem;
-  }
-
-  return { hasRemainder, pot1Remainder, strictUnassignedCount };
-}
-
-/**
- * Strict Fair Seeded Draw (default).
+ * Run Fair Seeded Draw — the single Toolie draw algorithm.
  *
- * For each pot:
- *   base = floor(potTeams / participantCount)
- *   Every participant receives exactly `base` teams from that pot.
- *   Remainder teams stay unassigned (shown as "bonus pool").
- *
- * Guarantees: no participant ever gets more Pot 1 teams than another.
+ * Steps:
+ *  1. Shuffle teams within each pot; shuffle participants.
+ *  2. Assign Pot 1: every participant gets floor(pot1/n) teams; if there is a
+ *     remainder, a random subset of participants each receive one extra.
+ *  3. Assign Pot 2–4 in rounds (one team per participant per round):
+ *     - Teams are sorted strongest-first.
+ *     - In each round, participants are sorted by current accumulated strength
+ *       ascending so the weakest participant gets the strongest remaining team.
+ *     - Remainder teams (if pot size doesn't divide evenly) go to participants
+ *       with the fewest teams assigned so far (tie: lowest strength first).
+ *  4. Result: no team is left unassigned; each participant's team count differs
+ *     by at most 1; participants who received extra Pot 1 teams are steered
+ *     toward weaker lower-pot allocations.
  */
-export function runStrictFairSeededDraw(
+export function runFairSeededDraw(
   teams: TournamentTeam[],
   participants: TournamentParticipant[],
 ): DrawResult {
   if (participants.length === 0) {
     return {
       teams,
-      unassigned: teams.filter(t => !t.assignedTo),
+      unassigned: [...teams],
       potBreakdown: new Map(),
       fairnessWarning: null,
+      participantSummaries: new Map(),
     };
   }
 
   const n = participants.length;
-  const result: TournamentTeam[] = teams.map(t => ({ ...t }));
+  // Clear any prior assignments so re-runs are idempotent.
+  const result: TournamentTeam[] = teams.map(t => ({ ...t, assignedTo: undefined }));
   const pots = [...new Set(result.map(t => t.pot))].sort((a, b) => a - b);
 
   const potBreakdown = new Map<string, PotBreakdown>();
-  for (const p of participants) potBreakdown.set(p.id, {});
+  const strengthTally = new Map<string, number>(); // accumulated strength per participant
+  const teamCount = new Map<string, number>();      // teams assigned per participant
 
-  for (const pot of pots) {
-    const potTeams = shuffle(result.filter(t => t.pot === pot && !t.assignedTo));
-    const base = Math.floor(potTeams.length / n);
-    if (base === 0) continue; // fewer teams than participants — all stay unassigned
-
-    // Assign in a randomised participant order to avoid position bias
-    const order = shuffle([...participants]);
-    let idx = 0;
-
-    for (const p of order) {
-      for (let j = 0; j < base; j++) {
-        const team = potTeams[idx++];
-        const ri = result.findIndex(t => t.id === team.id);
-        result[ri] = { ...result[ri], assignedTo: p.id };
-        const bd = potBreakdown.get(p.id)!;
-        bd[pot] = (bd[pot] ?? 0) + 1;
-      }
-    }
-    // Remaining potTeams (the remainder) are intentionally left unassigned.
+  for (const p of participants) {
+    potBreakdown.set(p.id, {});
+    strengthTally.set(p.id, 0);
+    teamCount.set(p.id, 0);
   }
-
-  return {
-    teams: result,
-    unassigned: result.filter(t => !t.assignedTo),
-    potBreakdown,
-    fairnessWarning: null,
-  };
-}
-
-/**
- * Assign All Teams Draw.
- *
- * Assigns every unassigned team. Base teams go to everyone equally; remainder
- * teams are distributed round-robin to a random subset of participants.
- * If Pot 1 has a remainder, a fairness warning is included in the result.
- */
-export function runAssignAllDraw(
-  teams: TournamentTeam[],
-  participants: TournamentParticipant[],
-): DrawResult {
-  if (participants.length === 0) {
-    return {
-      teams,
-      unassigned: teams.filter(t => !t.assignedTo),
-      potBreakdown: new Map(),
-      fairnessWarning: null,
-    };
-  }
-
-  const n = participants.length;
-  const result: TournamentTeam[] = teams.map(t => ({ ...t }));
-  const pots = [...new Set(result.map(t => t.pot))].sort((a, b) => a - b);
-
-  const potBreakdown = new Map<string, PotBreakdown>();
-  for (const p of participants) potBreakdown.set(p.id, {});
 
   let pot1Uneven = false;
 
+  function assignTeam(teamId: string, participantId: string) {
+    const ri = result.findIndex(t => t.id === teamId);
+    const team = result[ri];
+    result[ri] = { ...team, assignedTo: participantId };
+    const bd = potBreakdown.get(participantId)!;
+    bd[team.pot] = (bd[team.pot] ?? 0) + 1;
+    strengthTally.set(participantId, (strengthTally.get(participantId) ?? 0) + teamStrength(team));
+    teamCount.set(participantId, (teamCount.get(participantId) ?? 0) + 1);
+  }
+
+  /** Sort participants by strength ascending; ties broken by fewest teams, then original order. */
+  function byStrengthAsc(): TournamentParticipant[] {
+    return [...participants].sort((a, b) => {
+      const sA = strengthTally.get(a.id) ?? 0;
+      const sB = strengthTally.get(b.id) ?? 0;
+      if (sA !== sB) return sA - sB;
+      return (teamCount.get(a.id) ?? 0) - (teamCount.get(b.id) ?? 0);
+    });
+  }
+
+  /** Sort participants by fewest teams ascending; ties broken by lowest strength. */
+  function byTeamCountAsc(): TournamentParticipant[] {
+    return [...participants].sort((a, b) => {
+      const cA = teamCount.get(a.id) ?? 0;
+      const cB = teamCount.get(b.id) ?? 0;
+      if (cA !== cB) return cA - cB;
+      return (strengthTally.get(a.id) ?? 0) - (strengthTally.get(b.id) ?? 0);
+    });
+  }
+
   for (const pot of pots) {
-    const potTeams = shuffle(result.filter(t => t.pot === pot && !t.assignedTo));
-    const base = Math.floor(potTeams.length / n);
-    const rem = potTeams.length % n;
+    const potTeams = shuffle(result.filter(t => t.pot === pot));
 
-    if (pot === 1 && rem > 0) pot1Uneven = true;
+    if (pot === 1) {
+      // Distribute Pot 1 evenly; if there is a remainder, a random subset gets one extra.
+      const shuffledP = shuffle([...participants]);
+      const base = Math.floor(potTeams.length / n);
+      const rem = potTeams.length % n;
+      if (rem > 0) pot1Uneven = true;
 
-    const order = shuffle([...participants]);
-    let idx = 0;
+      let idx = 0;
+      for (const p of shuffledP) {
+        for (let j = 0; j < base; j++) assignTeam(potTeams[idx++].id, p.id);
+      }
+      for (let i = 0; i < rem; i++) assignTeam(potTeams[idx++].id, shuffledP[i].id);
+    } else {
+      // Lower pots: sort teams by strength descending, assign in rounds.
+      // Each round: participant with lowest current strength gets the strongest remaining team.
+      const sorted = [...potTeams].sort((a, b) => teamStrength(b) - teamStrength(a));
+      const base = Math.floor(sorted.length / n);
+      const rem = sorted.length % n;
+      let idx = 0;
 
-    // Base assignment — every participant gets `base` teams from this pot
-    for (const p of order) {
-      for (let j = 0; j < base; j++) {
-        const team = potTeams[idx++];
-        const ri = result.findIndex(t => t.id === team.id);
-        result[ri] = { ...result[ri], assignedTo: p.id };
-        const bd = potBreakdown.get(p.id)!;
-        bd[pot] = (bd[pot] ?? 0) + 1;
+      for (let round = 0; round < base; round++) {
+        // Re-sort each round because assignments in previous rounds change relative strengths.
+        const ordered = byStrengthAsc();
+        for (const p of ordered) {
+          assignTeam(sorted[idx++].id, p.id);
+        }
+      }
+
+      // Remainder: goes to participants with the fewest teams (tie: lowest strength).
+      if (rem > 0) {
+        const ordered = byTeamCountAsc();
+        for (let i = 0; i < rem; i++) {
+          assignTeam(sorted[idx++].id, ordered[i].id);
+        }
       }
     }
+  }
 
-    // Remainder assignment — round-robin to the first `rem` participants in order
-    for (let i = 0; i < rem; i++) {
-      const team = potTeams[idx++];
-      const p = order[i % n];
-      const ri = result.findIndex(t => t.id === team.id);
-      result[ri] = { ...result[ri], assignedTo: p.id };
-      const bd = potBreakdown.get(p.id)!;
-      bd[pot] = (bd[pot] ?? 0) + 1;
-    }
+  // Build per-participant summaries.
+  const participantSummaries = new Map<string, ParticipantDrawSummary>();
+  for (const p of participants) {
+    participantSummaries.set(p.id, {
+      id: p.id,
+      totalTeams: teamCount.get(p.id) ?? 0,
+      potBreakdown: potBreakdown.get(p.id) ?? {},
+      strengthScore: strengthTally.get(p.id) ?? 0,
+    });
   }
 
   return {
@@ -205,7 +195,8 @@ export function runAssignAllDraw(
     unassigned: [],
     potBreakdown,
     fairnessWarning: pot1Uneven
-      ? 'Some participants received more Pot 1 teams than others. The draw assigned all teams.'
+      ? `Some players received extra top-pot teams because ${result.length} teams cannot split perfectly between ${n} people. Toolie balanced the lower pots to keep the draw as fair as possible.`
       : null,
+    participantSummaries,
   };
 }

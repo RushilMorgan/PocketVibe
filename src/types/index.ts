@@ -364,6 +364,9 @@ export interface TournamentTeam {
   pot: number;
   group?: string;
   flagEmoji?: string;
+  fifaRank?: number;
+  /** Computed draw strength — higher = stronger team. Derived from pot + fifaRank if not set. */
+  strengthScore?: number;
   status: TournamentTeamStatus;
   assignedTo?: string;      // participantId
   providerTeamId?: number;  // maps to world_cup_teams.provider_team_id

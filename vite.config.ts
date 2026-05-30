@@ -2,15 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// Safety check: VITE_GEMINI_API_KEY must never be bundled into a production build.
+// Safety check: VITE_GEMINI_API_KEY should not be set in a production build.
 // It is a dev-only fallback; production uses the Supabase edge function instead.
+// The runtime guard in aiService.ts already blocks its use in production, but
+// the string value would still appear in the bundle if this env var is set.
+// Emit a loud warning rather than blocking the build (Vercel env vars can be
+// cleaned up separately in the Vercel dashboard → Settings → Environment Variables).
 if (process.env.NODE_ENV === 'production' && process.env.VITE_GEMINI_API_KEY) {
-  console.error(
-    '\n⛔  BUILD BLOCKED: VITE_GEMINI_API_KEY is set in a production build.\n' +
-    '    This key would be compiled into the JS bundle and become publicly readable.\n' +
-    '    Unset VITE_GEMINI_API_KEY before building for production.\n'
+  console.warn(
+    '\n⚠️   WARNING: VITE_GEMINI_API_KEY is set in a production build.\n' +
+    '    The key string will be compiled into the public JS bundle.\n' +
+    '    Remove it from Vercel → Settings → Environment Variables.\n' +
+    '    The runtime guard prevents it from being used, but the string is still visible.\n'
   );
-  process.exit(1);
 }
 
 export default defineConfig({

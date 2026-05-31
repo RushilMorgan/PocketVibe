@@ -77,7 +77,23 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
     }
   }, [shareSlug, token]);
 
+  // Silent background refresh — no loading flash, just quietly updates data.
+  const silentRefresh = useCallback(async () => {
+    try {
+      const resp = await getSharedCreation(shareSlug, token);
+      setCreation(resp.creation);
+    } catch {
+      // Ignore transient errors during background poll
+    }
+  }, [shareSlug, token]);
+
   useEffect(() => { load(); }, [load]);
+
+  // Poll every 30 seconds so viewers see new results without manually refreshing.
+  useEffect(() => {
+    const id = setInterval(silentRefresh, 30_000);
+    return () => clearInterval(id);
+  }, [silentRefresh]);
 
   const handleChange = useCallback(async (updatedContent: CreationContent) => {
     if (!creation) return;

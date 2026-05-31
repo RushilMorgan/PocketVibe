@@ -2,7 +2,7 @@
  * Read-only + change-request view for Tournament Pool viewers and participants.
  * Admins use the full TournamentPoolRenderer instead.
  *
- * Shows: pool header, your teams, leaderboard, draw results, recent results, scoring.
+ * Shows: pool hero card, your teams, leaderboard, draw results, recent results, scoring.
  * Participants can also submit change requests which the admin can approve/decline.
  */
 import React, { useState, useEffect } from 'react';
@@ -33,8 +33,6 @@ interface Props {
   onUpdate: (updated: TournamentPoolTrackerContent, version: number) => void;
   onRemix?: () => void;
 }
-
-// Score calculation is in src/lib/tournamentScoring.ts
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -77,7 +75,7 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
     return () => { cancelled = true; };
   }, [autoEnabled]);
 
-  // Build leaderboard — use canonical data when auto is enabled, else pool data
+  // Build leaderboard
   const leaderboard: ParticipantScore[] = (() => {
     if (autoEnabled && wcLoaded) {
       const effectiveMatches = buildEffectiveMatches(
@@ -98,11 +96,11 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
     return calcScoresFromPool(content);
   })();
 
-  const myTeams       = participantRef ? content.teams.filter(t => t.assignedTo === participantRef) : [];
-  const me            = participantRef ? content.participants.find(p => p.id === participantRef) : undefined;
-  const hasLiveMatch  = autoEnabled && wcMatches.some(m => m.status === 'live');
+  const myTeams      = participantRef ? content.teams.filter(t => t.assignedTo === participantRef) : [];
+  const me           = participantRef ? content.participants.find(p => p.id === participantRef) : undefined;
+  const hasLiveMatch = autoEnabled && wcMatches.some(m => m.status === 'live');
 
-  // Recent results: canonical (when auto) or pool matches
+  // Recent results
   const recentResults = autoEnabled && wcLoaded
     ? wcMatches
         .filter(m => m.status === 'finished' &&
@@ -163,41 +161,98 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
     }
   }
 
+  const drawStatus = content.drawLocked
+    ? '🔒 Locked'
+    : content.participants.length === 0
+      ? 'No players yet'
+      : 'Pending draw';
+
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl p-5 text-white">
-        <h2 className="text-xl font-bold">{content.poolName}</h2>
-        <p className="text-sm opacity-90 mt-0.5">{content.tournamentName}</p>
-        {content.prizeNote && (
-          <p className="text-xs opacity-80 mt-0.5">🏆 {content.prizeNote}</p>
-        )}
-        {content.drawLocked && (
-          <span className="mt-2 inline-block text-xs bg-white/20 px-2 py-0.5 rounded-full">🔒 Draw locked</span>
-        )}
-        {autoEnabled && (
-          <span className="mt-2 ml-1 inline-block text-xs bg-white/20 px-2 py-0.5 rounded-full">
-            {hasLiveMatch ? '🔴 Live' : '🔄 Auto-results'}
-          </span>
-        )}
+
+      {/* ── Hero card — FIFA dark navy + gold ────────────────────────────────── */}
+      <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-1 ring-yellow-400/35">
+        <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-5 overflow-hidden">
+
+          {/* Stadium arc decorations */}
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-96 h-48 rounded-t-full border-2 border-white/10 pointer-events-none" />
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-60 h-28 rounded-t-full border border-white/10 pointer-events-none" />
+          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full border-4 border-white/5 pointer-events-none" />
+
+          {/* Top row: host flags + status badges */}
+          <div className="relative z-10 flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+              <span className="text-sm leading-none">🇺🇸</span>
+              <span className="text-sm leading-none">🇨🇦</span>
+              <span className="text-sm leading-none">🇲🇽</span>
+              <span className="text-xs text-white/60 font-semibold ml-1">2026</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {autoEnabled && (
+                <span className="text-xs font-black bg-white/10 text-white/70 px-2.5 py-1 rounded-full">
+                  {hasLiveMatch ? '🔴 Live' : '🔄 Auto'}
+                </span>
+              )}
+              <span className="text-xs font-black bg-yellow-400 text-slate-900 px-3 py-1 rounded-full tracking-widest uppercase">
+                FIFA 2026
+              </span>
+            </div>
+          </div>
+
+          {/* Trophy + pool name */}
+          <div className="relative z-10 flex items-center gap-3 mb-4">
+            <span className="text-5xl leading-none flex-shrink-0">🏆</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <div className="h-px w-6 bg-yellow-400" />
+                <div className="h-px w-3 bg-yellow-400/40" />
+              </div>
+              <h2 className="truncate text-xl font-black text-white">{content.poolName}</h2>
+              <p className="text-yellow-400 text-xs font-semibold tracking-wide uppercase mt-0.5">{content.tournamentName}</p>
+            </div>
+          </div>
+
+          {/* Stats grid */}
+          <div className="relative z-10 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Draw</p>
+              <p className="font-bold text-white text-sm">{drawStatus}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Players</p>
+              <p className="font-bold text-white text-sm">{content.participants.length}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Teams</p>
+              <p className="font-bold text-white text-sm">{content.teams.filter(t => t.assignedTo).length}/{content.teams.length}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
+              <p className="text-white/50 text-xs mb-0.5">Results</p>
+              <p className="font-bold text-white text-sm">{recentResults.length} logged</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Your teams */}
+      {/* ── Your teams (participant view) ─────────────────────────────────────── */}
       {me && myTeams.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Your teams</p>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-2xl">{me.emoji ?? '👤'}</span>
-            <span className="font-semibold text-gray-800">{me.name}</span>
+        <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+          <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+            <span className="text-base">{me.emoji ?? '👤'}</span>
+            <h3 className="text-sm font-black text-white tracking-wide">Your teams — {me.name}</h3>
           </div>
-          <div className="space-y-2">
+          <div className="bg-white divide-y divide-gray-50">
             {myTeams.map(team => (
-              <div key={team.id} className="flex items-center justify-between py-2 px-3 bg-yellow-50 rounded-xl">
+              <div key={team.id} className="flex items-center justify-between px-4 py-3">
                 <span className="text-sm font-medium text-gray-800">
                   {team.flagEmoji ?? ''} {team.name}
                   <span className="ml-2 text-xs text-gray-400 font-normal">Pot {team.pot}</span>
                 </span>
-                <span className="text-xs font-medium text-gray-600">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  team.status === 'winner' ? 'bg-yellow-100 text-yellow-700' :
+                  team.status === 'eliminated' ? 'bg-gray-100 text-gray-400' :
+                  'bg-blue-50 text-blue-600'
+                }`}>
                   {STATUS_LABEL[team.status] ?? team.status}
                 </span>
               </div>
@@ -206,53 +261,64 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
         </div>
       )}
 
-      {/* Leaderboard */}
+      {/* ── Leaderboard ───────────────────────────────────────────────────────── */}
       {leaderboard.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Leaderboard</p>
-          <div className="space-y-2">
-            {leaderboard.map((score, i) => (
-              <div
-                key={score.participant.id}
-                className={`flex items-center gap-3 py-2 px-3 rounded-xl ${
-                  score.participant.id === participantRef ? 'bg-yellow-50' : ''
-                }`}
-              >
-                <span className="text-lg w-6 text-center flex-shrink-0">
-                  {i < 3 ? MEDAL[i] : `#${i + 1}`}
-                </span>
-                <span className="text-xl flex-shrink-0">{score.participant.emoji ?? '👤'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">
-                    {score.participant.name}
-                    {score.participant.id === participantRef && (
-                      <span className="ml-1 text-xs text-yellow-600">(you)</span>
-                    )}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">
-                    {score.teams.map(t => `${t.flagEmoji ?? ''} ${t.name}`).join(' · ') || 'No teams yet'}
-                  </p>
+        <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+          <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+            <span className="text-base">🏆</span>
+            <h3 className="text-sm font-black text-white tracking-wide">Leaderboard</h3>
+          </div>
+          <div className="bg-white divide-y divide-gray-50">
+            {leaderboard.map((score, i) => {
+              const isMe = score.participant.id === participantRef;
+              const topThree = score.teams
+                .slice(0, 3)
+                .map(t => `${t.flagEmoji ?? ''} ${t.name}`.trim())
+                .join(' · ');
+              return (
+                <div
+                  key={score.participant.id}
+                  className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-yellow-50' : ''}`}
+                >
+                  <span className="w-6 text-center text-base flex-shrink-0">
+                    {i < 3 ? MEDAL[i] : `#${i + 1}`}
+                  </span>
+                  <span className="w-8 text-center text-xl flex-shrink-0">{score.participant.emoji ?? '👤'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {score.participant.name}
+                      {isMe && <span className="ml-1 text-xs text-yellow-600 font-normal">(you)</span>}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">{topThree || 'No teams yet'}</p>
+                  </div>
+                  <span className="text-sm font-black text-yellow-500 flex-shrink-0">{score.points} pts</span>
                 </div>
-                <span className="text-sm font-bold text-gray-800 flex-shrink-0">{score.points} pts</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Full draw results */}
+      {/* ── All draws ─────────────────────────────────────────────────────────── */}
       {content.drawLocked && content.participants.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">All draws</p>
-          <div className="space-y-2">
+        <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+          <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+            <span className="text-base">🎲</span>
+            <h3 className="text-sm font-black text-white tracking-wide">Draw results</h3>
+          </div>
+          <div className="bg-white divide-y divide-gray-50">
             {content.participants.map(p => {
               const theirTeams = content.teams.filter(t => t.assignedTo === p.id);
+              const isMe = p.id === participantRef;
               return (
-                <div key={p.id} className="flex items-start gap-3 py-1.5">
+                <div key={p.id} className={`flex items-start gap-3 px-4 py-3 ${isMe ? 'bg-yellow-50' : ''}`}>
                   <span className="text-xl flex-shrink-0">{p.emoji ?? '👤'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{p.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {p.name}
+                      {isMe && <span className="ml-1 text-xs text-yellow-600 font-normal">(you)</span>}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {theirTeams.length > 0
                         ? theirTeams.map(t => `${t.flagEmoji ?? ''} ${t.name}`).join(', ')
                         : 'No teams drawn yet'}
@@ -265,20 +331,23 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
         </div>
       )}
 
-      {/* Recent results */}
+      {/* ── Recent results ────────────────────────────────────────────────────── */}
       {recentResults.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Recent results</p>
-          <div className="space-y-2">
+        <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+          <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+            <span className="text-base">⚽</span>
+            <h3 className="text-sm font-black text-white tracking-wide">Recent results</h3>
+          </div>
+          <div className="bg-white divide-y divide-gray-50">
             {recentResults.map(m => (
-              <div key={m.id} className="flex items-center justify-between py-1.5 text-sm gap-2">
-                <span className="flex-1 text-right text-gray-800 truncate">{m.labelA}</span>
-                <span className="font-bold text-gray-700 tabular-nums flex-shrink-0 px-1">
+              <div key={m.id} className="flex items-center gap-2 px-4 py-3">
+                <span className="flex-1 text-right text-sm text-gray-800 truncate">{m.labelA}</span>
+                <span className="font-black text-gray-700 tabular-nums flex-shrink-0 text-sm px-2">
                   {m.scoreA} – {m.scoreB}
                 </span>
-                <span className="flex-1 text-gray-800 truncate">{m.labelB}</span>
+                <span className="flex-1 text-sm text-gray-800 truncate">{m.labelB}</span>
                 {m.isManual && (
-                  <span className="text-xs text-amber-500 flex-shrink-0" title="Manual override">✏️</span>
+                  <span className="text-xs text-amber-500 flex-shrink-0" title="Manual entry">✏️</span>
                 )}
               </div>
             ))}
@@ -286,94 +355,104 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
         </div>
       )}
 
-      {/* Scoring breakdown */}
-      <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Scoring</p>
-        <div className="space-y-1 text-xs text-gray-600">
-          <p>⚽ Win: {content.scoringRules.pointsPerWin} pts · Draw: {content.scoringRules.pointsPerDraw} pt</p>
+      {/* ── Scoring rules ─────────────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+        <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+          <span className="text-base">📊</span>
+          <h3 className="text-sm font-black text-white tracking-wide">Scoring</h3>
+        </div>
+        <div className="bg-white px-4 py-3 space-y-1.5 text-xs text-gray-600">
+          <p>⚽ Win: <span className="font-semibold text-gray-800">{content.scoringRules.pointsPerWin} pts</span> · Draw: <span className="font-semibold text-gray-800">{content.scoringRules.pointsPerDraw} pt</span></p>
           {content.scoringRules.knockoutBonus > 0 && (
-            <p>🔥 Knockout bonus: +{content.scoringRules.knockoutBonus}</p>
+            <p>🔥 Knockout bonus: <span className="font-semibold text-gray-800">+{content.scoringRules.knockoutBonus}</span></p>
           )}
           {content.scoringRules.semiFinalBonus > 0 && (
-            <p>🔥 Semi-final bonus: +{content.scoringRules.semiFinalBonus}</p>
+            <p>🔥 Semi-final bonus: <span className="font-semibold text-gray-800">+{content.scoringRules.semiFinalBonus}</span></p>
           )}
           {content.scoringRules.winnerBonus > 0 && (
-            <p>🏆 Tournament winner bonus: +{content.scoringRules.winnerBonus}</p>
+            <p>🏆 Tournament winner: <span className="font-semibold text-gray-800">+{content.scoringRules.winnerBonus}</span></p>
+          )}
+          {content.rulesNote && (
+            <p className="mt-2 text-gray-500 italic">{content.rulesNote}</p>
           )}
         </div>
-        {content.rulesNote && (
-          <p className="mt-2 text-xs text-gray-500 italic">{content.rulesNote}</p>
-        )}
       </div>
 
-      {/* Make my own version (viewers only) */}
+      {/* ── Make my own version (viewers only) ───────────────────────────────── */}
       {accessMode === 'viewer' && onRemix && (
-        <div className="bg-violet-50 rounded-2xl border border-violet-100 p-4 flex flex-col gap-2">
-          <p className="text-sm font-semibold text-violet-800">Like this pool?</p>
-          <p className="text-xs text-violet-600">
-            Make your own private copy with the same teams, participants, and scoring rules.
-          </p>
+        <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/35">
+          <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 px-4 pt-4 pb-3">
+            <p className="text-sm font-black text-white mb-0.5">Like this pool?</p>
+            <p className="text-xs text-white/50">
+              Make your own private copy with the same teams, participants, and scoring — opens in a new tab.
+            </p>
+          </div>
           <button
             data-testid="remix-btn"
             onClick={onRemix}
-            className="w-full bg-violet-600 text-white text-sm font-semibold rounded-xl py-3 active:bg-violet-700"
+            className="w-full bg-yellow-400 text-slate-900 text-sm font-black py-3.5 active:bg-yellow-300 transition-colors"
           >
-            Make my own version
+            Make my own version ✨
           </button>
         </div>
       )}
 
-      {/* Suggest a change (participant only) */}
+      {/* ── Suggest a change (participant only) ──────────────────────────────── */}
       {accessMode === 'participant' && token && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Suggest a change</p>
-          {submitSuccess && (
-            <div className="flex items-center gap-2 text-xs text-green-600 mb-2">
-              <span>✓</span>
-              <span>Request sent to admin for review</span>
-            </div>
-          )}
-          {!changeRequestOpen ? (
-            <button
-              data-testid="suggest-change-btn"
-              onClick={() => setChangeRequestOpen(true)}
-              className="w-full text-sm text-gray-500 font-medium border border-dashed border-gray-300 rounded-xl py-2.5 active:bg-gray-50"
-            >
-              ✏️ Suggest a change to the admin
-            </button>
-          ) : (
-            <div className="space-y-2">
-              {submitError && <p className="text-xs text-red-500">{submitError}</p>}
-              <textarea
-                data-testid="change-request-input"
-                value={changeDescription}
-                onChange={e => setChangeDescription(e.target.value)}
-                placeholder="e.g. Brazil beat Japan 3-1, not 2-1 / My team name is wrong"
-                rows={3}
-                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
-              />
-              <div className="flex gap-2">
-                <button
-                  data-testid="submit-change-request-btn"
-                  onClick={submitChangeRequest}
-                  disabled={submitting || !changeDescription.trim()}
-                  className="flex-1 bg-yellow-500 text-white text-sm font-semibold rounded-xl py-2.5 active:bg-yellow-600 disabled:opacity-50"
-                >
-                  {submitting ? 'Sending…' : 'Send to admin'}
-                </button>
-                <button
-                  onClick={() => {
-                    setChangeRequestOpen(false);
-                    setChangeDescription('');
-                    setSubmitError(null);
-                  }}
-                  className="px-4 bg-gray-100 text-gray-600 text-sm rounded-xl active:bg-gray-200"
-                >
-                  Cancel
-                </button>
+        <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-yellow-400/20">
+          <div className="bg-gradient-to-r from-slate-900 to-blue-950 px-4 py-3 flex items-center gap-2">
+            <span className="text-base">✏️</span>
+            <h3 className="text-sm font-black text-white tracking-wide">Suggest a change</h3>
+          </div>
+          <div className="bg-white p-4">
+            {submitSuccess && (
+              <div className="flex items-center gap-2 text-xs text-green-600 mb-3 bg-green-50 px-3 py-2 rounded-xl">
+                <span>✓</span>
+                <span>Request sent to admin for review</span>
               </div>
-            </div>
-          )}
+            )}
+            {!changeRequestOpen ? (
+              <button
+                data-testid="suggest-change-btn"
+                onClick={() => setChangeRequestOpen(true)}
+                className="w-full text-sm text-gray-500 font-medium border border-dashed border-gray-200 rounded-xl py-3 active:bg-gray-50"
+              >
+                ✏️ Suggest a change to the admin
+              </button>
+            ) : (
+              <div className="space-y-3">
+                {submitError && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-xl">{submitError}</p>}
+                <textarea
+                  data-testid="change-request-input"
+                  value={changeDescription}
+                  onChange={e => setChangeDescription(e.target.value)}
+                  placeholder="e.g. Brazil beat Japan 3-1, not 2-1 / My team name is wrong"
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    data-testid="submit-change-request-btn"
+                    onClick={submitChangeRequest}
+                    disabled={submitting || !changeDescription.trim()}
+                    className="flex-1 bg-yellow-400 text-slate-900 text-sm font-black rounded-xl py-2.5 active:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {submitting ? 'Sending…' : 'Send to admin'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChangeRequestOpen(false);
+                      setChangeDescription('');
+                      setSubmitError(null);
+                    }}
+                    className="px-4 bg-gray-100 text-gray-600 text-sm rounded-xl active:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -125,7 +125,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
     const existing = loadCreations();
     saveCreations([...existing, remixedCreation]);
     saveActiveCreationId(newId);
-    window.location.href = '/';
+    // Open the main app in a new tab so the shared page stays visible for reference
+    window.open('/', '_blank');
   }, [creation]);
 
   // ── Badge ─────────────────────────────────────────────────────────────────

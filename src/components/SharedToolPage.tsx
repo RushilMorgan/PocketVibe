@@ -120,6 +120,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       createdAt: Date.now(),
       updatedAt: Date.now(),
       content: remixContent(creation.content, creation.creationType),
+      // Keep a reference so the user can navigate back to the original shared pool
+      remixSourceUrl: `${window.location.origin}/s/${shareSlug}`,
     };
 
     const existing = loadCreations();

@@ -49,6 +49,7 @@ const STATUS_LABEL: Record<string, string> = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TournamentPoolReadView({ content, accessMode, participantRef, shareSlug, token, onUpdate, onRemix }: Props) {
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [changeRequestOpen, setChangeRequestOpen] = useState(false);
   const [changeDescription, setChangeDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -168,6 +169,7 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
       : 'Pending draw';
 
   return (
+    <>
     <div className="flex flex-col gap-4 p-4">
 
       {/* ── Hero card — FIFA dark navy + gold ────────────────────────────────── */}
@@ -276,9 +278,10 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
                 .map(t => `${t.flagEmoji ?? ''} ${t.name}`.trim())
                 .join(' · ');
               return (
-                <div
+                <button
                   key={score.participant.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-yellow-50' : ''}`}
+                  onClick={() => setSelectedParticipantId(score.participant.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left active:bg-yellow-50/60 transition-colors ${isMe ? 'bg-yellow-50' : ''}`}
                 >
                   <span className="w-6 text-center text-base flex-shrink-0">
                     {i < 3 ? MEDAL[i] : `#${i + 1}`}
@@ -291,8 +294,13 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
                     </p>
                     <p className="text-xs text-gray-400 truncate">{topThree || 'No teams yet'}</p>
                   </div>
-                  <span className="text-sm font-black text-yellow-500 flex-shrink-0">{score.points} pts</span>
-                </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-sm font-black text-yellow-500">{score.points} pts</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </div>
+                </button>
               );
             })}
           </div>
@@ -456,5 +464,105 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
         </div>
       )}
     </div>
+
+    {/* ── Participant detail sheet ───────────────────────────────────────────── */}
+    {selectedParticipantId && (() => {
+      const selected = leaderboard.find(s => s.participant.id === selectedParticipantId);
+      if (!selected) return null;
+      const rank = leaderboard.findIndex(s => s.participant.id === selectedParticipantId);
+      const isMe = selected.participant.id === participantRef;
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          onClick={() => setSelectedParticipantId(null)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+          {/* Sheet */}
+          <div
+            className="relative bg-white w-full rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+            </div>
+
+            {/* Dark navy hero header */}
+            <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 px-5 py-5 overflow-hidden">
+              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-64 h-16 rounded-t-full border border-white/10 pointer-events-none" />
+              <div className="relative z-10 flex items-center gap-4">
+                <span className="text-5xl leading-none">{selected.participant.emoji ?? '👤'}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div className="h-px w-6 bg-yellow-400" />
+                    <div className="h-px w-3 bg-yellow-400/40" />
+                  </div>
+                  <h3 className="text-xl font-black text-white truncate">
+                    {selected.participant.name}
+                    {isMe && <span className="ml-2 text-sm font-semibold text-yellow-400">(you)</span>}
+                  </h3>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-yellow-400 text-sm font-black">{selected.points} pts</span>
+                    <span className="text-white/40 text-xs">
+                      {rank < 3 ? MEDAL[rank] : `#${rank + 1}`} place
+                    </span>
+                    <span className="text-white/40 text-xs">{selected.teams.length} teams</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Teams list */}
+            <div className="px-5 py-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400 mb-3">Their teams</p>
+              {selected.teams.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No teams drawn yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {selected.teams.map(team => (
+                    <div
+                      key={team.id}
+                      className="flex items-center justify-between py-3 px-4 rounded-2xl bg-gray-50 border border-gray-100"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-2xl flex-shrink-0">{team.flagEmoji ?? '🏳'}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{team.name}</p>
+                          <p className="text-xs text-gray-400">Pot {team.pot}{team.group ? ` · Group ${team.group}` : ''}</p>
+                        </div>
+                      </div>
+                      <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ml-3 ${
+                        team.status === 'winner'     ? 'bg-yellow-100 text-yellow-700' :
+                        team.status === 'final'      ? 'bg-blue-100 text-blue-700' :
+                        team.status === 'semi_final' ? 'bg-indigo-100 text-indigo-700' :
+                        team.status === 'quarter_final' ? 'bg-violet-100 text-violet-700' :
+                        team.status === 'round_of_16'   ? 'bg-emerald-100 text-emerald-700' :
+                        team.status === 'eliminated' ? 'bg-gray-100 text-gray-400 line-through' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {STATUS_LABEL[team.status] ?? team.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Close button */}
+            <div className="px-5 pb-8 pt-1">
+              <button
+                onClick={() => setSelectedParticipantId(null)}
+                className="w-full py-3 rounded-2xl bg-slate-900 text-white text-sm font-black active:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+    </>
   );
 }

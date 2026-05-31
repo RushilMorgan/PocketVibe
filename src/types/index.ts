@@ -531,6 +531,8 @@ export interface Creation {
   shareSlug?: string;      // set once the creation has been shared
   /** Supabase user ID of the owner. Set client-side after auth + share. */
   ownerUserId?: string;
+  /** Full URL of the shared pool this was remixed from (e.g. /s/abc123). Set at remix time. */
+  remixSourceUrl?: string;
 }
 
 // ── Sharing ───────────────────────────────────────────────────────────────────

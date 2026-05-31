@@ -209,6 +209,24 @@ export default function App() {
 
         {view === 'creation' && (
           <div className="flex flex-col h-full overflow-hidden relative">
+            {/* Remix source banner — links back to the shared pool this was copied from */}
+            {activeCreation?.remixSourceUrl && (
+              <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-slate-900 rounded-xl flex-shrink-0">
+                <span className="text-yellow-400 text-xs">🏆</span>
+                <p className="text-xs text-white/60 flex-1 truncate">
+                  Your copy — <span className="text-white/80 font-semibold">original pool still live</span>
+                </p>
+                <a
+                  href={activeCreation.remixSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-black text-yellow-400 flex-shrink-0 active:opacity-70"
+                >
+                  View original →
+                </a>
+              </div>
+            )}
+
             {/* Summary banner — only for new creations (version 1).
                 For improve/add flows the verified outcome is in the messages thread. */}
             {activeCreation?.status === 'ready' && activeCreation.summary &&

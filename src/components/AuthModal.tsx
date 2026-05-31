@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { UseAuthReturn } from '../hooks/useAuth';
+import { trackSignIn } from '../lib/analytics';
 
 // ── Variant messaging ─────────────────────────────────────────────────────────
 
@@ -106,8 +107,9 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
 
   async function handleGoogle() {
     setError(null);
+    trackSignIn('google');
     const { error: err } = await auth.signInWithGoogle();
-    if (err) setError(err);
+    if (err) { setError(err); }
     // On success, browser will redirect — no onSuccess call needed here
   }
 
@@ -127,6 +129,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
     if (err) {
       setError(err);
     } else {
+      trackSignIn('magic_link');
       setMagicSent(true);
     }
   }
@@ -150,6 +153,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
       if (err) {
         setError(err);
       } else {
+        trackSignIn('password');
         onSuccess();
       }
     }

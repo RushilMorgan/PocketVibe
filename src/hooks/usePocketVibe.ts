@@ -26,6 +26,13 @@ import {
   upsertCreation,
   deleteCreationById,
 } from '../lib/creationStore';
+import {
+  trackCreationStarted,
+  trackCreationCompleted,
+  trackCreationImproved,
+  trackWorldCupPoolCreated,
+  trackCreationDeleted,
+} from '../lib/analytics';
 
 // ── Initial state ─────────────────────────────────────────────────────────────
 
@@ -397,6 +404,7 @@ export function usePocketVibe(userId?: string) {
       };
 
       dispatch({ type: 'UPSERT_CREATION', payload: finishedCreation });
+      trackCreationCompleted(finishedCreation.creationType, finishedCreation.version);
 
       // For new creations the AI summary is descriptive. For improve/add we
       // compose the message from the verified outcome — not from AI text.
@@ -501,6 +509,7 @@ export function usePocketVibe(userId?: string) {
       return;
     }
 
+    trackCreationStarted('unknown', userRequest);
     dispatch({ type: 'CLEAR_MESSAGES' });
     const locale = {
       date: new Date().toISOString().slice(0, 10),
@@ -513,6 +522,7 @@ export function usePocketVibe(userId?: string) {
     const pending = stateRef.current.pendingAction;
     if (!pending || pending.type !== 'new-creation') return;
     dispatch({ type: 'SET_PENDING_ACTION', payload: null });
+    trackCreationStarted('unknown', pending.request);
     dispatch({ type: 'CLEAR_MESSAGES' });
     const locale = {
       date: new Date().toISOString().slice(0, 10),
@@ -581,6 +591,7 @@ export function usePocketVibe(userId?: string) {
       });
       return;
     }
+    trackCreationImproved(mode === 'add' ? 'add' : 'improve');
     const locale = {
       date: new Date().toISOString().slice(0, 10),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -607,6 +618,8 @@ export function usePocketVibe(userId?: string) {
   // ── Creation management ───────────────────────────────────────────────────────
 
   const deleteCreation = useCallback((id: string) => {
+    const toDelete = stateRef.current.creations.find(c => c.id === id);
+    if (toDelete) trackCreationDeleted(toDelete.creationType);
     dispatch({ type: 'DELETE_CREATION', payload: id });
   }, []);
 
@@ -652,6 +665,7 @@ export function usePocketVibe(userId?: string) {
   const createWorldCupPool = useCallback(async () => {
     if (stateRef.current.isGenerating) return;
 
+    trackWorldCupPoolCreated();
     dispatch({ type: 'CLEAR_MESSAGES' });
     dispatch({ type: 'SET_GENERATING', payload: true });
     dispatch({ type: 'SET_PROCESSING_STATUS', payload: 'Loading World Cup teams…' });

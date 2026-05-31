@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { trackSharedPageViewed, trackRemixClicked } from '../lib/analytics';
 import type {
   AccessMode,
   SharedCreationData,
@@ -71,6 +72,7 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       setAccessMode(resp.accessMode);
       setParticipantRef(resp.participantRef);
       setPhase('ready');
+      trackSharedPageViewed(resp.creation.creationType, resp.accessMode);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Could not load this tool.');
       setPhase('error');
@@ -122,6 +124,7 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
   const handleRemix = useCallback(() => {
     if (!creation) return;
+    trackRemixClicked(creation.creationType, shareSlug);
 
     const newId = `remix-${Date.now()}`;
     const remixedCreation: Creation = {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Creation } from '../types';
 import type { WorkoutTrackerContent } from '../types';
+import { trackShareLinkCreated } from '../lib/analytics';
 import {
   createSharedCreation,
   getStoredAdminToken,
@@ -56,6 +57,7 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
       setShareSlugState(result.shareSlug);
       setAdminTokenState(result.adminToken);
       setPhase('done');
+      trackShareLinkCreated(creation.creationType);
       onCreationShared?.(result.shareSlug);
       // Associate with account if signed in
       if (isLoggedIn) {

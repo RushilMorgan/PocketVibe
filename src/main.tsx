@@ -1,8 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import { initAnalytics } from './lib/analytics';
 import App from './App';
 import { SharedToolPage } from './components/SharedToolPage';
+
+initAnalytics();
 
 function Router() {
   const pathname = window.location.pathname;

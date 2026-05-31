@@ -12,6 +12,15 @@ import { usePocketVibe } from './hooks/usePocketVibe';
 import { useAuth } from './hooks/useAuth';
 import type { AuthModalVariant } from './components/AuthModal';
 import { formatCreationSummary } from './lib/creationSummary';
+import {
+  identifyUser,
+  resetUser,
+  trackSharePanelOpened,
+  trackShareLinkCreated,
+  trackSignIn,
+  trackSignOut,
+  trackWorldCupPoolCreated,
+} from './lib/analytics';
 
 export default function App() {
   const auth = useAuth();
@@ -89,6 +98,8 @@ export default function App() {
    */
   async function handleSignOut() {
     const signedOutUserId = auth.user?.id;
+    trackSignOut();
+    resetUser();
     await auth.signOut();
     if (signedOutUserId) {
       signOutReset(signedOutUserId);
@@ -241,7 +252,7 @@ export default function App() {
               <div className="mx-4 mt-2 flex-shrink-0 flex gap-2">
                 <button
                   data-testid="share-creation-btn"
-                  onClick={() => setSharePanelOpen(true)}
+                  onClick={() => { setSharePanelOpen(true); if (activeCreation) trackSharePanelOpened(activeCreation.creationType); }}
                   className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   ✨ Share link
@@ -371,6 +382,8 @@ export default function App() {
           onSuccess={() => {
             setAuthModalOpen(false);
             dismissSaveNudge();
+            // Identify the newly signed-in user in PostHog
+            if (auth.user) identifyUser(auth.user.id, auth.user.email);
             if (authModalVariant === 'share') {
               // Signed in during share flow → go straight back to share panel
               setSharePanelOpen(true);

@@ -5,7 +5,7 @@
 import posthog from 'posthog-js';
 
 const TOKEN = 'phc_zTwjCNMorG8XaXpgHqhZNkufHT8tcAb3Z63NYfCp5pdY';
-const API_HOST = 'https://eu.i.posthog.com'; // EU region — change to https://us.i.posthog.com if your project is US
+const API_HOST = 'https://us.i.posthog.com';
 
 export function initAnalytics() {
   if (typeof window === 'undefined') return;

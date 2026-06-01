@@ -489,4 +489,38 @@ describe('shareService', () => {
     const { getSharedCreation } = await import('../services/shareService');
     await expect(getSharedCreation('bad-slug')).rejects.toThrow('Shared creation not found');
   });
+
+  it('claimStoredCreations claims every locally-stored admin token', async () => {
+    // Two tools shared while signed out — both have admin tokens in localStorage.
+    localStorage.setItem('pv_admin_tokens', JSON.stringify({
+      slugA: 'tokenA',
+      slugB: 'tokenB',
+    }));
+
+    const { supabase } = await import('../lib/supabaseClient');
+    const rpc = vi.spyOn(supabase!, 'rpc').mockResolvedValue({ data: true, error: null } as any);
+
+    const { claimStoredCreations } = await import('../services/shareService');
+    const claimed = await claimStoredCreations();
+
+    expect(claimed).toBe(2);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledWith('claim_creation', { p_share_slug: 'slugA', p_admin_token: 'tokenA' });
+    expect(rpc).toHaveBeenCalledWith('claim_creation', { p_share_slug: 'slugB', p_admin_token: 'tokenB' });
+
+    localStorage.removeItem('pv_admin_tokens');
+  });
+
+  it('claimStoredCreations is a no-op when there are no stored tokens', async () => {
+    localStorage.removeItem('pv_admin_tokens');
+
+    const { supabase } = await import('../lib/supabaseClient');
+    const rpc = vi.spyOn(supabase!, 'rpc');
+
+    const { claimStoredCreations } = await import('../services/shareService');
+    const claimed = await claimStoredCreations();
+
+    expect(claimed).toBe(0);
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

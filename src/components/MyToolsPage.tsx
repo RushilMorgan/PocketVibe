@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { AuthUser } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import { getStoredAdminToken } from '../services/shareService';
+import { getStoredAdminToken, claimStoredCreations } from '../services/shareService';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,18 +63,33 @@ export function MyToolsPage({ user, onSignOut, onBack }: MyToolsPageProps) {
       return;
     }
 
-    supabase
-      .from('shared_creations')
-      .select('id, share_slug, title, creation_type, created_at, updated_at, public_view')
-      .order('updated_at', { ascending: false })
-      .then(({ data, error: err }) => {
-        if (err) {
-          setError('Could not load your tools.');
-        } else {
-          setTools(data ?? []);
-        }
-        setLoading(false);
-      });
+    let cancelled = false;
+
+    async function loadTools() {
+      // Tools shared while signed out have owner_user_id = NULL and would never
+      // show up here. Claim any creations we hold admin tokens for first, so
+      // they get associated with this account before we query.
+      await claimStoredCreations();
+      if (cancelled || !supabase) return;
+
+      const { data, error: err } = await supabase
+        .from('shared_creations')
+        .select('id, share_slug, title, creation_type, created_at, updated_at, public_view')
+        .eq('owner_user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (cancelled) return;
+      if (err) {
+        setError('Could not load your tools.');
+      } else {
+        setTools(data ?? []);
+      }
+      setLoading(false);
+    }
+
+    loadTools();
+
+    return () => { cancelled = true; };
   }, [user.id]);
 
   function openTool(tool: MyTool) {

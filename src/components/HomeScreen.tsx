@@ -8,6 +8,8 @@ interface HomeScreenProps {
   onCreateWorldCupPool?: () => void;
   /** Shown as a subtle sign-in link when provided. */
   onSignIn?: () => void;
+  /** Opens the Toolie chat sheet from the home screen. */
+  onOpenChat?: () => void;
 }
 
 // ── Card data ─────────────────────────────────────────────────────────────────
@@ -24,7 +26,7 @@ const PARTNER_CHALLENGE = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn }: HomeScreenProps) {
+export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn, onOpenChat }: HomeScreenProps) {
   const [input, setInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -341,7 +343,11 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
 
         {/* ── Toolie nudge ─────────────────────────────────────────────────── */}
         <div className="px-4 pb-5">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950 border border-white/5">
+          <button
+            onClick={onOpenChat}
+            disabled={!onOpenChat}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950 border border-white/5 active:bg-gray-900 transition-colors text-left"
+          >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
               style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 2px 12px rgba(124,58,237,0.4)' }}
@@ -353,7 +359,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
               <p className="text-xs text-white/45 mt-0.5">Just tell Toolie — it can build almost anything.</p>
             </div>
             <span className="text-white/30 text-sm flex-shrink-0">→</span>
-          </div>
+          </button>
         </div>
 
         {/* ── How it works ─────────────────────────────────────────────────── */}

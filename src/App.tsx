@@ -88,6 +88,7 @@ export default function App() {
     () => Boolean(localStorage.getItem('pv_save_nudge_dismissed'))
   );
   const [pendingToolAction, setPendingToolAction] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
 
@@ -215,6 +216,7 @@ export default function App() {
             isGenerating={isGenerating}
             onCreateWorldCupPool={createWorldCupPool}
             onSignIn={auth.isAvailable && !auth.user && !auth.loading ? () => openAuthModal('account') : undefined}
+            onOpenChat={() => setComposerOpen(true)}
           />
         )}
 
@@ -306,13 +308,15 @@ export default function App() {
         {/* Toolie FAB + sheet — shown on home and creation views */}
         {(view === 'home' || view === 'creation') && (
           <CreationComposer
-            activeCreation={activeCreation}
-            messages={messages}
+            activeCreation={view === 'home' ? null : activeCreation}
+            messages={view === 'home' ? [] : messages}
             isGenerating={isGenerating}
             processingStatus={processingStatus}
             onNew={startNewCreation}
             onImprove={(req) => improveCreation(req, 'improve')}
             onAdd={(req) => improveCreation(req, 'add')}
+            open={composerOpen}
+            onOpenChange={setComposerOpen}
             onChat={chatMessage}
             onToolAction={setPendingToolAction}
           />

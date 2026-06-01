@@ -13,6 +13,9 @@ interface CreationComposerProps {
   /** Fast chat path: Q&A or modification routing for an active creation. */
   onChat?: (request: string) => void;
   onToolAction?: (actionId: string) => void;
+  /** Controlled open state — parent can force the sheet open (e.g. from a tile tap). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface ContextSuggestion {
@@ -170,8 +173,15 @@ export function CreationComposer({
   onAdd: _onAdd,
   onChat,
   onToolAction,
+  open: controlledOpen,
+  onOpenChange,
 }: CreationComposerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  function setIsOpen(val: boolean) {
+    setInternalOpen(val);
+    onOpenChange?.(val);
+  }
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

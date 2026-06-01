@@ -35,6 +35,7 @@ const SUPPORTED_TYPES = [
   'checklist', 'habit_tracker', 'budget_calculator', 'savings_tracker',
   'landing_page', 'event_planner', 'meal_planner', 'workout_tracker',
   'price_calculator', 'task_planner', 'tournament_pool_tracker',
+  'idea_thinking_board',
 ] as const;
 type SupportedType = typeof SUPPORTED_TYPES[number];
 
@@ -102,6 +103,19 @@ function getVisibleSignature(content: Record<string, unknown>): string {
       matches: (content.matches as Array<{teamAId:string;teamBId:string;scoreA?:number;scoreB?:number}> ?? []).map(m => ({ teamAId: m.teamAId, teamBId: m.teamBId, scoreA: m.scoreA ?? '', scoreB: m.scoreB ?? '' })),
       drawLocked: content.drawLocked,
       scoringRules: content.scoringRules,
+    });
+  }
+  if (type === 'idea_thinking_board') {
+    return JSON.stringify({
+      title: content.title,
+      ideaSummary: content.ideaSummary,
+      problem: content.problem,
+      solution: content.solution,
+      scores: content.scores,
+      risks: (content.risks as Array<{title:string;severity:string;note:string}> ?? []).map(r => ({ title: r.title, severity: r.severity, note: r.note })),
+      moneyIdeas: (content.moneyIdeas as Array<{model:string;note:string;confidence:number}> ?? []).map(m => ({ model: m.model, note: m.note, confidence: m.confidence })),
+      nextSteps: (content.nextSteps as Array<{label:string;done:boolean}> ?? []).map(s => ({ label: s.label, done: s.done })),
+      notes: content.notes ?? '',
     });
   }
   return JSON.stringify(content);
@@ -175,7 +189,8 @@ function buildIntentPrompt(body: Record<string, unknown>, today: string): string
 - workout_tracker: gym plans, exercise routines, fitness goals
 - price_calculator: quotes, estimates, invoices, price lists, service calculators
 - task_planner: project management, work tasks, weekly or daily planning
-- tournament_pool_tracker: private family/friend/office tournament pools and draws, World Cup sweepstakes, team draws with seeded pots`;
+- tournament_pool_tracker: private family/friend/office tournament pools and draws, World Cup sweepstakes, team draws with seeded pots
+- idea_thinking_board: brainstorming or thinking through a business idea, app idea, side hustle, product, service, or creative concept — any request to explore, evaluate, structure, or improve an idea`;
 
   const parts: string[] = [];
   parts.push(`Today: ${today}`);
@@ -267,7 +282,8 @@ Use this exact structure:
 
 SUPPORTED CREATION TYPES:
 checklist, habit_tracker, budget_calculator, savings_tracker, landing_page,
-event_planner, meal_planner, workout_tracker, price_calculator, task_planner, tournament_pool_tracker
+event_planner, meal_planner, workout_tracker, price_calculator, task_planner, tournament_pool_tracker,
+idea_thinking_board
 
 CONTENT FORMATS:
 checklist: { "type":"checklist","sections":[{"id":"s1","title":"Section Name","items":[{"id":"i1","label":"Item","checked":false}]}] }
@@ -281,6 +297,7 @@ workout_tracker (challenge mode): { "type":"workout_tracker","planName":"Partner
 workout_tracker (basic plan): { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
 price_calculator: { "type":"price_calculator","title":"Service Quote","currency":"R","description":"Quote for services","lineItems":[{"id":"li1","label":"Service name","quantity":1,"unitPrice":500,"category":"Services"},{"id":"li2","label":"Additional item","quantity":2,"unitPrice":150,"category":"Materials"}],"taxRate":15,"notes":"" }
 task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"sec1","title":"This week","tasks":[{"id":"t1","label":"Task","priority":"medium","done":false,"dueDate":""}]}] }
+idea_thinking_board: { "type":"idea_thinking_board","title":"Idea Title","ideaSummary":"A 2-3 sentence summary of what the idea is.","problem":"The specific problem this solves.","solution":"How this idea solves the problem.","whyNow":"Why this is the right moment.","targetUsers":[{"id":"u1","name":"Young professionals","need":"A faster way to X","whyTheyCare":"They currently waste time on Y"},{"id":"u2","name":"Small business owners","need":"Affordable solution for Z","whyTheyCare":"Existing tools cost too much"}],"risks":[{"id":"r1","title":"People already use WhatsApp groups for this","severity":"medium","note":"The free and familiar alternative is hard to beat without a strong value add."},{"id":"r2","title":"Hard to get first users","severity":"high","note":"Without an existing network, early traction will be slow."}],"opportunities":[{"id":"o1","title":"No good mobile-first option exists","note":"Most competitors are desktop-only."}],"moneyIdeas":[{"id":"m1","model":"Monthly subscription","note":"Charge R99/month for premium features. Free tier to get users in.","confidence":7},{"id":"m2","model":"Once-off purchase","note":"Sell a one-time licence for R499. Simpler, no recurring billing needed.","confidence":5}],"scores":{"clarity":7,"usefulness":8,"easeToBuild":5,"moneyPotential":6,"riskLevel":6,"confidence":7},"nextSteps":[{"id":"ns1","label":"Talk to 5 people who might use this","done":false},{"id":"ns2","label":"Build a simple demo in a weekend","done":false},{"id":"ns3","label":"Post about it and see who responds","done":false}],"visualMap":{"center":"Your Idea","branches":[{"id":"b1","label":"Problem","items":["Who suffers","How bad is it","Current workarounds"]},{"id":"b2","label":"Users","items":["Main user type","Secondary users","Who pays"]},{"id":"b3","label":"Solution","items":["Core feature","What makes it different","Simplest version"]},{"id":"b4","label":"Money","items":["Main revenue model","Price point","Who pays"]},{"id":"b5","label":"Risks","items":["Biggest threat","Hardest part","What could fail"]},{"id":"b6","label":"Next steps","items":["Test this week","Build first","Validate before building"]}]},"notes":"" }
 tournament_pool_tracker: { "type":"tournament_pool_tracker","poolName":"World Cup Family Pool","tournamentName":"FIFA World Cup 2026","prizeNote":"Winner gets bragging rights!","adminName":"You","rulesNote":"Each person draws one team from each pot","participants":[{"id":"p1","name":"Alice","emoji":"⭐"},{"id":"p2","name":"Bob","emoji":"🎯"},{"id":"p3","name":"Carol","emoji":"🌟"},{"id":"p4","name":"Dave","emoji":"⚡"}],"teams":[{"id":"t1","name":"Brazil","pot":1,"group":"D","flagEmoji":"🇧🇷","status":"active"},{"id":"t2","name":"France","pot":1,"group":"A","flagEmoji":"🇫🇷","status":"active"},{"id":"t3","name":"Argentina","pot":1,"group":"C","flagEmoji":"🇦🇷","status":"active"},{"id":"t4","name":"England","pot":1,"group":"B","flagEmoji":"🏴","status":"active"},{"id":"t5","name":"Netherlands","pot":2,"group":"E","flagEmoji":"🇳🇱","status":"active"},{"id":"t6","name":"Portugal","pot":2,"group":"H","flagEmoji":"🇵🇹","status":"active"},{"id":"t7","name":"Belgium","pot":2,"group":"F","flagEmoji":"🇧🇪","status":"active"},{"id":"t8","name":"Spain","pot":2,"group":"G","flagEmoji":"🇪🇸","status":"active"}],"matches":[],"drawLocked":false,"scoringRules":{"pointsPerWin":3,"pointsPerDraw":1,"knockoutBonus":5,"quarterFinalBonus":10,"semiFinalBonus":15,"finalBonus":20,"winnerBonus":50} }
 
 RULES:
@@ -297,7 +314,8 @@ RULES:
 - If the user asks for an app or tool, pick the closest structured type
 - Never return raw HTML — always use a structured creationType from the list above
 - If the user mentions World Cup, tournament pool, sweepstake, seeded pots, or team draw, use tournament_pool_tracker
-- For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.`;
+- For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.
+- For idea_thinking_board: use plain friendly language. Never use "market validation", "go-to-market", or "customer segmentation". Say "Who is this for?", "What problem does it solve?", "Why would people pay?". All scores must be 1-10 integers. Always include at least 2 risks, 2 money ideas, 2 target users, 3 next steps, and a visual map with 5-6 branches.`;
 }
 
 function buildBuilderMessage(

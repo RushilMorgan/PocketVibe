@@ -92,6 +92,7 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
   task_planner: ['edit_labels', 'add_items', 'delete_items', 'toggle_items'],
   landing_page: ['edit_page_fields', 'edit_labels'],
   tournament_pool_tracker: ['edit_labels', 'add_items', 'delete_items', 'log_activity', 'edit_participants', 'edit_scoring_rules'],
+  idea_thinking_board: ['edit_labels', 'add_items', 'delete_items', 'edit_notes'],
 };
 
 export function getSupportedCapabilities(type: CreationType): CreationCapability[] {
@@ -135,6 +136,7 @@ export function isRendererAlreadyEditable(
     'landing_page',
     'checklist',
     'tournament_pool_tracker',
+    'idea_thinking_board',
   ];
   if (!fullyEditable.includes(creationType)) return false;
   if (supported.length < 3) return false;
@@ -165,6 +167,8 @@ export function getEditableRedirectMessage(creationType: CreationType): string {
       "Tap 'Edit page' to change your business name, tagline, features, and contact details.",
     checklist:
       "Tap 'Edit list' to rename, add, or delete items and sections.",
+    idea_thinking_board:
+      "Tap 'Edit idea' to update any section — the title, summary, risks, money ideas, next steps, and scores are all editable.",
   };
   return (
     messages[creationType] ??

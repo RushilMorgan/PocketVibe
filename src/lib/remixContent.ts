@@ -23,5 +23,14 @@ export function remixContent(content: CreationContent, creationType: string): Cr
     base.drawLocked = false;
   }
 
+  if (creationType === 'idea_thinking_board') {
+    // Reset next-step completion state so the remixer starts fresh
+    if (Array.isArray(base.nextSteps)) {
+      base.nextSteps = (base.nextSteps as Array<{ done: boolean }>).map(s => ({ ...s, done: false }));
+    }
+    // Clear personal notes
+    base.notes = '';
+  }
+
   return base as unknown as CreationContent;
 }

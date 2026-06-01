@@ -124,7 +124,8 @@ export type CreationType =
   | 'workout_tracker'
   | 'price_calculator'
   | 'task_planner'
-  | 'tournament_pool_tracker';
+  | 'tournament_pool_tracker'
+  | 'idea_thinking_board';
 
 export type CreationStatus = 'generating' | 'ready' | 'error';
 
@@ -497,6 +498,77 @@ export interface TournamentPoolTrackerContent {
   colourTheme?: ColourTheme;
 }
 
+// ── Idea Thinking Board ───────────────────────────────────────────────────────
+
+export interface IdeaTargetUser {
+  id: string;
+  name: string;
+  need: string;
+  whyTheyCare: string;
+}
+
+export interface IdeaRisk {
+  id: string;
+  title: string;
+  severity: 'low' | 'medium' | 'high';
+  note: string;
+}
+
+export interface IdeaOpportunity {
+  id: string;
+  title: string;
+  note: string;
+}
+
+export interface IdeaMoneyModel {
+  id: string;
+  model: string;
+  note: string;
+  confidence: number; // 1–10
+}
+
+export interface IdeaNextStep {
+  id: string;
+  label: string;
+  done: boolean;
+}
+
+export interface IdeaScores {
+  clarity: number;        // 1–10
+  usefulness: number;     // 1–10
+  easeToBuild: number;    // 1–10
+  moneyPotential: number; // 1–10
+  riskLevel: number;      // 1–10 (lower = safer)
+  confidence: number;     // 1–10
+}
+
+export interface IdeaMapBranch {
+  id: string;
+  label: string;
+  items: string[];
+}
+
+export interface IdeaThinkingBoardContent {
+  type: 'idea_thinking_board';
+  title: string;
+  ideaSummary: string;
+  problem: string;
+  solution: string;
+  whyNow?: string;
+  targetUsers: IdeaTargetUser[];
+  risks: IdeaRisk[];
+  opportunities: IdeaOpportunity[];
+  moneyIdeas: IdeaMoneyModel[];
+  scores: IdeaScores;
+  nextSteps: IdeaNextStep[];
+  visualMap: {
+    center: string;
+    branches: IdeaMapBranch[];
+  };
+  notes: string;
+  theme?: string;
+}
+
 // ── Content union ─────────────────────────────────────────────────────────────
 
 export type CreationContent =
@@ -510,7 +582,8 @@ export type CreationContent =
   | WorkoutTrackerContent
   | PriceCalculatorContent
   | TaskPlannerContent
-  | TournamentPoolTrackerContent;
+  | TournamentPoolTrackerContent
+  | IdeaThinkingBoardContent;
 
 // ── Creation entity ────────────────────────────────────────────────────────────
 

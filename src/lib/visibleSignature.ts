@@ -22,6 +22,7 @@ import type {
   WorkoutTrackerContent,
   TaskPlannerContent,
   TournamentPoolTrackerContent,
+  IdeaThinkingBoardContent,
 } from '../types';
 
 export function getCreationVisibleSignature(creation: Creation): string {
@@ -52,6 +53,8 @@ export function getContentVisibleSignature(content: CreationContent): string {
       return taskSignature(content as TaskPlannerContent);
     case 'tournament_pool_tracker':
       return tournamentSignature(content as TournamentPoolTrackerContent);
+    case 'idea_thinking_board':
+      return ideaBoardSignature(content as IdeaThinkingBoardContent);
     default:
       // For all other types use full content serialization
       return JSON.stringify(content);
@@ -178,6 +181,21 @@ function taskSignature(c: TaskPlannerContent): string {
       title: s.title,
       tasks: s.tasks.map(t => ({ label: t.label, priority: t.priority, done: t.done, dueDate: t.dueDate ?? '' })),
     })),
+  });
+}
+
+function ideaBoardSignature(c: IdeaThinkingBoardContent): string {
+  return JSON.stringify({
+    title: c.title,
+    ideaSummary: c.ideaSummary,
+    problem: c.problem,
+    solution: c.solution,
+    scores: c.scores,
+    risks: c.risks.map(r => ({ title: r.title, severity: r.severity, note: r.note })),
+    moneyIdeas: c.moneyIdeas.map(m => ({ model: m.model, note: m.note, confidence: m.confidence })),
+    targetUsers: c.targetUsers.map(u => ({ name: u.name, need: u.need })),
+    nextSteps: c.nextSteps.map(s => ({ label: s.label, done: s.done })),
+    notes: c.notes,
   });
 }
 

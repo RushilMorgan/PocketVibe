@@ -11,6 +11,7 @@ import { WorkoutTrackerRenderer } from './WorkoutTrackerRenderer';
 import { TaskPlannerRenderer } from './TaskPlannerRenderer';
 import { PriceCalculatorRenderer } from './PriceCalculatorRenderer';
 import { TournamentPoolRenderer } from './TournamentPoolRenderer';
+import { IdeaThinkingBoardRenderer } from './IdeaThinkingBoardRenderer';
 
 interface TemplateRendererProps {
   creation: Creation;
@@ -73,6 +74,9 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
 
       case 'tournament_pool_tracker':
         return <TournamentPoolRenderer content={content} onChange={handleChange} onShare={onShare} hasShareLink={hasShareLink} pendingLocalAction={pendingLocalAction} onLocalActionConsumed={onLocalActionConsumed} />;
+
+      case 'idea_thinking_board':
+        return <IdeaThinkingBoardRenderer content={content} onChange={handleChange} />;
 
       default:
         return (

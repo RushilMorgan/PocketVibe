@@ -23,6 +23,7 @@ const TYPE_EMOJI: Record<CreationType, string> = {
   price_calculator: '🧾',
   task_planner: '📌',
   tournament_pool_tracker: '🏆',
+  idea_thinking_board: '💡',
 };
 
 const TYPE_LABEL: Record<CreationType, string> = {
@@ -37,6 +38,7 @@ const TYPE_LABEL: Record<CreationType, string> = {
   price_calculator: 'Price calculator',
   task_planner: 'Task planner',
   tournament_pool_tracker: 'Tournament pool',
+  idea_thinking_board: 'Idea board',
 };
 
 function timeAgo(ms: number): string {

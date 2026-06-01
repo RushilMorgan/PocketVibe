@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { ChatMessage, Creation, TournamentPoolTrackerContent, WorkoutTrackerContent } from '../types';
+import type { ChatMessage, Creation, TournamentPoolTrackerContent, WorkoutTrackerContent, IdeaThinkingBoardContent } from '../types';
 import { getAIConnectionStatus } from '../services/aiService';
 
 interface CreationComposerProps {
@@ -86,6 +86,57 @@ function buildChallengeSuggestions(creation: Creation): ContextSuggestion[] {
   ];
 }
 
+function buildIdeaBoardSuggestions(creation: Creation): ContextSuggestion[] {
+  const content = creation.content as IdeaThinkingBoardContent;
+  const hasRisks = content.risks.length > 0;
+  const hasMoney = content.moneyIdeas.length > 0;
+  const hasSteps = content.nextSteps.length > 0;
+  const lowConfidence = content.scores.confidence <= 4;
+  const highRisk = content.scores.riskLevel >= 7;
+  const lowMoney = content.scores.moneyPotential <= 4;
+
+  if (highRisk) {
+    return [
+      { id: 'safer-version', label: 'Make a safer first version', prompt: 'Make a safer, lower-risk first version of this idea.' },
+      { id: 'find-risks', label: 'Show me the biggest risks', prompt: 'Show me the biggest risks with this idea and how to avoid them.' },
+      { id: 'test-plan', label: 'Create a 7-day test plan', prompt: 'Create a 7-day test plan to quickly find out if this idea works.' },
+    ];
+  }
+
+  if (lowMoney && !hasMoney) {
+    return [
+      { id: 'money-ideas', label: 'Find ways to make money', prompt: 'Find stronger ways this idea could make money.' },
+      { id: 'make-simpler', label: 'Make it simpler', prompt: 'Make this idea simpler and more focused.' },
+      { id: 'test-plan', label: 'Create a 7-day test plan', prompt: 'Create a 7-day test plan for this idea.' },
+    ];
+  }
+
+  if (!hasSteps) {
+    return [
+      { id: 'test-plan', label: 'Create a 7-day test plan', prompt: 'Create a 7-day action plan to test this idea quickly.' },
+      { id: 'first-version', label: 'What to build first', prompt: 'What is the simplest first version of this idea I could build this week?' },
+      { id: 'make-realistic', label: 'Make it more realistic', prompt: 'Make this idea more realistic and practical.' },
+    ];
+  }
+
+  if (lowConfidence) {
+    return [
+      { id: 'make-clearer', label: 'Make the idea clearer', prompt: 'Make this idea clearer and easier to explain to someone.' },
+      { id: 'find-risks', label: 'Find the hard truths', prompt: 'What are the honest problems with this idea that I should know now?' },
+      { id: 'simpler', label: 'Simpler version', prompt: 'Create a much simpler version of this idea I could start this weekend.' },
+    ];
+  }
+
+  return [
+    { id: 'improve-idea', label: 'Improve this idea', prompt: 'Improve this idea and make it stronger.' },
+    { id: 'test-plan', label: 'Create a 7-day test plan', prompt: 'Create a 7-day test plan for this idea.' },
+    !hasRisks
+      ? { id: 'find-risks', label: 'Find the risks', prompt: 'Find the biggest risks and hard truths about this idea.' }
+      : { id: 'compare', label: 'Compare two versions', prompt: 'Create two different versions of this idea and compare them.' },
+    { id: 'launch-checklist', label: 'Turn into a launch plan', prompt: 'Turn this idea into a step-by-step launch checklist.' },
+  ];
+}
+
 // ── Home-screen nudges ────────────────────────────────────────────────────────
 // Shown inside the Toolie sheet when no creation is active yet.
 // Ordered from flagship → broad, so users see the best examples first.
@@ -152,6 +203,15 @@ function getContext(activeCreation: Creation | null): {
       subtitle: 'Log activity, check progress, adjust scoring…',
       placeholder: 'Ask about logging, scoring, sharing, or progress…',
       suggestions: buildChallengeSuggestions(activeCreation),
+    };
+  }
+
+  if (activeCreation.content.type === 'idea_thinking_board') {
+    return {
+      title: 'Ask Toolie about this idea',
+      subtitle: 'Improve it, find risks, create a plan…',
+      placeholder: 'Make it simpler, find risks, build a plan…',
+      suggestions: buildIdeaBoardSuggestions(activeCreation),
     };
   }
 

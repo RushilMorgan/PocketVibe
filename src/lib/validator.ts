@@ -12,6 +12,7 @@ const SUPPORTED_TYPES = new Set<CreationType>([
   'price_calculator',
   'task_planner',
   'tournament_pool_tracker',
+  'idea_thinking_board',
   // generative_html is intentionally excluded — AI must not return raw HTML
 ]);
 
@@ -89,6 +90,12 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       if (!Array.isArray(content.participants)) errors.push('Tournament pool requires participants array');
       if (!Array.isArray(content.teams)) errors.push('Tournament pool requires teams array');
       if (!Array.isArray(content.matches)) errors.push('Tournament pool requires matches array');
+      break;
+    case 'idea_thinking_board':
+      // Lenient: coercion fills missing arrays/objects, so only require the essentials.
+      if (typeof content.ideaSummary !== 'string') errors.push('Idea board requires an ideaSummary string');
+      if (!content.scores || typeof content.scores !== 'object') errors.push('Idea board requires a scores object');
+      if (!content.visualMap || typeof content.visualMap !== 'object') errors.push('Idea board requires a visualMap object');
       break;
   }
   return errors;
@@ -173,6 +180,25 @@ export function normalizeContentFields(content: Record<string, unknown>): void {
     }
   }
 
+  if (type === 'idea_thinking_board') {
+    const clamp = (v: unknown, d: number) =>
+      typeof v === 'number' && !Number.isNaN(v) ? Math.max(1, Math.min(10, Math.round(v))) : d;
+    const sc = (content.scores ?? {}) as Record<string, unknown>;
+    content.scores = {
+      clarity:        clamp(sc.clarity, 5),
+      usefulness:     clamp(sc.usefulness, 5),
+      easeToBuild:    clamp(sc.easeToBuild, 5),
+      moneyPotential: clamp(sc.moneyPotential, 5),
+      riskLevel:      clamp(sc.riskLevel, 5),
+      confidence:     clamp(sc.confidence, 5),
+    };
+    const vm = (content.visualMap ?? {}) as Record<string, unknown>;
+    content.visualMap = {
+      center: typeof vm.center === 'string' && vm.center ? vm.center : (typeof content.title === 'string' ? content.title : 'Your idea'),
+      branches: Array.isArray(vm.branches) ? vm.branches : [],
+    };
+  }
+
   if (type === 'tournament_pool_tracker') {
     if (!Array.isArray(content.participants)) content.participants = [];
     if (!Array.isArray(content.teams))        content.teams = [];
@@ -210,6 +236,17 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
   if (type === 'workout_tracker' && !Array.isArray(content.days) && !content.challengeMode && !Array.isArray(content.participants)) content.days = [];
   if (type === 'task_planner' && !Array.isArray(content.sections)) content.sections = [];
   if (type === 'landing_page' && !Array.isArray(content.features)) content.features = [];
+  if (type === 'idea_thinking_board') {
+    if (!Array.isArray(content.targetUsers))   content.targetUsers = [];
+    if (!Array.isArray(content.risks))         content.risks = [];
+    if (!Array.isArray(content.opportunities)) content.opportunities = [];
+    if (!Array.isArray(content.moneyIdeas))    content.moneyIdeas = [];
+    if (!Array.isArray(content.nextSteps))     content.nextSteps = [];
+    if (typeof content.ideaSummary !== 'string') content.ideaSummary = '';
+    if (typeof content.problem !== 'string')     content.problem = '';
+    if (typeof content.solution !== 'string')    content.solution = '';
+    if (typeof content.notes !== 'string')       content.notes = '';
+  }
 
   // Always normalize sub-object fields (scoringRules etc.) regardless of type
   normalizeContentFields(content);

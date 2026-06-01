@@ -1,5 +1,38 @@
 # Hey Toolie — Tech Stack & Rules
 
+> ⚠️ **WE ARE LIVE IN PRODUCTION WITH REAL CLIENT DATA.** The rules in the
+> "Data Safety" section below override convenience, speed, and any other goal.
+> When in doubt, stop and ask.
+
+## 🔒 Data Safety (non-negotiable)
+
+These rules apply to **production data** — the Supabase database (`shared_creations`,
+`shared_participants`, `daily_usage`, etc.), users' localStorage creations, auth
+accounts, and anything else holding real user data.
+
+1. **Never delete or remove user data.** No `DROP TABLE`, `DROP COLUMN`,
+   `TRUNCATE`, `DELETE FROM`, destructive `UPDATE`, or removing/renaming columns
+   that hold data. This includes "cleanup" of rows that look unused.
+2. **Never run a destructive or schema-altering migration without explicit
+   approval.** New additive migrations (new tables, new nullable columns, new
+   functions/indexes) are fine; anything that changes or removes existing
+   columns/tables/data must be confirmed first.
+3. **Stop and check with the user BEFORE doing anything that could touch, alter,
+   or risk user data — even indirectly.** If a change *might* affect production
+   data, describe exactly what it would do and wait for a clear "yes" before
+   acting. Err on the side of asking.
+4. **Prefer reversible, additive changes.** Add new fields/tables rather than
+   modifying existing ones. Keep old data intact alongside new structures.
+5. **Migrations are forward-only in prod.** Never roll back or reset the remote
+   database. To fix a mistake, write a new additive migration.
+6. **Backfills and data transforms** (any bulk write to existing rows) require
+   explicit approval and, where possible, a dry-run/preview of affected rows first.
+
+If a task seems to require any of the above, do **not** proceed silently — surface
+it to the user, explain the data impact, and ask how they want to handle it.
+
+---
+
 ## Hosting & Deployment
 
 ### Vercel

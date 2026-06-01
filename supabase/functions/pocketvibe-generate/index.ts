@@ -6,6 +6,7 @@
 // @ts-nocheck — Deno runtime file; VS Code TS errors here are false positives.
 // deno-lint-ignore-file
 import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.24.1';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +29,136 @@ function isRateLimited(ip: string): boolean {
   if (entry.count >= MAX_REQUESTS_PER_WINDOW) return true;
   entry.count++;
   return false;
+}
+
+// ── Daily quota config ─────────────────────────────────────────────────────────
+// Single source of truth for usage limits. Adding a paid tier later is just a new
+// entry here plus returning it from resolveTier(). Two budgets are tracked:
+//   generation = new / improve / add (the expensive full pipeline)
+//   chat       = the lighter Q&A path
+// Tune these numbers freely — they take effect on the next function deploy.
+type QuotaTier = 'anonymous' | 'free' | 'pro';
+type QuotaKind = 'generation' | 'chat';
+
+const QUOTAS: Record<QuotaTier, Record<QuotaKind, number>> = {
+  anonymous: { generation: 3,   chat: 5 },
+  free:      { generation: 15,  chat: 40 },
+  pro:       { generation: 200, chat: 1000 },
+};
+
+/**
+ * Resolve a user's tier. Today: signed-in = 'free', anonymous = 'anonymous'.
+ * PAID SEAM: when subscriptions land, look up the user's plan here and return
+ * 'pro' for active subscribers — nothing else in the pipeline needs to change.
+ */
+function resolveTier(userId: string | null): QuotaTier {
+  if (!userId) return 'anonymous';
+  return 'free';
+}
+
+/** Next UTC midnight as an ISO string — when the daily counters reset. */
+function nextResetIso(): string {
+  const now = new Date();
+  const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+  return reset.toISOString();
+}
+
+interface Identity {
+  identifier: string;        // user UUID, or 'ip:1.2.3.4'
+  identifierType: 'user' | 'ip';
+  tier: QuotaTier;
+}
+
+/**
+ * Identify the caller. A verified Supabase user token (sent in x-pv-user-token)
+ * wins; otherwise we fall back to the client IP. The token is VERIFIED via the
+ * admin client, so a user can't spoof someone else's id to drain their quota.
+ */
+async function getIdentity(req: Request, supabaseAdmin: unknown): Promise<Identity> {
+  const token = req.headers.get('x-pv-user-token');
+  if (token && supabaseAdmin) {
+    try {
+      const { data } = await (supabaseAdmin as any).auth.getUser(token);
+      if (data?.user?.id) {
+        return { identifier: data.user.id, identifierType: 'user', tier: resolveTier(data.user.id) };
+      }
+    } catch { /* fall through to IP */ }
+  }
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  return { identifier: `ip:${ip}`, identifierType: 'ip', tier: 'anonymous' };
+}
+
+interface QuotaResult {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+  tier: QuotaTier;
+  kind: QuotaKind;
+  resetsAt: string;
+  degraded?: boolean;
+}
+
+/**
+ * Atomically check + increment the daily counter for this identity & kind.
+ * Fails OPEN on a DB error (allows the request): the per-minute burst limiter
+ * and the Google billing cap remain as backstops, so a transient DB blip should
+ * not block legitimate users.
+ */
+async function enforceQuota(
+  supabaseAdmin: unknown,
+  identity: Identity,
+  kind: QuotaKind,
+): Promise<QuotaResult> {
+  const limit = QUOTAS[identity.tier][kind];
+  const resetsAt = nextResetIso();
+
+  if (!supabaseAdmin) {
+    // No DB configured (e.g. local dev without service role) — don't block.
+    return { allowed: true, used: 0, limit, remaining: limit, tier: identity.tier, kind, resetsAt, degraded: true };
+  }
+
+  try {
+    const { data, error } = await (supabaseAdmin as any).rpc('increment_daily_usage', {
+      p_identifier: identity.identifier,
+      p_identifier_type: identity.identifierType,
+      p_kind: kind,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    const used = row?.used ?? 0;
+    return {
+      allowed: Boolean(row?.allowed),
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+      tier: identity.tier,
+      kind,
+      resetsAt,
+    };
+  } catch (e) {
+    console.error('[quota] increment_daily_usage failed (failing open):', e);
+    return { allowed: true, used: 0, limit, remaining: limit, tier: identity.tier, kind, resetsAt, degraded: true };
+  }
+}
+
+/** Shape attached to successful responses so the client can show remaining counts. */
+function usagePayload(r: QuotaResult) {
+  return { kind: r.kind, used: r.used, limit: r.limit, remaining: r.remaining, tier: r.tier, resetsAt: r.resetsAt };
+}
+
+/** 429 body the client recognises as a quota stop (distinct from the burst limiter). */
+function quotaExceededResponse(r: QuotaResult): Response {
+  return new Response(JSON.stringify({
+    error: 'quota_exceeded',
+    kind: r.kind,
+    used: r.used,
+    limit: r.limit,
+    remaining: 0,
+    tier: r.tier,
+    resetsAt: r.resetsAt,
+  }), { status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 }
 
 // ── Supported types ────────────────────────────────────────────────────────────
@@ -659,6 +790,15 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // ── Daily quota: admin client + identity ──────────────────────────────────────
+  // Service role bypasses RLS so the counter table is read/written here only.
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseAdmin = (supabaseUrl && serviceRoleKey)
+    ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+    : null;
+  const identity = await getIdentity(req, supabaseAdmin);
+
   let body: Record<string, unknown>;
   try {
     body = await req.json() as Record<string, unknown>;
@@ -710,19 +850,23 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // ── Daily chat quota ──────────────────────────────────────────────────────
+    const chatQuota = await enforceQuota(supabaseAdmin, identity, 'chat');
+    if (!chatQuota.allowed) return quotaExceededResponse(chatQuota);
+
     const chatPrompt = buildChatPrompt(creationType, content, userMessage, today);
     const chatModel = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
     try {
       const result = await chatModel.generateContent(chatPrompt);
       const raw = result.response.text().trim();
       if (raw === 'ACTION:MODIFY') {
-        return new Response(JSON.stringify({ action: 'modify' }), {
+        return new Response(JSON.stringify({ action: 'modify', usage: usagePayload(chatQuota) }), {
           status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         });
       }
       // Strip any accidental ACTION:MODIFY prefix from a verbose response
       const answer = raw.replace(/^ACTION:MODIFY\s*/i, '').trim() || "I'm not sure — try asking in a different way.";
-      return new Response(JSON.stringify({ answer }), {
+      return new Response(JSON.stringify({ answer, usage: usagePayload(chatQuota) }), {
         status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     } catch (e) {
@@ -732,6 +876,10 @@ Deno.serve(async (req: Request) => {
       });
     }
   }
+  // ── Daily generation quota ────────────────────────────────────────────────────
+  const genQuota = await enforceQuota(supabaseAdmin, identity, 'generation');
+  if (!genQuota.allowed) return quotaExceededResponse(genQuota);
+
   const currentCreation = body.currentCreation as Record<string, unknown> | undefined;
   const oldContent = (currentCreation?.content as Record<string, unknown> | undefined) ?? null;
   const oldSig = oldContent ? getVisibleSignature(oldContent) : null;
@@ -869,7 +1017,9 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Step 7: Final response assembly ──────────────────────────────────────
-  const responseBody = changeReport ? { ...parsed, changeReport } : parsed;
+  const responseBody = changeReport
+    ? { ...parsed, changeReport, usage: usagePayload(genQuota) }
+    : { ...parsed, usage: usagePayload(genQuota) };
 
   return new Response(JSON.stringify(responseBody), {
     status: 200,

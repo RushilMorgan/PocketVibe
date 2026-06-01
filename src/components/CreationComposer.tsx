@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ChatMessage, Creation, TournamentPoolTrackerContent, WorkoutTrackerContent, IdeaThinkingBoardContent } from '../types';
 import { getAIConnectionStatus } from '../services/aiService';
+import { useUsage } from '../hooks/useUsage';
+import { formatRemainingLabel, formatResetHint } from '../lib/quotaMessage';
 
 interface CreationComposerProps {
   activeCreation: Creation | null;
@@ -16,6 +18,10 @@ interface CreationComposerProps {
   /** Controlled open state — parent can force the sheet open (e.g. from a tile tap). */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Whether the current user is signed in (drives the limit-reached upsell). */
+  isSignedIn?: boolean;
+  /** Opens the sign-in flow — shown to anonymous users who hit their limit. */
+  onRequestSignIn?: () => void;
 }
 
 interface ContextSuggestion {
@@ -240,6 +246,8 @@ export function CreationComposer({
   onToolAction,
   open: controlledOpen,
   onOpenChange,
+  isSignedIn,
+  onRequestSignIn,
 }: CreationComposerProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
@@ -253,6 +261,16 @@ export function CreationComposer({
   const hasActive = Boolean(activeCreation);
   const aiStatus = getAIConnectionStatus();
   const context = getContext(activeCreation);
+
+  // ── Daily usage hints ───────────────────────────────────────────────────────
+  // When there's an active tool, the next message is usually a chat turn; on the
+  // home screen it's a new generation. Show the relevant remaining count.
+  const usage = useUsage();
+  const usageKind = hasActive ? 'chat' : 'generation';
+  const usageSnap = usage[usageKind];
+  const remaining = usageSnap?.remaining ?? null;
+  const limitReached = remaining !== null && remaining <= 0;
+  const showLowHint = remaining !== null && remaining > 0 && remaining <= 5;
   if (isOpen && !aiStatus.connected) {
     console.log('[HeyToolie] AI not connected:', aiStatus.reason);
   }
@@ -264,7 +282,7 @@ export function CreationComposer({
   }, [messages, isOpen]);
 
   function sendPrompt(prompt: string) {
-    if (!prompt.trim() || isGenerating) return;
+    if (!prompt.trim() || isGenerating || limitReached) return;
     if (hasActive) {
       // Use the smart chat path when available: the AI decides whether this is
       // a Q&A question (gets a direct answer) or a modification (full pipeline).
@@ -396,28 +414,62 @@ export function CreationComposer({
               </div>
             )}
 
-            {/* Input bar */}
-            <form onSubmit={handleSubmit} className="flex gap-2 items-center px-4 pb-6 pt-2 flex-shrink-0">
-              <input
-                type="text"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder={isGenerating ? 'Working on it…' : context.placeholder}
-                disabled={isGenerating}
-                className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={isGenerating || !input.trim()}
-                className="w-11 h-11 rounded-full flex items-center justify-center bg-violet-600 text-white disabled:opacity-40 active:bg-violet-700 transition-colors flex-shrink-0"
-                aria-label="Send"
+            {/* Limit-reached panel */}
+            {limitReached ? (
+              <div
+                data-testid="quota-limit-panel"
+                className="mx-4 mb-6 mt-2 px-4 py-3.5 bg-violet-600/10 border border-violet-500/25 rounded-2xl flex-shrink-0"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
-            </form>
+                <p className="text-sm font-semibold text-white/90">
+                  {usageKind === 'chat' ? "That's all your questions for today" : "That's all your creations for today"}
+                </p>
+                <p className="text-xs text-white/50 mt-0.5">
+                  Resets {formatResetHint(usageSnap?.resetsAt ?? '')}.
+                  {!isSignedIn && onRequestSignIn && ' Sign in for a higher daily limit.'}
+                </p>
+                {!isSignedIn && onRequestSignIn && (
+                  <button
+                    data-testid="quota-signin-btn"
+                    onClick={onRequestSignIn}
+                    className="mt-2.5 text-xs font-bold text-violet-950 bg-violet-400 px-4 py-2 rounded-full active:bg-violet-300"
+                  >
+                    Sign in for more →
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Low-stock hint */}
+                {showLowHint && !isGenerating && (
+                  <p data-testid="quota-remaining-hint" className="px-5 pb-1 pt-1 text-[11px] text-white/35 flex-shrink-0">
+                    {formatRemainingLabel(usageKind, remaining as number)}
+                  </p>
+                )}
+
+                {/* Input bar */}
+                <form onSubmit={handleSubmit} className="flex gap-2 items-center px-4 pb-6 pt-2 flex-shrink-0">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    placeholder={isGenerating ? 'Working on it…' : context.placeholder}
+                    disabled={isGenerating}
+                    className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isGenerating || !input.trim()}
+                    className="w-11 h-11 rounded-full flex items-center justify-center bg-violet-600 text-white disabled:opacity-40 active:bg-violet-700 transition-colors flex-shrink-0"
+                    aria-label="Send"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

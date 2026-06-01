@@ -10,7 +10,8 @@ import type {
   GenerateRequest,
   TournamentTeam,
 } from '../types';
-import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError } from '../services/aiService';
+import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
+import { formatQuotaMessage } from '../lib/quotaMessage';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
@@ -436,7 +437,32 @@ export function usePocketVibe(userId?: string) {
       const isConfig = err instanceof AIConfigError;
       const existing = stateRef.current.creations.find(c => c.id === creationId);
 
-      if (isConfig) {
+      if (err instanceof QuotaExceededError) {
+        // Daily limit hit — never overwrite/lose existing content; show a kind message.
+        if (req.mode !== 'new' && existing) {
+          dispatch({
+            type: 'UPSERT_CREATION',
+            payload: { ...existing, status: 'ready', updatedAt: existing.updatedAt },
+          });
+        } else if (existing) {
+          // A placeholder generating-creation was created — remove it so we don't
+          // leave an empty card behind.
+          dispatch({ type: 'DELETE_CREATION', payload: creationId });
+        }
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: `q-${Date.now()}`,
+            role: 'assistant',
+            text: formatQuotaMessage({
+              kind: err.kind,
+              tier: err.tier,
+              resetsAt: err.resetsAt,
+              canSignIn: !userIdRef.current,
+            }),
+          },
+        });
+      } else if (isConfig) {
         if (req.mode !== 'new' && existing) {
           // Never overwrite an existing creation when AI is not configured.
           // Restore to ready and show an honest message.
@@ -786,11 +812,27 @@ export function usePocketVibe(userId?: string) {
         type: 'ADD_MESSAGE',
         payload: { id: `u-${Date.now()}`, role: 'user', text },
       });
-      const message = toUserSafeErrorMessage(err);
-      dispatch({
-        type: 'ADD_MESSAGE',
-        payload: { id: `e-${Date.now()}`, role: 'assistant', text: `Sorry — ${message}` },
-      });
+      if (err instanceof QuotaExceededError) {
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: `q-${Date.now()}`,
+            role: 'assistant',
+            text: formatQuotaMessage({
+              kind: err.kind,
+              tier: err.tier,
+              resetsAt: err.resetsAt,
+              canSignIn: !userIdRef.current,
+            }),
+          },
+        });
+      } else {
+        const message = toUserSafeErrorMessage(err);
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: { id: `e-${Date.now()}`, role: 'assistant', text: `Sorry — ${message}` },
+        });
+      }
     } finally {
       if (!handedOffToModify) {
         dispatch({ type: 'SET_GENERATING', payload: false });

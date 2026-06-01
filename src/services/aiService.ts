@@ -2,6 +2,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GenerateRequest, GenerateResponse, Creation } from '../types';
 import { validateGenerateResponse, coerceGenerateResponse } from '../lib/validator';
+import { supabase } from '../lib/supabaseClient';
+import { setUsage, setExhausted, type UsageKind, type UsageTier } from '../lib/usageStore';
 
 // ── Error types ───────────────────────────────────────────────────────────────
 
@@ -19,8 +21,75 @@ export class AIGenerationError extends Error {
   }
 }
 
+/** Thrown when the user has hit their daily generation/chat limit. */
+export class QuotaExceededError extends Error {
+  kind: UsageKind;
+  limit: number;
+  tier: UsageTier;
+  resetsAt: string;
+  constructor(kind: UsageKind, limit: number, tier: UsageTier, resetsAt: string) {
+    super(`Daily ${kind} limit reached`);
+    this.name = 'QuotaExceededError';
+    this.kind = kind;
+    this.limit = limit;
+    this.tier = tier;
+    this.resetsAt = resetsAt;
+  }
+}
+
 // Kept for tests that reference the old name
 export { AIConfigError as GeminiConfigError };
+
+// ── Usage helpers ───────────────────────────────────────────────────────────────
+
+interface ServerUsage {
+  kind: UsageKind;
+  used: number;
+  limit: number;
+  remaining: number;
+  tier: UsageTier;
+  resetsAt: string;
+}
+
+/** Record a server `usage` block into the client store (no-op if malformed). */
+export function recordUsage(usage: unknown): void {
+  const u = usage as Partial<ServerUsage> | undefined;
+  if (!u || typeof u.kind !== 'string' || typeof u.limit !== 'number') return;
+  setUsage(u.kind, {
+    used: u.used ?? 0,
+    limit: u.limit,
+    remaining: u.remaining ?? Math.max(0, u.limit - (u.used ?? 0)),
+    tier: (u.tier ?? 'anonymous') as UsageTier,
+    resetsAt: u.resetsAt ?? '',
+  });
+}
+
+/**
+ * If a response body is a structured quota stop, record it and return a
+ * QuotaExceededError to throw. Returns null otherwise.
+ */
+export function quotaErrorFromBody(body: unknown): QuotaExceededError | null {
+  const b = body as Record<string, unknown> | undefined;
+  if (!b || b.error !== 'quota_exceeded') return null;
+  const kind = (b.kind as UsageKind) ?? 'generation';
+  const limit = (b.limit as number) ?? 0;
+  const tier = (b.tier as UsageTier) ?? 'anonymous';
+  const resetsAt = (b.resetsAt as string) ?? '';
+  setExhausted(kind, { used: (b.used as number) ?? limit, limit, tier, resetsAt });
+  return new QuotaExceededError(kind, limit, tier, resetsAt);
+}
+
+/** Read the signed-in user's access token (if any) for per-user quota tracking. */
+async function userTokenHeader(): Promise<Record<string, string>> {
+  if (!supabase) return {};
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { 'x-pv-user-token': token } : {};
+  } catch {
+    return {};
+  }
+}
 
 // ── Progress messages ─────────────────────────────────────────────────────────
 
@@ -213,6 +282,7 @@ async function generateViaEdgeFunction(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${supabaseAnonKey}`,
       apikey: supabaseAnonKey,
+      ...(await userTokenHeader()),
     },
     body: JSON.stringify(req),
   });
@@ -224,6 +294,17 @@ async function generateViaEdgeFunction(
     let devBody = '';
     try { devBody = await response.text(); } catch { devBody = response.statusText; }
     console.error('[HeyToolie] Edge function error:', response.status, devBody.slice(0, 500));
+
+    // A structured quota stop becomes a typed error the UI can handle specially.
+    if (response.status === 429) {
+      try {
+        const quotaErr = quotaErrorFromBody(JSON.parse(devBody));
+        if (quotaErr) throw quotaErr;
+      } catch (e) {
+        if (e instanceof QuotaExceededError) throw e;
+        // Not JSON / not a quota body — fall through to the generic 429 message.
+      }
+    }
 
     const STATUS_MESSAGES: Record<number, string> = {
       404: 'The AI service is not deployed correctly yet.',
@@ -246,6 +327,9 @@ async function generateViaEdgeFunction(
 
   onProgress?.(PROGRESS_STEPS[4]);
   const data: unknown = await response.json();
+
+  // Record remaining-usage figure before validating the rest of the payload.
+  recordUsage((data as Record<string, unknown>)?.usage);
 
   coerceGenerateResponse(data as Record<string, unknown>);
   const validation = validateGenerateResponse(data);
@@ -385,6 +469,7 @@ export async function chatWithCreation(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${supabaseAnonKey}`,
         apikey: supabaseAnonKey,
+        ...(await userTokenHeader()),
       },
       body: JSON.stringify({
         mode: 'chat',
@@ -400,11 +485,20 @@ export async function chatWithCreation(
       let detail = res.statusText;
       try { detail = await res.text(); } catch { /* ignore */ }
       console.error('[chatWithCreation] Edge function error:', res.status, detail.slice(0, 200));
+      if (res.status === 429) {
+        try {
+          const quotaErr = quotaErrorFromBody(JSON.parse(detail));
+          if (quotaErr) throw quotaErr;
+        } catch (e) {
+          if (e instanceof QuotaExceededError) throw e;
+        }
+      }
       throw new AIGenerationError('Chat failed. Please try again.');
     }
 
-    const data = await res.json() as { answer?: string; action?: string; error?: string };
+    const data = await res.json() as { answer?: string; action?: string; error?: string; usage?: unknown };
     if (data.error) throw new AIGenerationError(data.error);
+    recordUsage(data.usage);
     if (data.action === 'modify') return { type: 'modify' };
     if (data.answer)              return { type: 'answer', text: data.answer };
     throw new AIGenerationError('Unexpected response. Please try again.');

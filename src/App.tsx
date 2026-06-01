@@ -319,6 +319,10 @@ export default function App() {
             onOpenChange={setComposerOpen}
             onChat={chatMessage}
             onToolAction={setPendingToolAction}
+            isSignedIn={Boolean(auth.user)}
+            onRequestSignIn={
+              auth.isAvailable && !auth.user ? () => openAuthModal('account') : undefined
+            }
           />
         )}
 

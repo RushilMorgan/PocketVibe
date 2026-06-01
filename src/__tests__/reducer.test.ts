@@ -14,6 +14,8 @@ vi.mock('../services/aiService', () => ({
   })),
   AIConfigError: class AIConfigError extends Error { name = 'AIConfigError'; },
   GeminiConfigError: class GeminiConfigError extends Error { name = 'AIConfigError'; },
+  QuotaExceededError: class QuotaExceededError extends Error { name = 'QuotaExceededError'; },
+  chatWithCreation: vi.fn(),
 }));
 
 vi.mock('../lib/creationStore', () => ({

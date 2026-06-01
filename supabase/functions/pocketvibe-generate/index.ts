@@ -446,7 +446,18 @@ RULES:
 - Never return raw HTML — always use a structured creationType from the list above
 - If the user mentions World Cup, tournament pool, sweepstake, seeded pots, or team draw, use tournament_pool_tracker
 - For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.
-- For idea_thinking_board: use plain friendly language. Never use "market validation", "go-to-market", or "customer segmentation". Say "Who is this for?", "What problem does it solve?", "Why would people pay?". All scores must be 1-10 integers. Always include at least 2 risks, 2 money ideas, 2 target users, 3 next steps, and a visual map with 5-6 branches.`;
+- For idea_thinking_board: this is the FLAGSHIP "wow" experience — it must feel insightful, specific, and genuinely helpful, never generic.
+  * Every section must reference the user's ACTUAL idea by name and detail. Never write filler like "your target users" — name who they actually are (e.g. "Busy parents of under-5s in cities").
+  * problem & solution: sharp and concrete, 1-2 sentences each, specific to this idea.
+  * targetUsers (3-4): each a real persona with a concrete need and a concrete reason they'd care.
+  * risks (3-4): HONEST hard truths. Name real competitors or real behaviours people already use (e.g. "People already coordinate this for free in WhatsApp groups"). Mix severities. Be candid but encouraging, never demotivating.
+  * opportunities (2-3): genuine angles where this could win.
+  * moneyIdeas (3): realistic models with SPECIFIC price points in Rands (e.g. "R49/month subscription"), each with an honest confidence 1-10.
+  * scores: an honest assessment (1-10 integers) — do not make everything high; reflect real trade-offs (e.g. easeToBuild low for an ambitious idea).
+  * nextSteps (3-5): concrete, doable-this-week actions to test the idea cheaply BEFORE building.
+  * visualMap: 6 branches (Problem, Users, Solution, Money, Risks, Next steps), each with 3 SPECIFIC items drawn from the idea — this is the mind-map the user explores, so make each item meaningful.
+  * whyNow: one specific sentence on why this is a good moment for this idea.
+  * Plain friendly language only. Never use "market validation", "go-to-market", or "customer segmentation".`;
 }
 
 function buildBuilderMessage(
@@ -905,6 +916,14 @@ Deno.serve(async (req: Request) => {
     }
   } catch {
     // Intent step failed — fall through with defaults; builder will handle it
+  }
+
+  // ── Forced type: guided entry points lock the output type ─────────────────
+  // (e.g. the Idea Board intake). We keep the classifier's requirements/tone but
+  // override the type so the result is never a generic fallback.
+  const forcedType = body.forcedType as string | undefined;
+  if (forcedType && SUPPORTED_TYPES.includes(forcedType as SupportedType)) {
+    intent.creationType = forcedType;
   }
 
   // ── Step 3: UI/UX Designer Agent ─────────────────────────────────────────

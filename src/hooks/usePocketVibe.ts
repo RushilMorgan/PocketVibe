@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
 import { formatQuotaMessage } from '../lib/quotaMessage';
+import { buildIdeaBoardPrompt } from '../lib/ideaBoardPrompt';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
@@ -544,6 +545,23 @@ export function usePocketVibe(userId?: string) {
     void _runGeneration({ userRequest, mode: 'new', locale });
   }, [_runGeneration]);
 
+  /**
+   * Guided Idea Board creation. Takes the intake answers, composes a rich prompt,
+   * and locks the output type so the result is always a full Idea Thinking Board
+   * (never a generic fallback). Mirrors the one-tap feel of the other flagships.
+   */
+  const createIdeaBoard = useCallback((categoryLabel: string, idea: string) => {
+    if (stateRef.current.isGenerating) return;
+    const userRequest = buildIdeaBoardPrompt(categoryLabel, idea);
+    trackCreationStarted('idea_thinking_board', userRequest);
+    dispatch({ type: 'CLEAR_MESSAGES' });
+    const locale = {
+      date: new Date().toISOString().slice(0, 10),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    void _runGeneration({ userRequest, mode: 'new', locale, forcedType: 'idea_thinking_board' });
+  }, [_runGeneration]);
+
   const confirmNewCreation = useCallback(() => {
     const pending = stateRef.current.pendingAction;
     if (!pending || pending.type !== 'new-creation') return;
@@ -863,5 +881,6 @@ export function usePocketVibe(userId?: string) {
     toggleFavorite,
     setCreationShareSlug,
     createWorldCupPool,
+    createIdeaBoard,
   };
 }

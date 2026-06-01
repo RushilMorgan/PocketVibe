@@ -8,6 +8,7 @@ import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
 import { AuthModal } from './components/AuthModal';
 import { MyToolsPage } from './components/MyToolsPage';
+import { IdeaIntakeSheet } from './components/IdeaIntakeSheet';
 import { usePocketVibe } from './hooks/usePocketVibe';
 import { useAuth } from './hooks/useAuth';
 import type { AuthModalVariant } from './components/AuthModal';
@@ -44,6 +45,7 @@ export default function App() {
     updateCreationContent,
     setCreationShareSlug,
     createWorldCupPool,
+    createIdeaBoard,
   } = usePocketVibe(auth.user?.id);
 
   // ── Back-button / popstate handling ─────────────────────────────────────────
@@ -89,6 +91,7 @@ export default function App() {
   );
   const [pendingToolAction, setPendingToolAction] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [ideaIntakeOpen, setIdeaIntakeOpen] = useState(false);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
 
@@ -217,6 +220,7 @@ export default function App() {
             onCreateWorldCupPool={createWorldCupPool}
             onSignIn={auth.isAvailable && !auth.user && !auth.loading ? () => openAuthModal('account') : undefined}
             onOpenChat={() => setComposerOpen(true)}
+            onOpenIdeaBoard={() => setIdeaIntakeOpen(true)}
           />
         )}
 
@@ -403,6 +407,16 @@ export default function App() {
           onClose={() => setAuthModalOpen(false)}
         />
       )}
+
+      {/* Idea Board intake */}
+      <IdeaIntakeSheet
+        open={ideaIntakeOpen}
+        onClose={() => setIdeaIntakeOpen(false)}
+        onSubmit={(categoryLabel, idea) => {
+          setIdeaIntakeOpen(false);
+          createIdeaBoard(categoryLabel, idea);
+        }}
+      />
     </AppShell>
   );
 }

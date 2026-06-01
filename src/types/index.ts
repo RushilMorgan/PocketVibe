@@ -652,6 +652,12 @@ export interface GenerateRequest {
   mode: GenerationMode;
   currentCreation?: Pick<Creation, 'id' | 'title' | 'creationType' | 'content' | 'originalRequest' | 'version'>;
   locale?: { date: string; timezone: string };
+  /**
+   * Lock the output to a specific creation type, bypassing the intent classifier's
+   * type choice. Used by guided entry points (e.g. the Idea Board intake) so the
+   * result is always the intended type instead of a generic fallback.
+   */
+  forcedType?: CreationType;
 }
 
 // Trust metadata returned by the server (or computed by the client) for improve/add flows

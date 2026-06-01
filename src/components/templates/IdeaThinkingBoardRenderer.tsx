@@ -52,50 +52,59 @@ function overallHealth(scores: IdeaThinkingBoardContent['scores']): number {
 
 // ── Visual map SVG ────────────────────────────────────────────────────────────
 
+// A distinct colour per branch so the map reads like a real mind map.
+const BRANCH_COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#db2777'];
+
 function IdeaMapSVG({ content }: { content: IdeaThinkingBoardContent }) {
   const branches = content.visualMap.branches.slice(0, 6);
-  const cx = 160, cy = 160, r = 110;
-  const centerR = 54;
+  const cx = 160, cy = 160, r = 112;
+  const centerR = 52;
 
   return (
     <div data-testid="idea-visual-map" className="w-full overflow-x-auto">
       <svg viewBox="0 0 320 320" className="w-full max-w-xs mx-auto" aria-label="Idea map">
-        {/* Branch lines */}
+        {/* Curved branch lines */}
         {branches.map((branch, i) => {
+          const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
           const angle = (i * 360) / branches.length - 90;
           const rad = (angle * Math.PI) / 180;
           const x2 = cx + r * Math.cos(rad);
           const y2 = cy + r * Math.sin(rad);
+          // Control point bowed perpendicular to the spoke for a gentle curve.
+          const mx = (cx + x2) / 2 + 14 * Math.cos(rad + Math.PI / 2);
+          const my = (cy + y2) / 2 + 14 * Math.sin(rad + Math.PI / 2);
           return (
-            <line
+            <path
               key={branch.id}
-              x1={cx} y1={cy}
-              x2={x2} y2={y2}
-              stroke="#e5e7eb" strokeWidth="1.5"
+              d={`M ${cx} ${cy} Q ${mx} ${my} ${x2} ${y2}`}
+              stroke={color} strokeWidth="2" fill="none" opacity="0.4"
             />
           );
         })}
 
-        {/* Center circle */}
+        {/* Center halo + circle */}
+        <circle cx={cx} cy={cy} r={centerR + 6} fill="#7c3aed" opacity="0.12" />
         <circle cx={cx} cy={cy} r={centerR} fill="#7c3aed" />
-        <foreignObject x={cx - centerR + 6} y={cy - 18} width={(centerR - 6) * 2} height={36}>
-          <div style={{ fontSize: 10, color: 'white', textAlign: 'center', fontWeight: 700, lineHeight: 1.2, wordBreak: 'break-word' }}>
+        <foreignObject x={cx - centerR + 6} y={cy - 20} width={(centerR - 6) * 2} height={40}>
+          <div style={{ fontSize: 10, color: 'white', textAlign: 'center', fontWeight: 800, lineHeight: 1.2, wordBreak: 'break-word' }}>
             {content.visualMap.center || content.title}
           </div>
         </foreignObject>
 
         {/* Branch nodes */}
         {branches.map((branch, i) => {
+          const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
           const angle = (i * 360) / branches.length - 90;
           const rad = (angle * Math.PI) / 180;
           const nx = cx + r * Math.cos(rad);
           const ny = cy + r * Math.sin(rad);
-          const nodeR = 30;
+          const nodeR = 31;
           return (
             <g key={branch.id}>
-              <circle cx={nx} cy={ny} r={nodeR} fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="1" />
+              <circle cx={nx} cy={ny} r={nodeR} fill="#fff" stroke={color} strokeWidth="2" />
+              <circle cx={nx} cy={ny} r={nodeR} fill={color} opacity="0.08" />
               <foreignObject x={nx - nodeR + 4} y={ny - 14} width={(nodeR - 4) * 2} height={28}>
-                <div style={{ fontSize: 8, color: '#374151', textAlign: 'center', fontWeight: 600, lineHeight: 1.2, wordBreak: 'break-word' }}>
+                <div style={{ fontSize: 8.5, color, textAlign: 'center', fontWeight: 700, lineHeight: 1.15, wordBreak: 'break-word' }}>
                   {branch.label}
                 </div>
               </foreignObject>
@@ -104,21 +113,27 @@ function IdeaMapSVG({ content }: { content: IdeaThinkingBoardContent }) {
         })}
       </svg>
 
-      {/* Branch items below map */}
-      <div className="grid grid-cols-2 gap-2 mt-2">
-        {branches.map(branch => (
-          <div key={branch.id} className="bg-gray-50 rounded-xl p-3">
-            <p className="text-xs font-bold text-gray-700 mb-1">{branch.label}</p>
-            <ul className="space-y-0.5">
-              {branch.items.slice(0, 3).map((item, j) => (
-                <li key={j} className="text-xs text-gray-500 flex items-start gap-1">
-                  <span className="text-violet-400 mt-0.5 flex-shrink-0">·</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      {/* Branch items below map — colour-matched to the nodes */}
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        {branches.map((branch, i) => {
+          const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
+          return (
+            <div key={branch.id} className="bg-white rounded-xl p-3 border border-gray-100">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                <p className="text-xs font-bold text-gray-700">{branch.label}</p>
+              </div>
+              <ul className="space-y-0.5">
+                {branch.items.slice(0, 3).map((item, j) => (
+                  <li key={j} className="text-xs text-gray-500 flex items-start gap-1">
+                    <span className="mt-0.5 flex-shrink-0" style={{ color }}>·</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

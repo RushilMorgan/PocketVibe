@@ -10,6 +10,8 @@ interface HomeScreenProps {
   onSignIn?: () => void;
   /** Opens the Toolie chat sheet from the home screen. */
   onOpenChat?: () => void;
+  /** Opens the guided Idea Board intake. */
+  onOpenIdeaBoard?: () => void;
 }
 
 // ── Card data ─────────────────────────────────────────────────────────────────
@@ -26,7 +28,7 @@ const PARTNER_CHALLENGE = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn, onOpenChat }: HomeScreenProps) {
+export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn, onOpenChat, onOpenIdeaBoard }: HomeScreenProps) {
   const [input, setInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -345,8 +347,8 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
         <div className="px-4 pb-4">
           <button
             data-testid="flagship-idea-board"
-            onClick={onOpenChat}
-            disabled={isGenerating || !onOpenChat}
+            onClick={onOpenIdeaBoard}
+            disabled={isGenerating || !onOpenIdeaBoard}
             className="text-left rounded-3xl overflow-hidden shadow-lg active:scale-[0.985] transition-all disabled:opacity-50 w-full ring-1 ring-violet-400/30"
           >
             {/* Dark violet panel */}

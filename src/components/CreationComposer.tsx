@@ -152,6 +152,11 @@ const HOME_SUGGESTIONS: ContextSuggestion[] = [
     prompt: 'Create a walking and running challenge for me and my partner. We want to do 3 sessions per week, earn points, and see a leaderboard.',
   },
   {
+    id: 'home-idea-board',
+    label: '💡 Think through an idea',
+    prompt: 'I have a business idea I want to think through. Help me create an idea thinking board to explore risks, money ideas, who it\'s for, and what to do first.',
+  },
+  {
     id: 'home-event',
     label: '🎉 Plan an event',
     prompt: 'Create an event planner with tasks, a timeline, and a checklist.',

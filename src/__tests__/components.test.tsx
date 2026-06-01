@@ -147,13 +147,13 @@ describe('Landing screen UX', () => {
     expect(screen.getByText(/Make little tools for real life/i)).toBeInTheDocument();
   });
 
-  it('2. shows only World Cup Pool and Partner Challenge cards publicly', () => {
+  it('2. shows World Cup Pool, Partner Challenge, and Idea Board cards publicly', () => {
     render(<HomeScreen onPrompt={noop} isGenerating={false} />);
     expect(screen.getByTestId('flagship-world-cup-pool')).toBeInTheDocument();
     expect(screen.getByTestId('flagship-partner-challenge')).toBeInTheDocument();
-    // No other "flagship-" cards
+    expect(screen.getByTestId('flagship-idea-board')).toBeInTheDocument();
     const allFlagships = document.querySelectorAll('[data-testid^="flagship-"]');
-    expect(allFlagships.length).toBe(2);
+    expect(allFlagships.length).toBe(3);
   });
 
   it('3. old template categories are hidden when dev mode is off', () => {

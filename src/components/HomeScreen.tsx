@@ -341,6 +341,87 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
           </button>
         </div>
 
+        {/* ── Idea Thinking Board card ──────────────────────────────────── */}
+        <div className="px-4 pb-4">
+          <button
+            data-testid="flagship-idea-board"
+            onClick={onOpenChat}
+            disabled={isGenerating || !onOpenChat}
+            className="text-left rounded-3xl overflow-hidden shadow-lg active:scale-[0.985] transition-all disabled:opacity-50 w-full ring-1 ring-violet-400/30"
+          >
+            {/* Dark violet panel */}
+            <div className="relative bg-gradient-to-br from-violet-950 via-indigo-950 to-violet-950 px-5 pt-5 pb-5 overflow-hidden">
+              {/* Geometric accents */}
+              <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full border-2 border-violet-400/10 pointer-events-none" />
+              <div className="absolute right-8 bottom-2 w-16 h-16 rounded-full border border-violet-400/8 pointer-events-none" />
+              <div className="absolute -left-4 bottom-0 w-20 h-20 rounded-full border border-violet-400/6 pointer-events-none" />
+
+              {/* Top row: labels */}
+              <div className="relative z-10 flex items-center justify-between mb-4">
+                <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+                  <span className="text-base leading-none">🧠</span>
+                  <span className="text-base leading-none">📊</span>
+                  <span className="text-base leading-none">💰</span>
+                  <span className="text-xs text-white/60 font-semibold ml-1 tracking-wide">Ideas</span>
+                </div>
+                <span className="text-xs font-black bg-violet-400 text-violet-950 px-3 py-1 rounded-full tracking-widest uppercase">
+                  New ✦
+                </span>
+              </div>
+
+              {/* Icon + title */}
+              <div className="relative z-10 flex items-center gap-4 mb-3">
+                <span className="text-5xl leading-none">💡</span>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div className="h-px w-8 bg-violet-400" />
+                    <div className="h-px w-3 bg-violet-400/40" />
+                  </div>
+                  <h2 className="text-xl font-black text-white leading-tight tracking-wide uppercase">Idea</h2>
+                  <h2 className="text-xl font-black text-violet-300 leading-tight tracking-wide uppercase">Thinking Board</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="h-px w-8 bg-violet-400" />
+                    <div className="h-px w-3 bg-violet-400/40" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="relative z-10 text-sm text-white/65 leading-relaxed mb-4">
+                Turn a rough idea into a visual plan. Explore who it's for, risks, how it could make money, and what to build first.
+              </p>
+
+              {/* Feature chips */}
+              <div className="relative z-10 flex flex-wrap gap-2">
+                {[
+                  { icon: '❤️', label: 'Idea health score' },
+                  { icon: '🗺️', label: 'Visual map' },
+                  { icon: '⚠️', label: 'Risk analysis' },
+                  { icon: '💰', label: 'Money ideas' },
+                ].map(chip => (
+                  <span
+                    key={chip.label}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-violet-200 bg-violet-400/10 border border-violet-400/25 px-2.5 py-1 rounded-full"
+                  >
+                    {chip.icon} {chip.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Violet CTA strip */}
+            <div className="bg-violet-500 px-5 py-3.5 flex items-center justify-between">
+              <span className="text-sm font-black text-white tracking-tight">Think through an idea</span>
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+            </div>
+          </button>
+        </div>
+
         {/* ── Toolie nudge ─────────────────────────────────────────────────── */}
         <div className="px-4 pb-5">
           <button

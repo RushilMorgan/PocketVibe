@@ -36,6 +36,7 @@ vi.mock('../lib/creationStore', () => ({
 }));
 
 import { usePocketVibe } from '../hooks/usePocketVibe';
+import * as creationStore from '../lib/creationStore';
 import type { Creation } from '../types';
 
 const SAMPLE_CREATION: Creation = {
@@ -63,6 +64,28 @@ describe('initial state', () => {
   it('starts with isGenerating false', () => {
     const { result } = renderHook(() => usePocketVibe());
     expect(result.current.state.isGenerating).toBe(false);
+  });
+});
+
+describe('hydrate self-heal — stuck generating creations', () => {
+  it('flips an orphaned generating creation to error on load (never stuck)', () => {
+    const stuck: Creation = {
+      ...SAMPLE_CREATION,
+      id: 'c-stuck',
+      title: 'Making something for you...',
+      status: 'generating',
+    };
+    vi.mocked(creationStore.loadCreations).mockReturnValueOnce([stuck]);
+    const { result } = renderHook(() => usePocketVibe());
+    const healed = result.current.state.creations.find(c => c.id === 'c-stuck');
+    expect(healed?.status).toBe('error');
+  });
+
+  it('leaves ready creations untouched on load', () => {
+    vi.mocked(creationStore.loadCreations).mockReturnValueOnce([SAMPLE_CREATION]);
+    const { result } = renderHook(() => usePocketVibe());
+    const c = result.current.state.creations.find(x => x.id === 'c-1');
+    expect(c?.status).toBe('ready');
   });
 });
 

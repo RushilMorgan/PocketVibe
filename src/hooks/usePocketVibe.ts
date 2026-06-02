@@ -174,7 +174,20 @@ export function usePocketVibe(userId?: string) {
 
   // ── Hydrate from localStorage on mount ──────────────────────────────────────
   useEffect(() => {
-    const creations = loadCreations();
+    // Self-heal: a creation left in 'generating' status means a previous run was
+    // interrupted (tab closed / reloaded mid-generation). That state can never
+    // resume, so it would otherwise leave the user stuck on a perpetual loading
+    // or broken screen. Flip it to 'error' so the retry path is available and a
+    // new creation can always be started. Never deletes the user's content.
+    let healed = false;
+    const creations = loadCreations().map(c => {
+      if (c.status === 'generating') {
+        healed = true;
+        return { ...c, status: 'error' as const };
+      }
+      return c;
+    });
+    if (healed) saveCreations(creations);
     const activeCreationId = loadActiveCreationId();
     dispatch({ type: 'HYDRATE', payload: { creations, activeCreationId } });
   }, []);

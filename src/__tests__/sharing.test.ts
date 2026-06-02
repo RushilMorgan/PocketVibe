@@ -489,4 +489,27 @@ describe('shareService', () => {
     const { getSharedCreation } = await import('../services/shareService');
     await expect(getSharedCreation('bad-slug')).rejects.toThrow('Shared creation not found');
   });
+
+  it('deleteOwnedCreation deletes the row by id and reports success', async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const del = vi.fn().mockReturnValue({ eq });
+    const { supabase } = await import('../lib/supabaseClient');
+    vi.spyOn(supabase!, 'from').mockReturnValue({ delete: del } as any);
+
+    const { deleteOwnedCreation } = await import('../services/shareService');
+    const ok = await deleteOwnedCreation('row-123');
+
+    expect(ok).toBe(true);
+    expect(del).toHaveBeenCalledTimes(1);
+    expect(eq).toHaveBeenCalledWith('id', 'row-123');
+  });
+
+  it('deleteOwnedCreation returns false when the delete errors', async () => {
+    const eq = vi.fn().mockResolvedValue({ error: { message: 'denied' } });
+    const { supabase } = await import('../lib/supabaseClient');
+    vi.spyOn(supabase!, 'from').mockReturnValue({ delete: () => ({ eq }) } as any);
+
+    const { deleteOwnedCreation } = await import('../services/shareService');
+    expect(await deleteOwnedCreation('row-123')).toBe(false);
+  });
 });

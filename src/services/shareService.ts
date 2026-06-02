@@ -192,6 +192,23 @@ export async function claimCreation(shareSlug: string, adminToken: string): Prom
 }
 
 /**
+ * Permanently delete a shared creation the signed-in user owns (removes it from
+ * their My things list and deactivates its shared link). Relies on the
+ * `owner_can_delete_own` RLS policy: the delete only affects rows where
+ * owner_user_id = auth.uid(), so a user can never delete someone else's tool.
+ * Returns true on success.
+ */
+export async function deleteOwnedCreation(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('shared_creations').delete().eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Apply a named action to a shared creation.
  * Admin and participant actions are validated server-side.
  * Returns the new version number and updated content.

@@ -101,10 +101,18 @@ ALTER TABLE shared_creations
 ALTER TABLE shared_participants
   ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 
--- Authenticated users can read their own shared creations (My Tools page).
+-- Authenticated users can read their own shared creations (My things page).
 DROP POLICY IF EXISTS "owner_can_read_own" ON shared_creations;
 CREATE POLICY "owner_can_read_own"
   ON shared_creations FOR SELECT
+  TO authenticated
+  USING (owner_user_id = auth.uid());
+
+-- Authenticated users can delete their own shared creations (My things → Remove).
+-- Scoped to owner_user_id = auth.uid() so a user can only ever delete their own.
+DROP POLICY IF EXISTS "owner_can_delete_own" ON shared_creations;
+CREATE POLICY "owner_can_delete_own"
+  ON shared_creations FOR DELETE
   TO authenticated
   USING (owner_user_id = auth.uid());
 

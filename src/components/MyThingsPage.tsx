@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Creation, CreationType } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import { getStoredAdminToken } from '../services/shareService';
+import { getStoredAdminToken, deleteOwnedCreation } from '../services/shareService';
 import { mergeThings, type CloudTool, type UnifiedThing } from '../lib/mergeThings';
 
 interface MyThingsPageProps {
@@ -76,18 +76,18 @@ export function MyThingsPage({
   const [cloud, setCloud] = useState<CloudTool[]>([]);
   const [cloudLoading, setCloudLoading] = useState(Boolean(user));
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch the user's cloud tools and merge them in ──────────────────────────
-  useEffect(() => {
+  const loadCloud = useCallback(() => {
     if (!user || !supabase) {
       setCloud([]);
       setCloudLoading(false);
       return;
     }
-
     setCloudLoading(true);
     // Explicit owner filter is required: anon_can_read_public RLS also applies to
     // authenticated users, so without it this would return other users' public tools.
@@ -101,6 +101,8 @@ export function MyThingsPage({
         setCloudLoading(false);
       });
   }, [user]);
+
+  useEffect(() => { loadCloud(); }, [loadCloud]);
 
   useEffect(() => () => { if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current); }, []);
 
@@ -140,6 +142,29 @@ export function MyThingsPage({
       : `/s/${tool.share_slug}`;
   }
 
+  function handleCloudDelete(tool: CloudTool) {
+    if (confirmDeleteId === tool.id) {
+      if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current);
+      setConfirmDeleteId(null);
+      void removeCloudTool(tool.id);
+    } else {
+      setConfirmDeleteId(tool.id);
+      if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current);
+      deleteTimeoutRef.current = setTimeout(() => setConfirmDeleteId(null), 3000);
+    }
+  }
+
+  async function removeCloudTool(id: string) {
+    setDeleteError(null);
+    // Optimistic: drop it from the list immediately, restore on failure.
+    setCloud(prev => prev.filter(t => t.id !== id));
+    const ok = await deleteOwnedCreation(id);
+    if (!ok) {
+      setDeleteError("Couldn't remove that tool. Please try again.");
+      loadCloud();
+    }
+  }
+
   const isEmpty = things.length === 0 && !cloudLoading;
 
   return (
@@ -166,6 +191,10 @@ export function MyThingsPage({
           <span className="text-xs text-gray-300 animate-pulse">· syncing…</span>
         )}
       </div>
+
+      {deleteError && (
+        <div className="mx-4 mb-2 bg-red-50 text-red-700 text-xs px-3 py-2 rounded-xl flex-shrink-0">{deleteError}</div>
+      )}
 
       {/* List */}
       <div className="flex-1 overflow-y-auto px-3 pb-4">
@@ -310,6 +339,7 @@ export function MyThingsPage({
   function renderCloud(tool: CloudTool) {
     const adminToken = getStoredAdminToken(tool.share_slug);
     const updatedMs = Date.parse(tool.updated_at) || 0;
+    const isConfirming = confirmDeleteId === tool.id;
     return (
       <div
         key={tool.id}
@@ -325,7 +355,7 @@ export function MyThingsPage({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-sm truncate max-w-[150px] text-gray-900">{tool.title}</span>
+                <span className="font-bold text-sm truncate max-w-[140px] text-gray-900">{tool.title}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 bg-violet-50 text-violet-600">
                   {adminToken ? 'Shared' : 'View only'}
                 </span>
@@ -335,13 +365,29 @@ export function MyThingsPage({
               </p>
             </div>
           </button>
-          <button
-            onClick={() => openCloudTool(tool)}
-            className="flex-shrink-0 text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 whitespace-nowrap self-center"
-          >
-            Open →
-          </button>
+          <div className="flex items-center flex-shrink-0 self-center gap-1">
+            <button
+              onClick={() => openCloudTool(tool)}
+              className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 whitespace-nowrap"
+            >
+              Open →
+            </button>
+            <button
+              onClick={() => handleCloudDelete(tool)}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-400 active:bg-red-50' : 'text-gray-200 active:bg-gray-100'}`}
+              aria-label={isConfirming ? 'Tap again to confirm remove' : 'Remove from account'}
+              title={isConfirming ? 'Tap again to confirm' : 'Remove from account'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </button>
+          </div>
         </div>
+        {isConfirming && (
+          <p className="text-xs text-red-400 mt-1.5 ml-9">Tap remove again — this deletes the shared tool &amp; its link</p>
+        )}
       </div>
     );
   }

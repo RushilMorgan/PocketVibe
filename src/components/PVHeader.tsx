@@ -7,8 +7,8 @@ interface PVHeaderProps {
   accentColor: string;
   onBack: () => void;
   onGoMyCreations: () => void;
-  /** Shown when user is logged in — navigates to My Tools page. */
-  onGoMyTools?: () => void;
+  /** Shown when user is logged in — avatar navigates to the My things page. */
+  onGoAccount?: () => void;
   /** Email of the logged-in user (first letter used as avatar). */
   userEmail?: string;
   /** Shown when user is not logged in and auth is available. */
@@ -22,17 +22,15 @@ export default function PVHeader({
   accentColor,
   onBack,
   onGoMyCreations,
-  onGoMyTools,
+  onGoAccount,
   userEmail,
   onSignIn,
 }: PVHeaderProps) {
-  const showBack = view === 'creation' || view === 'my-creations' || view === 'my-tools';
+  const showBack = view === 'creation' || view === 'my-creations';
   const title = view === 'creation' && activeCreation
     ? activeCreation.title
     : view === 'my-creations'
     ? 'My things'
-    : view === 'my-tools'
-    ? 'My Tools'
     : null;
 
   return (
@@ -75,8 +73,8 @@ export default function PVHeader({
         )}
       </div>
 
-      {/* My things link — hidden on the my-creations and my-tools views */}
-      {creationsCount > 0 && view !== 'my-creations' && view !== 'my-tools' && (
+      {/* My things link — hidden on the my-creations view (you're already there) */}
+      {creationsCount > 0 && view !== 'my-creations' && (
         <button
           onClick={onGoMyCreations}
           className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 active:bg-violet-100 transition-colors"
@@ -89,9 +87,9 @@ export default function PVHeader({
       )}
 
       {/* User avatar (logged in) or Sign in button */}
-      {view !== 'my-tools' && (userEmail && onGoMyTools ? (
+      {view !== 'my-creations' && (userEmail && onGoAccount ? (
         <button
-          onClick={onGoMyTools}
+          onClick={onGoAccount}
           title={userEmail}
           className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold active:opacity-80 ring-2 ring-violet-200"
           style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}

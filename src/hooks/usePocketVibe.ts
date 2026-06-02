@@ -215,10 +215,6 @@ export function usePocketVibe(userId?: string) {
     dispatch({ type: 'SET_VIEW', payload: 'my-creations' });
   }, []);
 
-  const goToMyTools = useCallback(() => {
-    dispatch({ type: 'SET_VIEW', payload: 'my-tools' });
-  }, []);
-
   /**
    * Call this immediately after signing out.
    * Strips creations that were made while signed in as `signedOutUserId`,
@@ -867,7 +863,6 @@ export function usePocketVibe(userId?: string) {
     openCreation,
     goHome,
     goToMyCreations,
-    goToMyTools,
     signOutReset,
     startNewCreation,
     improveCreation,

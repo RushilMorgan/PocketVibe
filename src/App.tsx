@@ -2,12 +2,11 @@
 import AppShell from './components/AppShell';
 import PVHeader from './components/PVHeader';
 import { HomeScreen } from './components/HomeScreen';
-import { MyCreations } from './components/MyCreations';
+import { MyThingsPage } from './components/MyThingsPage';
 import { CreationComposer } from './components/CreationComposer';
 import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
 import { AuthModal } from './components/AuthModal';
-import { MyToolsPage } from './components/MyToolsPage';
 import { IdeaIntakeSheet } from './components/IdeaIntakeSheet';
 import { usePocketVibe } from './hooks/usePocketVibe';
 import { useAuth } from './hooks/useAuth';
@@ -32,7 +31,6 @@ export default function App() {
     openCreation,
     goHome,
     goToMyCreations,
-    goToMyTools,
     signOutReset,
     startNewCreation,
     improveCreation,
@@ -98,7 +96,7 @@ export default function App() {
   /**
    * Sign out: clear the Supabase session, strip owned creations from the local
    * store (keeping any anonymous ones), and navigate home so the user doesn't
-   * land on a blank my-tools screen.
+   * land on a now-empty My things screen.
    */
   async function handleSignOut() {
     const signedOutUserId = auth.user?.id;
@@ -158,7 +156,7 @@ export default function App() {
     creations.length >= 1 &&
     !saveNudgeDismissed &&
     !isGenerating &&
-    view !== 'my-tools';
+    view !== 'my-creations';
 
   return (
     <AppShell>
@@ -176,7 +174,7 @@ export default function App() {
             : goHome
         }
         onGoMyCreations={goToMyCreations}
-        onGoMyTools={auth.user ? goToMyTools : undefined}
+        onGoAccount={auth.user ? goToMyCreations : undefined}
         userEmail={auth.user?.email}
         onSignIn={auth.isAvailable && !auth.user ? () => openAuthModal('account') : undefined}
       />
@@ -205,14 +203,6 @@ export default function App() {
 
       {/* Main content area */}
       <div className="flex-1 overflow-hidden relative">
-        {view === 'my-tools' && auth.user && (
-          <MyToolsPage
-            user={auth.user}
-            onSignOut={handleSignOut}
-            onBack={goHome}
-          />
-        )}
-
         {view === 'home' && (
           <HomeScreen
             onPrompt={startNewCreation}
@@ -331,14 +321,16 @@ export default function App() {
         )}
 
         {view === 'my-creations' && (
-          <MyCreations
+          <MyThingsPage
             creations={creations}
             activeCreationId={activeCreationId}
+            user={auth.user}
             onOpen={openCreation}
             onDelete={deleteCreation}
             onDuplicate={duplicateCreation}
             onRename={renameCreation}
-            onBack={activeCreation ? () => { openCreation(activeCreation.id); } : goHome}
+            onSignOut={handleSignOut}
+            onGoHome={goHome}
           />
         )}
       </div>
@@ -400,7 +392,7 @@ export default function App() {
               // Signed in during share flow → go straight back to share panel
               setSharePanelOpen(true);
             } else if (authModalVariant === 'account' || authModalVariant === 'claim') {
-              goToMyTools();
+              goToMyCreations();
             }
           }}
           // No onSkip for the share variant — auth is now required to share

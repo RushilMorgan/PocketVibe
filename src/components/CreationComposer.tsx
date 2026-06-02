@@ -219,9 +219,9 @@ function getContext(activeCreation: Creation | null): {
 
   if (activeCreation.content.type === 'idea_thinking_board') {
     return {
-      title: 'Ask Toolie about this idea',
-      subtitle: 'Improve it, find risks, create a plan…',
-      placeholder: 'Make it simpler, find risks, build a plan…',
+      title: 'Reshape the whole board',
+      subtitle: 'Tap any card to change just that part — or ask for a board-wide change here.',
+      placeholder: 'Turn this into a launch plan, compare two versions…',
       suggestions: buildIdeaBoardSuggestions(activeCreation),
     };
   }

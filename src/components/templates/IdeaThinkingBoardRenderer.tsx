@@ -6,11 +6,26 @@ import type {
   IdeaMoneyModel,
   IdeaNextStep,
   IdeaOpportunity,
+  IdeaMapBranch,
 } from '../../types';
+import { ElementChatSheet } from '../shared/ElementChatSheet';
+import { editIdeaElement, QuotaExceededError } from '../../services/aiService';
+import { applyElementPatch } from '../../lib/applyElementPatch';
+import { getElementActions } from '../../lib/ideaElementActions';
+import { COLLECTION_KINDS, type IdeaElementKind } from '../../lib/ideaElements';
+import { trackElementEdit } from '../../lib/analytics';
+import { formatQuotaMessage } from '../../lib/quotaMessage';
 
 interface Props {
   content: IdeaThinkingBoardContent;
   onChange: (updated: IdeaThinkingBoardContent) => void;
+}
+
+interface ActiveElement {
+  kind: IdeaElementKind;
+  id: string | null;
+  preview: string;
+  element: unknown;
 }
 
 type Tab = 'overview' | 'map' | 'risks' | 'plan' | 'money';
@@ -55,7 +70,11 @@ function overallHealth(scores: IdeaThinkingBoardContent['scores']): number {
 // A distinct colour per branch so the map reads like a real mind map.
 const BRANCH_COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#db2777'];
 
-function IdeaMapSVG({ content }: { content: IdeaThinkingBoardContent }) {
+function IdeaMapSVG({ content, onTapBranch, changedKey }: {
+  content: IdeaThinkingBoardContent;
+  onTapBranch?: (branch: IdeaMapBranch) => void;
+  changedKey?: string | null;
+}) {
   const branches = content.visualMap.branches.slice(0, 6);
   const cx = 160, cy = 160, r = 112;
   const centerR = 52;
@@ -118,7 +137,11 @@ function IdeaMapSVG({ content }: { content: IdeaThinkingBoardContent }) {
         {branches.map((branch, i) => {
           const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
           return (
-            <div key={branch.id} className="bg-white rounded-xl p-3 border border-gray-100">
+            <div
+              key={branch.id}
+              onClick={onTapBranch ? () => onTapBranch(branch) : undefined}
+              className={`bg-white rounded-xl p-3 border border-gray-100${onTapBranch ? ' cursor-pointer active:scale-[0.99] transition-transform' : ''}${changedKey === `mapBranch:${branch.id}` ? ' ring-2 ring-violet-400 ring-offset-1' : ''}`}
+            >
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                 <p className="text-xs font-bold text-gray-700">{branch.label}</p>
@@ -145,8 +168,67 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [editMode, setEditMode] = useState(false);
 
+  // ── Tap-to-talk inline AI ─────────────────────────────────────────────────
+  const [active, setActive] = useState<ActiveElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [changedKey, setChangedKey] = useState<string | null>(null);
+
   function update(patch: Partial<IdeaThinkingBoardContent>) {
     onChange({ ...content, ...patch });
+  }
+
+  /** Open the tap-to-talk sheet for an element (view mode only). */
+  function openElement(kind: IdeaElementKind, id: string | null, preview: string, element: unknown) {
+    if (editMode) return;
+    setErrorText(null);
+    setActive({ kind, id, preview, element });
+  }
+
+  /** Run an AI instruction against the active element and merge the patch in place. */
+  async function runElementEdit(instruction: string) {
+    if (!active) return;
+    setBusy(true);
+    setErrorText(null);
+    try {
+      const patch = await editIdeaElement(content, active.kind, active.element, instruction);
+      onChange(applyElementPatch(content, active.kind, active.id, patch));
+      trackElementEdit(active.kind);
+      const key = `${active.kind}:${active.id ?? ''}`;
+      setActive(null);
+      setChangedKey(key);
+      setTimeout(() => setChangedKey(k => (k === key ? null : k)), 1400);
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        setErrorText(formatQuotaMessage({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt, canSignIn: false }));
+      } else {
+        setErrorText("Couldn't update that — please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Deterministic delete for collection elements. */
+  function deleteActive() {
+    if (!active || !active.id) return;
+    const id = active.id;
+    switch (active.kind) {
+      case 'risk':        update({ risks: content.risks.filter(r => r.id !== id) }); break;
+      case 'moneyIdea':   update({ moneyIdeas: content.moneyIdeas.filter(m => m.id !== id) }); break;
+      case 'targetUser':  update({ targetUsers: content.targetUsers.filter(u => u.id !== id) }); break;
+      case 'nextStep':    update({ nextSteps: content.nextSteps.filter(s => s.id !== id) }); break;
+      case 'opportunity': update({ opportunities: content.opportunities.filter(o => o.id !== id) }); break;
+      default: break;
+    }
+    setActive(null);
+  }
+
+  /** Tappable card props for view mode: opens the sheet + highlights after a change. */
+  function talkCard(base: string, kind: IdeaElementKind, id: string | null) {
+    const tappable = !editMode ? ' cursor-pointer active:scale-[0.99] transition-transform' : '';
+    const highlight = changedKey === `${kind}:${id ?? ''}` ? ' ring-2 ring-violet-400 ring-offset-1' : '';
+    return base + tappable + highlight;
   }
 
   const health = overallHealth(content.scores);
@@ -180,7 +262,10 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
                 className="w-full text-sm text-gray-700 border border-violet-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
               />
             ) : (
-              <p className="text-sm text-gray-600 leading-relaxed">{content.ideaSummary}</p>
+              <p
+                onClick={() => openElement('summary', null, content.ideaSummary, content.ideaSummary)}
+                className={talkCard('text-sm text-gray-600 leading-relaxed rounded-lg', 'summary', null)}
+              >{content.ideaSummary}</p>
             )}
           </div>
 
@@ -197,7 +282,10 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
                   className="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
                 />
               ) : (
-                <p className="text-sm text-gray-700">{content.problem}</p>
+                <p
+                  onClick={() => openElement('problem', null, content.problem, content.problem)}
+                  className={talkCard('text-sm text-gray-700 rounded-lg', 'problem', null)}
+                >{content.problem}</p>
               )}
             </div>
             <div className="px-4 py-3">
@@ -211,14 +299,21 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
                   className="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
                 />
               ) : (
-                <p className="text-sm text-gray-700">{content.solution}</p>
+                <p
+                  onClick={() => openElement('solution', null, content.solution, content.solution)}
+                  className={talkCard('text-sm text-gray-700 rounded-lg', 'solution', null)}
+                >{content.solution}</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Idea health score */}
-        <div data-testid="idea-health-score" className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div
+          data-testid="idea-health-score"
+          onClick={() => openElement('scores', null, 'Idea health scores', content.scores)}
+          className={talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'scores', null)}
+        >
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-gray-800">Idea health</h3>
             <div className="flex items-center gap-1.5">
@@ -282,7 +377,11 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
           </div>
           <div className="flex flex-col gap-2">
             {content.targetUsers.map(user => (
-              <div key={user.id} className="bg-violet-50 rounded-xl p-3">
+              <div
+                key={user.id}
+                onClick={() => openElement('targetUser', user.id, user.name, user)}
+                className={talkCard('bg-violet-50 rounded-xl p-3', 'targetUser', user.id)}
+              >
                 {editMode ? (
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
@@ -349,7 +448,11 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
       <div className="flex flex-col gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <h3 className="text-sm font-bold text-gray-800 mb-3">Visual idea map</h3>
-          <IdeaMapSVG content={content} />
+          <IdeaMapSVG
+            content={content}
+            changedKey={changedKey}
+            onTapBranch={editMode ? undefined : (b) => openElement('mapBranch', b.id, b.label, b)}
+          />
         </div>
 
         {content.whyNow && (
@@ -396,7 +499,12 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         {content.risks.map(risk => {
           const styles = SEVERITY_STYLES[risk.severity];
           return (
-            <div key={risk.id} data-testid={`risk-card-${risk.id}`} className="bg-white rounded-2xl border border-gray-100 p-4">
+            <div
+              key={risk.id}
+              data-testid={`risk-card-${risk.id}`}
+              onClick={() => openElement('risk', risk.id, risk.title, risk)}
+              className={talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'risk', risk.id)}
+            >
               {editMode ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -457,7 +565,11 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
             <h3 className="text-sm font-bold text-gray-800 mb-2">What could go really well?</h3>
             <div className="flex flex-col gap-2">
               {content.opportunities.map(opp => (
-                <div key={opp.id} className="bg-emerald-50 rounded-xl p-3">
+                <div
+                  key={opp.id}
+                  onClick={() => openElement('opportunity', opp.id, opp.title, opp)}
+                  className={talkCard('bg-emerald-50 rounded-xl p-3', 'opportunity', opp.id)}
+                >
                   <p className="text-xs font-bold text-emerald-800">{opp.title}</p>
                   {opp.note && <p className="text-xs text-emerald-700 mt-0.5">{opp.note}</p>}
                 </div>
@@ -495,7 +607,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
 
           <div className="space-y-2">
             {content.nextSteps.map((step, idx) => (
-              <div key={step.id} className="flex items-center gap-2">
+              <div key={step.id} className={talkCard('flex items-center gap-2', 'nextStep', step.id)}>
                 <button
                   data-testid={`toggle-step-${step.id}`}
                   onClick={() => update({
@@ -519,7 +631,10 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
                     className="flex-1 text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none"
                   />
                 ) : (
-                  <span className={`text-sm flex-1 ${step.done ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                  <span
+                    onClick={() => openElement('nextStep', step.id, step.label, step)}
+                    className={`text-sm flex-1 ${step.done ? 'line-through text-gray-400' : 'text-gray-800'}`}
+                  >
                     {idx + 1}. {step.label}
                   </span>
                 )}
@@ -559,7 +674,12 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         )}
 
         {content.moneyIdeas.map(idea => (
-          <div key={idea.id} data-testid={`money-card-${idea.id}`} className="bg-white rounded-2xl border border-gray-100 p-4">
+          <div
+            key={idea.id}
+            data-testid={`money-card-${idea.id}`}
+            onClick={() => openElement('moneyIdea', idea.id, idea.model, idea)}
+            className={talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'moneyIdea', idea.id)}
+          >
             {editMode ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -625,7 +745,10 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  const activeActions = active ? getElementActions(active.kind, active.element, content) : [];
+
   return (
+    <>
     <div className="flex flex-col gap-0 pb-4">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 sticky top-0 z-10">
@@ -650,6 +773,14 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
           {editMode ? 'Done' : 'Edit idea'}
         </button>
       </div>
+
+      {/* Tap-to-talk hint (view mode only) */}
+      {!editMode && (
+        <div className="px-4 py-1.5 bg-violet-50/60 border-b border-violet-100/60 flex items-center gap-1.5">
+          <span className="text-violet-400 text-[11px]">✦</span>
+          <p className="text-[11px] text-violet-600/80">Tap any card to talk to Toolie about it.</p>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex overflow-x-auto px-3 py-2 gap-1 bg-white border-b border-gray-100 no-scrollbar">
@@ -679,5 +810,21 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         {tab === 'money'    && renderMoney()}
       </div>
     </div>
+
+    {/* Tap-to-talk sheet */}
+    {active && (
+      <ElementChatSheet
+        open
+        kind={active.kind}
+        preview={active.preview}
+        actions={activeActions}
+        busy={busy}
+        errorText={errorText}
+        onAction={runElementEdit}
+        onLocalAction={active.id && COLLECTION_KINDS.includes(active.kind) ? () => deleteActive() : undefined}
+        onClose={() => { if (!busy) { setActive(null); setErrorText(null); } }}
+      />
+    )}
+    </>
   );
 }

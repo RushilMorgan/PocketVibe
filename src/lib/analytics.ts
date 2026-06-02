@@ -102,6 +102,11 @@ export function trackWorldCupPoolCreated() {
   posthog.capture('world_cup_pool_created');
 }
 
+/** User used inline "tap-to-talk" to reshape an idea-board element */
+export function trackElementEdit(elementKind: string) {
+  posthog.capture('element_edit', { element_kind: elementKind });
+}
+
 /** User deleted a creation */
 export function trackCreationDeleted(creationType: string) {
   posthog.capture('creation_deleted', { creation_type: creationType });

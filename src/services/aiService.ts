@@ -537,6 +537,134 @@ export async function chatWithCreation(
   return { type: 'answer', text: raw || "I'm not sure — try asking in a different way." };
 }
 
+// ── Scoped element edit (Idea Board "tap-to-talk") ────────────────────────────
+
+import type { IdeaThinkingBoardContent } from '../types';
+import type { ElementPatch, IdeaElementKind } from '../lib/ideaElements';
+
+/** Strip code fences and parse a JSON object the model returned. */
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  const cleaned = raw.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    // Last resort: grab the first {...} block
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch { /* ignore */ } }
+    return null;
+  }
+}
+
+/**
+ * Ask the AI to reshape ONE element of an Idea Board. Returns a small patch that
+ * the caller merges via applyElementPatch — only the touched element changes.
+ * Production: edge function (mode 'element_edit'). Dev: direct Gemini fallback.
+ */
+export async function editIdeaElement(
+  content: IdeaThinkingBoardContent,
+  elementKind: IdeaElementKind,
+  element: unknown,
+  instruction: string,
+): Promise<ElementPatch> {
+  const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  const placeholder     = 'https://your-project-ref.supabase.co';
+
+  // ── Production: Supabase Edge Function ───────────────────────────────────────
+  if (supabaseUrl && supabaseUrl !== placeholder && supabaseAnonKey) {
+    const res = await fetch(`${supabaseUrl}/functions/v1/pocketvibe-generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        apikey: supabaseAnonKey,
+        ...(await userTokenHeader()),
+      },
+      body: JSON.stringify({
+        mode: 'element_edit',
+        userRequest: instruction, // satisfies the top-level guard
+        creationType: 'idea_thinking_board',
+        content,
+        elementKind,
+        element,
+        instruction,
+      }),
+    });
+
+    if (!res.ok) {
+      let detail = res.statusText;
+      try { detail = await res.text(); } catch { /* ignore */ }
+      console.error('[editIdeaElement] Edge function error:', res.status, detail.slice(0, 200));
+      if (res.status === 429) {
+        try {
+          const quotaErr = quotaErrorFromBody(JSON.parse(detail));
+          if (quotaErr) throw quotaErr;
+        } catch (e) {
+          if (e instanceof QuotaExceededError) throw e;
+        }
+      }
+      throw new AIGenerationError('Could not update that. Please try again.');
+    }
+
+    const data = await res.json() as { patch?: ElementPatch; usage?: unknown; error?: string };
+    if (data.error) throw new AIGenerationError(data.error);
+    recordUsage(data.usage);
+    if (!data.patch || typeof data.patch !== 'object') {
+      throw new AIGenerationError('Unexpected response. Please try again.');
+    }
+    return data.patch;
+  }
+
+  // ── Dev fallback: direct Gemini ───────────────────────────────────────────────
+  if (!import.meta.env.DEV) {
+    throw new AIConfigError('Production requires the Supabase Edge Function.');
+  }
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  if (!apiKey) throw new AIConfigError('No AI configured.');
+
+  const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const prompt = buildElementEditPrompt(elementKind, element, instruction, content);
+  const result = await model.generateContent(prompt);
+  const patch = parseJsonObject(result.response.text());
+  if (!patch) throw new AIGenerationError('Could not update that. Please try again.');
+  return patch as ElementPatch;
+}
+
+/** Shared element-edit prompt (mirrored in the edge function). Exported for tests. */
+export function buildElementEditPrompt(
+  elementKind: string,
+  element: unknown,
+  instruction: string,
+  content: IdeaThinkingBoardContent,
+): string {
+  const isScalar = ['summary', 'problem', 'solution'].includes(elementKind);
+  const isScores = elementKind === 'scores';
+  const shape = isScalar
+    ? '{ "text": "the rewritten text" }'
+    : isScores
+      ? '{ "scores": { "clarity": 1-10, "usefulness": 1-10, "easeToBuild": 1-10, "moneyPotential": 1-10, "riskLevel": 1-10, "confidence": 1-10 } }'
+      : '{ "element": { ...the SAME element with the same id, fields updated... }, "addNextSteps": [{ "label": "..." }] (optional), "note": "one short line" }';
+
+  return [
+    'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.',
+    `The idea, for context: "${content.title}" — ${content.ideaSummary}`,
+    `Element kind: ${elementKind}`,
+    `Current element (JSON): ${JSON.stringify(element)}`,
+    `The user wants: "${instruction}"`,
+    '',
+    'Return ONLY a JSON object (no markdown, no prose) in exactly this shape:',
+    shape,
+    '',
+    'Rules:',
+    '- Change ONLY what the user asked. Keep the same id for the element.',
+    '- Plain, friendly language. No jargon like "market validation" or "go-to-market".',
+    '- For money ideas, use specific Rand prices. For risks, be honest, name real alternatives.',
+    '- Optionally add 1–2 follow-up next steps via addNextSteps when it genuinely helps.',
+    '- Keep it concise; do not pad.',
+  ].join('\n');
+}
+
 // ── Offline fallback ──────────────────────────────────────────────────────────
 
 export function generateOfflineFallback(userRequest: string): GenerateResponse {

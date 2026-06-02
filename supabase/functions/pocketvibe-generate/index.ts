@@ -527,6 +527,41 @@ function buildBuilderMessage(
  * The AI answers factual questions from tool data, or responds
  * with exactly "ACTION:MODIFY" when the user wants to change something.
  */
+// Scoped element-edit prompt for the Idea Board "tap-to-talk" pattern.
+// Mirrors buildElementEditPrompt in src/services/aiService.ts — keep in sync.
+function buildElementEditPrompt(
+  elementKind: string,
+  element: unknown,
+  instruction: string,
+  content: Record<string, unknown>,
+): string {
+  const isScalar = ['summary', 'problem', 'solution'].includes(elementKind);
+  const isScores = elementKind === 'scores';
+  const shape = isScalar
+    ? '{ "text": "the rewritten text" }'
+    : isScores
+      ? '{ "scores": { "clarity": 1-10, "usefulness": 1-10, "easeToBuild": 1-10, "moneyPotential": 1-10, "riskLevel": 1-10, "confidence": 1-10 } }'
+      : '{ "element": { ...the SAME element with the same id, fields updated... }, "addNextSteps": [{ "label": "..." }] (optional), "note": "one short line" }';
+
+  return [
+    'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.',
+    `The idea, for context: "${content.title ?? ''}" — ${content.ideaSummary ?? ''}`,
+    `Element kind: ${elementKind}`,
+    `Current element (JSON): ${JSON.stringify(element)}`,
+    `The user wants: "${instruction}"`,
+    '',
+    'Return ONLY a JSON object (no markdown, no prose) in exactly this shape:',
+    shape,
+    '',
+    'Rules:',
+    '- Change ONLY what the user asked. Keep the same id for the element.',
+    '- Plain, friendly language. No jargon like "market validation" or "go-to-market".',
+    '- For money ideas, use specific Rand prices. For risks, be honest, name real alternatives.',
+    '- Optionally add 1-2 follow-up next steps via addNextSteps when it genuinely helps.',
+    '- Keep it concise; do not pad.',
+  ].join('\n');
+}
+
 function buildChatPrompt(
   creationType: string,
   content: Record<string, unknown>,
@@ -887,6 +922,57 @@ Deno.serve(async (req: Request) => {
       });
     }
   }
+
+  // ── Scoped element edit path (Idea Board "tap-to-talk") ───────────────────────
+  // mode: 'element_edit' → one Gemini call that reshapes a single element and
+  // returns a small { patch } the client merges in place. Counts against the
+  // lighter 'chat' quota.
+  if (mode === 'element_edit') {
+    const content = body.content as Record<string, unknown> | undefined;
+    const elementKind = body.elementKind as string | undefined;
+    const element = body.element;
+    const instruction = body.instruction as string | undefined;
+
+    if (!content || !elementKind || !instruction) {
+      return new Response(JSON.stringify({ error: 'element_edit requires content, elementKind, and instruction' }), {
+        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (instruction.length > 500) {
+      return new Response(JSON.stringify({ error: 'instruction too long (max 500 chars)' }), {
+        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const editQuota = await enforceQuota(supabaseAdmin, identity, 'chat');
+    if (!editQuota.allowed) return quotaExceededResponse(editQuota);
+
+    const prompt = buildElementEditPrompt(elementKind, element, instruction, content);
+    const model = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
+    try {
+      const result = await model.generateContent(prompt);
+      const patch = parseJson(result.response.text()) as Record<string, unknown> | null;
+      if (!patch || typeof patch !== 'object') {
+        return new Response(JSON.stringify({ error: 'Could not update that. Please try again.' }), {
+          status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      if (containsHtmlDeep(patch)) {
+        return new Response(JSON.stringify({ error: 'Invalid content.' }), {
+          status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ patch, usage: usagePayload(editQuota) }), {
+        status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    } catch (e) {
+      console.error('[element_edit] Gemini error:', e);
+      return new Response(JSON.stringify({ error: 'Could not update that. Please try again.' }), {
+        status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   // ── Daily generation quota ────────────────────────────────────────────────────
   const genQuota = await enforceQuota(supabaseAdmin, identity, 'generation');
   if (!genQuota.allowed) return quotaExceededResponse(genQuota);

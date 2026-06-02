@@ -43,10 +43,6 @@ export function getStoredAdminToken(shareSlug: string): string | undefined {
   return loadAdminTokens()[shareSlug];
 }
 
-export function getStoredShareSlugs(): string[] {
-  return Object.keys(loadAdminTokens());
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function edgeFunctionUrl(name: string): string {
@@ -193,30 +189,6 @@ export async function claimCreation(shareSlug: string, adminToken: string): Prom
   } catch {
     return false;
   }
-}
-
-/**
- * Claim every creation the user has an admin token for in localStorage.
- *
- * Tools shared while signed out are stored with owner_user_id = NULL, so they
- * never appear on the My Tools page after the user later signs in. This walks
- * the locally-stored admin tokens and claims each one for the current account.
- *
- * Safe + idempotent: claim_creation only sets owner_user_id when the row is
- * currently unowned (or already owned by the caller), so it never reassigns
- * another account's creation, and re-running it is a no-op. Per-slug failures
- * are swallowed so one stale token can't block the rest. Returns the number of
- * creations newly claimed.
- */
-export async function claimStoredCreations(): Promise<number> {
-  if (!supabase) return 0;
-  const tokens = loadAdminTokens();
-  const entries = Object.entries(tokens);
-  if (entries.length === 0) return 0;
-  const results = await Promise.all(
-    entries.map(([slug, token]) => claimCreation(slug, token)),
-  );
-  return results.filter(Boolean).length;
 }
 
 /**

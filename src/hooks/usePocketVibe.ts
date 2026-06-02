@@ -1,4 +1,4 @@
-﻿import { useReducer, useEffect, useCallback, useRef } from 'react';
+﻿import { useReducer, useEffect, useCallback, useRef, useState } from 'react';
 import type {
   PocketVibeState,
   AppView,
@@ -13,6 +13,7 @@ import type {
 import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
 import { formatQuotaMessage } from '../lib/quotaMessage';
 import { buildIdeaBoardPrompt } from '../lib/ideaBoardPrompt';
+import { getUsage, _resetUsageStore, type UsageKind, type UsageTier } from '../lib/usageStore';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
 import { getCreationVisibleSignature, getContentVisibleSignature } from '../lib/visibleSignature';
@@ -171,6 +172,38 @@ export function usePocketVibe(userId?: string) {
   // Keep a ref so callbacks can read the latest userId without re-creating.
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
+
+  // ── Daily-limit notice ──────────────────────────────────────────────────────
+  // A visible, app-level signal when the user hits their daily limit — so a
+  // blocked generation never silently dumps them home with the message buried in
+  // the chat thread.
+  const [quotaNotice, setQuotaNotice] = useState<{ kind: UsageKind; tier: UsageTier; resetsAt: string } | null>(null);
+  const dismissQuotaNotice = useCallback(() => setQuotaNotice(null), []);
+
+  // When the signed-in identity changes (sign in / sign out), the cached usage
+  // belongs to the OLD identity and would wrongly block the new one. Reset it.
+  const prevUserIdRef = useRef(userId);
+  useEffect(() => {
+    if (prevUserIdRef.current !== userId) {
+      prevUserIdRef.current = userId;
+      _resetUsageStore();
+      setQuotaNotice(null);
+    }
+  }, [userId]);
+
+  /**
+   * Proactive guard: if the client already knows this budget is spent, show the
+   * notice and report blocked — so we don't attempt a doomed generation that
+   * would flash a placeholder and bounce the user home.
+   */
+  const isBlockedByQuota = useCallback((kind: UsageKind): boolean => {
+    const snap = getUsage()[kind];
+    if (snap && snap.remaining <= 0) {
+      setQuotaNotice({ kind, tier: snap.tier, resetsAt: snap.resetsAt });
+      return true;
+    }
+    return false;
+  }, []);
 
   // ── Hydrate from localStorage on mount ──────────────────────────────────────
   useEffect(() => {
@@ -448,7 +481,9 @@ export function usePocketVibe(userId?: string) {
       const existing = stateRef.current.creations.find(c => c.id === creationId);
 
       if (err instanceof QuotaExceededError) {
-        // Daily limit hit — never overwrite/lose existing content; show a kind message.
+        // Daily limit hit — never overwrite/lose existing content, and surface a
+        // VISIBLE notice (not a buried chat message) so the user isn't dumped home
+        // wondering what happened.
         if (req.mode !== 'new' && existing) {
           dispatch({
             type: 'UPSERT_CREATION',
@@ -459,19 +494,7 @@ export function usePocketVibe(userId?: string) {
           // leave an empty card behind.
           dispatch({ type: 'DELETE_CREATION', payload: creationId });
         }
-        dispatch({
-          type: 'ADD_MESSAGE',
-          payload: {
-            id: `q-${Date.now()}`,
-            role: 'assistant',
-            text: formatQuotaMessage({
-              kind: err.kind,
-              tier: err.tier,
-              resetsAt: err.resetsAt,
-              canSignIn: !userIdRef.current,
-            }),
-          },
-        });
+        setQuotaNotice({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt });
       } else if (isConfig) {
         if (req.mode !== 'new' && existing) {
           // Never overwrite an existing creation when AI is not configured.
@@ -545,6 +568,8 @@ export function usePocketVibe(userId?: string) {
       return;
     }
 
+    if (isBlockedByQuota('generation')) return;
+
     trackCreationStarted('unknown', userRequest);
     dispatch({ type: 'CLEAR_MESSAGES' });
     const locale = {
@@ -552,7 +577,7 @@ export function usePocketVibe(userId?: string) {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     void _runGeneration({ userRequest, mode: 'new', locale });
-  }, [_runGeneration]);
+  }, [_runGeneration, isBlockedByQuota]);
 
   /**
    * Guided Idea Board creation. Takes the intake answers, composes a rich prompt,
@@ -561,6 +586,7 @@ export function usePocketVibe(userId?: string) {
    */
   const createIdeaBoard = useCallback((categoryLabel: string, idea: string) => {
     if (stateRef.current.isGenerating) return;
+    if (isBlockedByQuota('generation')) return;
     const userRequest = buildIdeaBoardPrompt(categoryLabel, idea);
     trackCreationStarted('idea_thinking_board', userRequest);
     dispatch({ type: 'CLEAR_MESSAGES' });
@@ -569,12 +595,13 @@ export function usePocketVibe(userId?: string) {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     void _runGeneration({ userRequest, mode: 'new', locale, forcedType: 'idea_thinking_board' });
-  }, [_runGeneration]);
+  }, [_runGeneration, isBlockedByQuota]);
 
   const confirmNewCreation = useCallback(() => {
     const pending = stateRef.current.pendingAction;
     if (!pending || pending.type !== 'new-creation') return;
     dispatch({ type: 'SET_PENDING_ACTION', payload: null });
+    if (isBlockedByQuota('generation')) return;
     trackCreationStarted('unknown', pending.request);
     dispatch({ type: 'CLEAR_MESSAGES' });
     const locale = {
@@ -582,7 +609,7 @@ export function usePocketVibe(userId?: string) {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     void _runGeneration({ userRequest: pending.request, mode: 'new', locale });
-  }, [_runGeneration]);
+  }, [_runGeneration, isBlockedByQuota]);
 
   const dismissPendingAction = useCallback(() => {
     dispatch({ type: 'SET_PENDING_ACTION', payload: null });
@@ -594,6 +621,8 @@ export function usePocketVibe(userId?: string) {
       : null;
 
     if (!current || stateRef.current.isGenerating) return;
+
+    if (isBlockedByQuota('generation')) return;
 
     // ── Capability gate ───────────────────────────────────────────────────────
     // If the user is asking to DIRECTLY EDIT a type whose renderer already
@@ -666,7 +695,7 @@ export function usePocketVibe(userId?: string) {
       },
       current.id,
     );
-  }, [_runGeneration]);
+  }, [_runGeneration, isBlockedByQuota]);
 
   // ── Creation management ───────────────────────────────────────────────────────
 
@@ -890,5 +919,7 @@ export function usePocketVibe(userId?: string) {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
+    quotaNotice,
+    dismissQuotaNotice,
   };
 }

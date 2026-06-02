@@ -12,6 +12,7 @@ import { usePocketVibe } from './hooks/usePocketVibe';
 import { useAuth } from './hooks/useAuth';
 import type { AuthModalVariant } from './components/AuthModal';
 import { formatCreationSummary } from './lib/creationSummary';
+import { formatResetHint } from './lib/quotaMessage';
 import {
   identifyUser,
   resetUser,
@@ -44,6 +45,8 @@ export default function App() {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
+    quotaNotice,
+    dismissQuotaNotice,
   } = usePocketVibe(auth.user?.id);
 
   // ── Back-button / popstate handling ─────────────────────────────────────────
@@ -409,6 +412,49 @@ export default function App() {
           createIdeaBoard(categoryLabel, idea);
         }}
       />
+
+      {/* Daily-limit notice — visible, distinct from real errors */}
+      {quotaNotice && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={dismissQuotaNotice} />
+          <div data-testid="quota-notice-modal" className="relative bg-white rounded-2xl p-6 shadow-2xl max-w-xs w-full text-center">
+            <div className="text-4xl mb-2">⏳</div>
+            <h3 className="font-bold text-gray-900 text-base mb-1">
+              {quotaNotice.kind === 'chat'
+                ? "That's all your questions for today"
+                : "That's all your creations for today"}
+            </h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Resets {formatResetHint(quotaNotice.resetsAt)}.
+              {quotaNotice.tier === 'anonymous' && ' Sign in for a higher daily limit.'}
+            </p>
+            {quotaNotice.tier === 'anonymous' && auth.isAvailable && !auth.user ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  data-testid="quota-notice-signin"
+                  onClick={() => { dismissQuotaNotice(); openAuthModal('account'); }}
+                  className="w-full py-3 rounded-xl bg-violet-600 text-white text-sm font-bold active:bg-violet-700"
+                >
+                  Sign in for more
+                </button>
+                <button
+                  onClick={dismissQuotaNotice}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-gray-500 active:bg-gray-50"
+                >
+                  Maybe later
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={dismissQuotaNotice}
+                className="w-full py-3 rounded-xl bg-violet-600 text-white text-sm font-bold active:bg-violet-700"
+              >
+                Got it
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

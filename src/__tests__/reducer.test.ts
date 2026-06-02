@@ -37,6 +37,7 @@ vi.mock('../lib/creationStore', () => ({
 
 import { usePocketVibe } from '../hooks/usePocketVibe';
 import * as creationStore from '../lib/creationStore';
+import { setUsage, _resetUsageStore } from '../lib/usageStore';
 import type { Creation } from '../types';
 
 const SAMPLE_CREATION: Creation = {
@@ -201,6 +202,57 @@ describe('messages', () => {
       result.current.dispatch({ type: 'CLEAR_MESSAGES' });
     });
     expect(result.current.state.messages).toHaveLength(0);
+  });
+});
+
+// ── Daily-limit UX: proactive guard + visible notice ─────────────────────────
+
+describe('quota notice — proactive guard', () => {
+  beforeEach(() => { _resetUsageStore(); });
+
+  it('blocks a new creation and surfaces a visible quotaNotice when out of generations', () => {
+    setUsage('generation', { used: 3, limit: 3, remaining: 0, tier: 'anonymous', resetsAt: '2026-06-03T00:00:00.000Z' });
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => { result.current.startNewCreation('make me a checklist'); });
+    expect(result.current.quotaNotice).not.toBeNull();
+    expect(result.current.quotaNotice?.kind).toBe('generation');
+    expect(result.current.quotaNotice?.tier).toBe('anonymous');
+    expect(vi.mocked(aiServiceModule.generateCreation)).not.toHaveBeenCalled();
+  });
+
+  it('blocks createIdeaBoard when out of generations', () => {
+    setUsage('generation', { used: 3, limit: 3, remaining: 0, tier: 'anonymous', resetsAt: '' });
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => { result.current.createIdeaBoard('App', 'a personal assistant app'); });
+    expect(result.current.quotaNotice).not.toBeNull();
+    expect(vi.mocked(aiServiceModule.generateCreation)).not.toHaveBeenCalled();
+  });
+
+  it('does NOT block when generations remain', () => {
+    setUsage('generation', { used: 1, limit: 15, remaining: 14, tier: 'free', resetsAt: '' });
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => { result.current.startNewCreation('make me a checklist'); });
+    expect(result.current.quotaNotice).toBeNull();
+    expect(vi.mocked(aiServiceModule.generateCreation)).toHaveBeenCalled();
+  });
+
+  it('dismissQuotaNotice clears the notice', () => {
+    setUsage('generation', { used: 3, limit: 3, remaining: 0, tier: 'anonymous', resetsAt: '' });
+    const { result } = renderHook(() => usePocketVibe());
+    act(() => { result.current.startNewCreation('x'); });
+    expect(result.current.quotaNotice).not.toBeNull();
+    act(() => { result.current.dismissQuotaNotice(); });
+    expect(result.current.quotaNotice).toBeNull();
+  });
+
+  it('resets cached usage when the signed-in identity changes (no stale block)', () => {
+    setUsage('generation', { used: 3, limit: 3, remaining: 0, tier: 'anonymous', resetsAt: '' });
+    const { result, rerender } = renderHook(({ uid }) => usePocketVibe(uid), { initialProps: { uid: undefined as string | undefined } });
+    // Sign in → identity changes → stale anonymous "0 remaining" must be cleared
+    rerender({ uid: 'user-123' });
+    act(() => { result.current.startNewCreation('make me a checklist'); });
+    expect(result.current.quotaNotice).toBeNull();
+    expect(vi.mocked(aiServiceModule.generateCreation)).toHaveBeenCalled();
   });
 });
 

@@ -68,6 +68,53 @@ it to the user, explain the data impact, and ask how they want to handle it.
 
 ---
 
+## Template Design Standard — "AI baked into the canvas" (tap-to-talk)
+
+**The AI is the brain; the app is the canvas.** Every template should let the user
+*talk to the thing they're looking at*, not just edit a static artifact through a
+separate chat. This is the standard for **all templates going forward**, and existing
+templates should adopt it as they're meaningfully touched.
+
+### The hybrid model (required for new templates)
+- **Inline (tap-to-talk):** tapping any element (a card, row, score, section) summons an
+  anchored sheet with **2–3 AI-chosen actions + a free-text line**. The result reshapes
+  *that element only*, in place, with a brief highlight so the change is seen landing.
+- **FAB (board-wide):** the floating Toolie stays for whole-tool asks ("turn this into a
+  launch plan", "compare two versions"). Inline = local; FAB = global.
+
+### The magic-vs-noise guardrail (non-negotiable)
+- **AI is summoned, not always-on.** The canvas stays calm until touched.
+- **One gesture, one entry point per element. ≤3 actions.** Actions are chosen from the
+  element's current state so it feels like Toolie read your mind, never a generic menu.
+
+### Architecture (reuse these — do not rebuild per template)
+- **Surgical patches, never full-board regen.** Inline edits use the edge function
+  `mode: 'element_edit'`, which returns only the changed/added element(s) as a small patch,
+  merged deterministically by `kind` + `id` so unrelated content stays frozen. This is what
+  makes it feel instant and in-place.
+- **The reusable pattern** (built first on the Idea Board, generalise outward):
+  - `src/lib/ideaElements.ts` — element kinds + `ElementPatch` shape (model new templates on this).
+  - `src/lib/ideaElementActions.ts` — per-element contextual action engine (mirrors
+    `buildIdeaBoardSuggestions` in `CreationComposer.tsx`).
+  - `src/lib/applyElementPatch.ts` — pure, defensive merge (replace-by-id, scalar, clamp,
+    append linked follow-ups). Never mutates input.
+  - `src/components/shared/ElementChatSheet.tsx` — the anchored sheet (reuse as-is).
+  - `editIdeaElement` + `buildElementEditPrompt` in `src/services/aiService.ts` — the scoped
+    AI call; keep the client prompt and the edge-function prompt **in sync**.
+- **Quota:** inline element edits count against the lighter **`chat`** quota, not `generation`.
+- **Persistence:** apply the merged content through the renderer's existing `onChange`
+  (→ `updateCreationContent`) — no new persistence path.
+
+### Required when adding/generalising a template
+1. Define the template's element kinds + patch shape (model on `ideaElements.ts`).
+2. Add a per-element action engine and `applyElementPatch` cases for it.
+3. Make cards tappable in **view mode only** (edit mode keeps manual controls).
+4. Add the `element_edit` prompt branch for the new kinds (keep client/edge prompts in sync)
+   and **deploy the edge function**.
+5. Cover it with tests mirroring `src/__tests__/tapToTalk.test.tsx`.
+
+---
+
 ## Backend & Data
 
 ### Supabase

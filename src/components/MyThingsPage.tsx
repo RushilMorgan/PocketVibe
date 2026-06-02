@@ -62,6 +62,14 @@ function timeAgo(ms: number): string {
   return new Date(ms).toLocaleDateString();
 }
 
+/** Exact, human date+time — used to tell apart same-named tools. */
+function exactDate(ms: number): string {
+  if (!ms) return '';
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
 export function MyThingsPage({
   creations,
   activeCreationId,
@@ -295,7 +303,7 @@ export function MyThingsPage({
           <div className="flex items-center flex-shrink-0">
             <button
               onClick={e => { e.stopPropagation(); startRename(creation); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-300 active:bg-gray-100'}`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-400 active:bg-gray-100'}`}
               aria-label="Rename"
               title="Rename"
             >
@@ -306,7 +314,7 @@ export function MyThingsPage({
             </button>
             <button
               onClick={e => { e.stopPropagation(); onDuplicate(creation.id); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-300 active:bg-gray-100'}`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-400 active:bg-gray-100'}`}
               aria-label="Duplicate"
               title="Duplicate"
             >
@@ -317,7 +325,7 @@ export function MyThingsPage({
             </button>
             <button
               onClick={e => { e.stopPropagation(); handleDelete(creation.id); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-400 active:bg-red-50' : isActive ? 'text-white/30 active:bg-white/10' : 'text-gray-200 active:bg-gray-100'}`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-400 active:bg-red-50' : isActive ? 'text-white/30 active:bg-white/10' : 'text-gray-400 active:bg-gray-100'}`}
               aria-label={isConfirming ? 'Tap again to confirm delete' : 'Delete'}
               title={isConfirming ? 'Tap again to confirm' : 'Delete'}
             >
@@ -355,38 +363,37 @@ export function MyThingsPage({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-sm truncate max-w-[140px] text-gray-900">{tool.title}</span>
+                <span className="font-bold text-sm text-gray-900 break-words">{tool.title}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 bg-violet-50 text-violet-600">
                   {adminToken ? 'Shared' : 'View only'}
                 </span>
               </div>
-              <p className="text-xs mt-0.5 line-clamp-1 text-gray-400">
-                {TYPE_LABEL[tool.creation_type] ?? 'Tool'} · {timeAgo(updatedMs)}
+              <p className="text-xs mt-0.5 text-gray-400">
+                {TYPE_LABEL[tool.creation_type] ?? 'Tool'} · {exactDate(updatedMs)}
               </p>
+              <p className="text-[11px] mt-0.5 text-gray-300 font-mono">/s/{tool.share_slug}</p>
             </div>
           </button>
-          <div className="flex items-center flex-shrink-0 self-center gap-1">
-            <button
-              onClick={() => openCloudTool(tool)}
-              className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 whitespace-nowrap"
-            >
-              Open →
-            </button>
-            <button
-              onClick={() => handleCloudDelete(tool)}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-400 active:bg-red-50' : 'text-gray-200 active:bg-gray-100'}`}
-              aria-label={isConfirming ? 'Tap again to confirm remove' : 'Remove from account'}
-              title={isConfirming ? 'Tap again to confirm' : 'Remove from account'}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-              </svg>
-            </button>
-          </div>
+          <button
+            onClick={() => openCloudTool(tool)}
+            className="flex-shrink-0 self-center text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 whitespace-nowrap"
+          >
+            Open →
+          </button>
         </div>
+        {/* Remove — full-width, clearly visible row */}
+        <button
+          onClick={() => handleCloudDelete(tool)}
+          className={`mt-2.5 w-full text-xs font-semibold py-2 rounded-xl border ${
+            isConfirming
+              ? 'text-white bg-red-500 border-red-500 active:bg-red-600'
+              : 'text-red-500 bg-red-50 border-red-100 active:bg-red-100'
+          }`}
+        >
+          {isConfirming ? 'Tap again to permanently delete' : 'Remove from account'}
+        </button>
         {isConfirming && (
-          <p className="text-xs text-red-400 mt-1.5 ml-9">Tap remove again — this deletes the shared tool &amp; its link</p>
+          <p className="text-xs text-red-400 mt-1.5">This deletes the shared tool and disables its link.</p>
         )}
       </div>
     );

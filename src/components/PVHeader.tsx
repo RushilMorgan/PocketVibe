@@ -74,15 +74,17 @@ export default function PVHeader({
       </div>
 
       {/* My things link — hidden on the my-creations view (you're already there) */}
-      {creationsCount > 0 && view !== 'my-creations' && (
+      {(creationsCount > 0 || Boolean(userEmail)) && view !== 'my-creations' && (
         <button
           onClick={onGoMyCreations}
           className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 active:bg-violet-100 transition-colors"
         >
           <span className="text-xs font-semibold text-violet-700">My things</span>
-          <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold bg-violet-600">
-            {creationsCount > 9 ? '9+' : creationsCount}
-          </span>
+          {creationsCount > 0 && (
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold bg-violet-600">
+              {creationsCount > 9 ? '9+' : creationsCount}
+            </span>
+          )}
         </button>
       )}
 

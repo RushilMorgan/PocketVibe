@@ -214,6 +214,16 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       {/* Dark header */}
       <header className="bg-gray-900 px-4 py-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
+          <a
+            href="/"
+            aria-label="Back to Hey Toolie"
+            title="Back to Hey Toolie"
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 active:bg-white/20 flex-shrink-0"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </a>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span className="text-violet-400 text-xs">✦</span>
             <span className="text-xs font-black text-white/60 tracking-tight">Hey Toolie</span>

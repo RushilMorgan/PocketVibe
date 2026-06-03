@@ -182,6 +182,11 @@ export default function App() {
         onGoAccount={auth.user ? goToMyCreations : undefined}
         userEmail={auth.user?.email}
         onSignIn={auth.isAvailable && !auth.user ? () => openAuthModal('account') : undefined}
+        onShare={
+          view === 'creation' && activeCreation?.status === 'ready' && !isGenerating
+            ? () => { setSharePanelOpen(true); trackSharePanelOpened(activeCreation.creationType); }
+            : undefined
+        }
       />
 
       {/* Save nudge banner */}
@@ -248,25 +253,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Share / copy buttons */}
-            {activeCreation?.status === 'ready' && !isGenerating && (
-              <div className="mx-4 mt-2 flex-shrink-0 flex gap-2">
-                <button
-                  data-testid="share-creation-btn"
-                  onClick={() => { setSharePanelOpen(true); if (activeCreation) trackSharePanelOpened(activeCreation.creationType); }}
-                  className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  ✨ Share link
-                </button>
-                <button
-                  data-testid="copy-creation-btn"
-                  onClick={handleCopyText}
-                  className="text-xs text-gray-400 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  {copyError ? '⚠ Copy failed' : copied ? '✓ Copied' : '⎘ Copy text'}
-                </button>
-              </div>
-            )}
+            {/* Share button moved to PVHeader — no longer needs a strip here */}
 
             {/* Generating overlay */}
             {isGenerating && (

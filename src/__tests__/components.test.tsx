@@ -1023,13 +1023,13 @@ describe('getContentVisibleSignature — expanded fields', () => {
 
 // ── Copy text button ──────────────────────────────────────────────────────────
 
-describe('copy-creation-btn testid exists', () => {
-  it('copy-creation-btn testid is referenced in App', () => {
-    // Ensure the data-testid string is present in the source (compile-time guard)
-    const src = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
-    expect(src).toContain('data-testid="copy-creation-btn"');
-    expect(src).toContain('handleCopyText');
-    expect(src).toContain('handleNativeShare');
+describe('share button is in PVHeader for creation view', () => {
+  it('share-creation-btn data-testid is in PVHeader (not the creation strip)', () => {
+    const header = readFileSync(join(process.cwd(), 'src/components/PVHeader.tsx'), 'utf8');
+    expect(header).toContain('data-testid="share-creation-btn"');
+    // Copy text button was removed — share in header covers the use case
+    const app = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
+    expect(app).not.toContain('data-testid="copy-creation-btn"');
   });
 });
 

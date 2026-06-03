@@ -13,6 +13,8 @@ interface PVHeaderProps {
   userEmail?: string;
   /** Shown when user is not logged in and auth is available. */
   onSignIn?: () => void;
+  /** Opens the share panel from the header in creation view. */
+  onShare?: () => void;
 }
 
 export default function PVHeader({
@@ -25,6 +27,7 @@ export default function PVHeader({
   onGoAccount,
   userEmail,
   onSignIn,
+  onShare,
 }: PVHeaderProps) {
   const showBack = view === 'creation' || view === 'my-creations';
   const title = view === 'creation' && activeCreation
@@ -72,6 +75,23 @@ export default function PVHeader({
           <span className="text-xs text-gray-400">v{activeCreation.version}</span>
         )}
       </div>
+
+      {/* Share button — in creation view only, in the header where it belongs */}
+      {view === 'creation' && onShare && (
+        <button
+          data-testid="share-creation-btn"
+          onClick={onShare}
+          className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 active:bg-gray-200 transition-colors"
+          aria-label="Share"
+          title="Share"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </button>
+      )}
 
       {/* My things link — hidden on the my-creations view (you're already there) */}
       {(creationsCount > 0 || Boolean(userEmail)) && view !== 'my-creations' && (

@@ -446,18 +446,14 @@ RULES:
 - Never return raw HTML — always use a structured creationType from the list above
 - If the user mentions World Cup, tournament pool, sweepstake, seeded pots, or team draw, use tournament_pool_tracker
 - For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.
-- For idea_thinking_board: this is the FLAGSHIP "wow" experience — it must feel insightful, specific, and genuinely helpful, never generic.
-  * Every section must reference the user's ACTUAL idea by name and detail. Never write filler like "your target users" — name who they actually are (e.g. "Busy parents of under-5s in cities").
-  * problem & solution: sharp and concrete, 1-2 sentences each, specific to this idea.
-  * targetUsers (3-4): each a real persona with a concrete need and a concrete reason they'd care.
-  * risks (3-4): HONEST hard truths. Name real competitors or real behaviours people already use (e.g. "People already coordinate this for free in WhatsApp groups"). Mix severities. Be candid but encouraging, never demotivating.
-  * opportunities (2-3): genuine angles where this could win.
-  * moneyIdeas (3): realistic models with SPECIFIC price points in Rands (e.g. "R49/month subscription"), each with an honest confidence 1-10.
-  * scores: an honest assessment (1-10 integers) — do not make everything high; reflect real trade-offs (e.g. easeToBuild low for an ambitious idea).
-  * nextSteps (3-5): concrete, doable-this-week actions to test the idea cheaply BEFORE building.
-  * visualMap: 6 branches (Problem, Users, Solution, Money, Risks, Next steps), each with 3 SPECIFIC items drawn from the idea — this is the mind-map the user explores, so make each item meaningful.
-  * whyNow: one specific sentence on why this is a good moment for this idea.
-  * Plain friendly language only. Never use "market validation", "go-to-market", or "customer segmentation".`;
+- For idea_thinking_board: read the user's prompt carefully — the INTENT changes everything.
+  * If the prompt starts with "I want to understand and explore" → this is a LEARNING board. Fill fields as: ideaSummary=overview of the topic, problem=the question being explored, solution=the clearest current answer/approach, targetUsers=who this topic is most relevant for, risks=hard truths/misconceptions/pitfalls, moneyIdeas=ways to apply this knowledge (model=application, note=how), nextSteps=what to learn/do first, visualMap=key concepts and how they relate.
+  * If the prompt starts with "I want to compare" → this is a COMPARISON board. Fill fields as: ideaSummary=what is being compared, problem=the decision/question at hand, solution=the high-level recommendation, targetUsers=personas who'd choose each option, risks=where each option falls short, moneyIdeas=use cases for each option (model=option name, note=when to use it), nextSteps=how to decide/validate.
+  * If the prompt starts with "I want to brainstorm" → this is a BRAINSTORM board. Be expansive and creative. Fill fields generously with possibilities, connections, and diverse angles.
+  * If the prompt starts with "I need to think through a decision" → this is a DECISION board. Be honest and personal. Focus on trade-offs, unknowns, and helping the user commit.
+  * For all non-business intents: DO NOT force money/revenue framing. Adapt moneyIdeas to "ways to apply/use this" and scores to reflect clarity, usefulness, and confidence — not commercial viability.
+  * For business/validate intent (default): every section must reference the user's ACTUAL idea by name and detail. targetUsers (3-4): each a real persona. risks (3-4): HONEST hard truths naming real competitors. moneyIdeas (3): realistic models with SPECIFIC price points in Rands (e.g. "R49/month"). nextSteps (3-5): doable-this-week actions to test cheaply BEFORE building.
+  * All intents: plain friendly language. Never use "market validation", "go-to-market", or "customer segmentation". Always include all required fields (ideaSummary, problem, solution, targetUsers, risks, opportunities, moneyIdeas, scores, nextSteps, visualMap). Scores must be honest 1-10 integers.`;
 }
 
 function buildBuilderMessage(

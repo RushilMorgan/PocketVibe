@@ -584,10 +584,10 @@ export function usePocketVibe(userId?: string) {
    * and locks the output type so the result is always a full Idea Thinking Board
    * (never a generic fallback). Mirrors the one-tap feel of the other flagships.
    */
-  const createIdeaBoard = useCallback((categoryLabel: string, idea: string) => {
+  const createIdeaBoard = useCallback((categoryLabel: string, idea: string, intentId = 'validate') => {
     if (stateRef.current.isGenerating) return;
     if (isBlockedByQuota('generation')) return;
-    const userRequest = buildIdeaBoardPrompt(categoryLabel, idea);
+    const userRequest = buildIdeaBoardPrompt(categoryLabel, idea, intentId);
     trackCreationStarted('idea_thinking_board', userRequest);
     dispatch({ type: 'CLEAR_MESSAGES' });
     const locale = {

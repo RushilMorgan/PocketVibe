@@ -161,6 +161,32 @@ function quotaExceededResponse(r: QuotaResult): Response {
   }), { status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 }
 
+// ── User memory ───────────────────────────────────────────────────────────────
+// Fetches the user's Toolie profile and assembles a compact (<150 token) memory
+// string. Injected into every prompt so Toolie already knows the user. Fails
+// silently — a DB hiccup must never block a generation.
+async function getUserMemory(supabaseAdmin: unknown, userId: string): Promise<string> {
+  if (!supabaseAdmin) return '';
+  try {
+    const { data } = await (supabaseAdmin as any)
+      .from('user_profiles')
+      .select('name,location,what_they_do,goals,preferences,remember_notes')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!data) return '';
+    const parts: string[] = [];
+    if (data.name)           parts.push(`Name: ${data.name}`);
+    if (data.location)       parts.push(`Location: ${data.location}`);
+    if (data.what_they_do)   parts.push(`What I do: ${data.what_they_do}`);
+    if (data.goals)          parts.push(`My goals: ${data.goals}`);
+    if (data.preferences)    parts.push(`Preferences: ${data.preferences}`);
+    if (data.remember_notes) parts.push(`Remember: ${data.remember_notes}`);
+    return parts.length
+      ? `[About this user — personalise your response using this context]\n${parts.join('\n')}`
+      : '';
+  } catch { return ''; }
+}
+
 // ── Supported types ────────────────────────────────────────────────────────────
 const SUPPORTED_TYPES = [
   'checklist', 'habit_tracker', 'budget_calculator', 'savings_tracker',
@@ -397,7 +423,7 @@ function buildUxDesignerPrompt(
  * Step 4+5: Content Spec + Builder
  * Full system-prompted content generation with intent + UX plan injected.
  */
-function buildSystemPrompt(today: string): string {
+function buildSystemPrompt(today: string, userMemory = ''): string {
   return `You are PocketVibe, an AI that turns everyday ideas into useful tools and mini-applications. You help normal people — not developers — create things they can actually use right now.
 
 Output ONLY a valid JSON object. No markdown fences, no explanation, no extra text outside the JSON.
@@ -431,7 +457,7 @@ task_planner: { "type":"task_planner","planTitle":"My Plan","sections":[{"id":"s
 idea_thinking_board: { "type":"idea_thinking_board","title":"Idea Title","ideaSummary":"A 2-3 sentence summary of what the idea is.","problem":"The specific problem this solves.","solution":"How this idea solves the problem.","whyNow":"Why this is the right moment.","targetUsers":[{"id":"u1","name":"Young professionals","need":"A faster way to X","whyTheyCare":"They currently waste time on Y"},{"id":"u2","name":"Small business owners","need":"Affordable solution for Z","whyTheyCare":"Existing tools cost too much"}],"risks":[{"id":"r1","title":"People already use WhatsApp groups for this","severity":"medium","note":"The free and familiar alternative is hard to beat without a strong value add."},{"id":"r2","title":"Hard to get first users","severity":"high","note":"Without an existing network, early traction will be slow."}],"opportunities":[{"id":"o1","title":"No good mobile-first option exists","note":"Most competitors are desktop-only."}],"moneyIdeas":[{"id":"m1","model":"Monthly subscription","note":"Charge R99/month for premium features. Free tier to get users in.","confidence":7},{"id":"m2","model":"Once-off purchase","note":"Sell a one-time licence for R499. Simpler, no recurring billing needed.","confidence":5}],"scores":{"clarity":7,"usefulness":8,"easeToBuild":5,"moneyPotential":6,"riskLevel":6,"confidence":7},"nextSteps":[{"id":"ns1","label":"Talk to 5 people who might use this","done":false},{"id":"ns2","label":"Build a simple demo in a weekend","done":false},{"id":"ns3","label":"Post about it and see who responds","done":false}],"visualMap":{"center":"Your Idea","branches":[{"id":"b1","label":"Problem","items":["Who suffers","How bad is it","Current workarounds"]},{"id":"b2","label":"Users","items":["Main user type","Secondary users","Who pays"]},{"id":"b3","label":"Solution","items":["Core feature","What makes it different","Simplest version"]},{"id":"b4","label":"Money","items":["Main revenue model","Price point","Who pays"]},{"id":"b5","label":"Risks","items":["Biggest threat","Hardest part","What could fail"]},{"id":"b6","label":"Next steps","items":["Test this week","Build first","Validate before building"]}]},"notes":"" }
 tournament_pool_tracker: { "type":"tournament_pool_tracker","poolName":"World Cup Family Pool","tournamentName":"FIFA World Cup 2026","prizeNote":"Winner gets bragging rights!","adminName":"You","rulesNote":"Each person draws one team from each pot","participants":[{"id":"p1","name":"Alice","emoji":"⭐"},{"id":"p2","name":"Bob","emoji":"🎯"},{"id":"p3","name":"Carol","emoji":"🌟"},{"id":"p4","name":"Dave","emoji":"⚡"}],"teams":[{"id":"t1","name":"Brazil","pot":1,"group":"D","flagEmoji":"🇧🇷","status":"active"},{"id":"t2","name":"France","pot":1,"group":"A","flagEmoji":"🇫🇷","status":"active"},{"id":"t3","name":"Argentina","pot":1,"group":"C","flagEmoji":"🇦🇷","status":"active"},{"id":"t4","name":"England","pot":1,"group":"B","flagEmoji":"🏴","status":"active"},{"id":"t5","name":"Netherlands","pot":2,"group":"E","flagEmoji":"🇳🇱","status":"active"},{"id":"t6","name":"Portugal","pot":2,"group":"H","flagEmoji":"🇵🇹","status":"active"},{"id":"t7","name":"Belgium","pot":2,"group":"F","flagEmoji":"🇧🇪","status":"active"},{"id":"t8","name":"Spain","pot":2,"group":"G","flagEmoji":"🇪🇸","status":"active"}],"matches":[],"drawLocked":false,"scoringRules":{"pointsPerWin":3,"pointsPerDraw":1,"knockoutBonus":5,"quarterFinalBonus":10,"semiFinalBonus":15,"finalBonus":20,"winnerBonus":50} }
 
-RULES:
+${userMemory ? `${userMemory}\nUse their name, location, and goals to make this genuinely personal — localise currency, examples, and context to them.\n\n` : ''}RULES:
 - Use practical realistic defaults, not fake values
 - All labels must be plain friendly English — no technical jargon
 - Make it immediately useful
@@ -530,6 +556,7 @@ function buildElementEditPrompt(
   element: unknown,
   instruction: string,
   content: Record<string, unknown>,
+  userMemory = '',
 ): string {
   const isScalar = ['summary', 'problem', 'solution'].includes(elementKind);
   const isScores = elementKind === 'scores';
@@ -541,6 +568,7 @@ function buildElementEditPrompt(
 
   return [
     'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.',
+    ...(userMemory ? [userMemory] : []),
     `The idea, for context: "${content.title ?? ''}" — ${content.ideaSummary ?? ''}`,
     `Element kind: ${elementKind}`,
     `Current element (JSON): ${JSON.stringify(element)}`,
@@ -563,6 +591,7 @@ function buildChatPrompt(
   content: Record<string, unknown>,
   userMessage: string,
   today: string,
+  userMemory = '',
 ): string {
   let dataSummary = '';
 
@@ -708,6 +737,7 @@ function buildChatPrompt(
   return [
     'You are Toolie, a friendly AI assistant embedded in a PocketVibe tool.',
     `Today is ${today}.`,
+    ...(userMemory ? ['', userMemory] : []),
     '',
     '=== TOOL DATA ===',
     dataSummary,
@@ -873,6 +903,12 @@ Deno.serve(async (req: Request) => {
   const today = locale?.date ?? new Date().toISOString().slice(0, 10);
   const mode = (body.mode as string) ?? 'new';
 
+  // ── User memory ────────────────────────────────────────────────────────────────
+  // Fetch once here; thread into every prompt so Toolie already knows the user.
+  const userMemory = identity.identifierType === 'user'
+    ? await getUserMemory(supabaseAdmin, identity.identifier)
+    : '';
+
   // ── Fast chat path ────────────────────────────────────────────────────────────
   // mode: 'chat' → single Gemini call with tool context. Returns either
   // { answer: string } for Q&A or { action: 'modify' } to escalate to the full pipeline.
@@ -896,7 +932,7 @@ Deno.serve(async (req: Request) => {
     const chatQuota = await enforceQuota(supabaseAdmin, identity, 'chat');
     if (!chatQuota.allowed) return quotaExceededResponse(chatQuota);
 
-    const chatPrompt = buildChatPrompt(creationType, content, userMessage, today);
+    const chatPrompt = buildChatPrompt(creationType, content, userMessage, today, userMemory);
     const chatModel = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
     try {
       const result = await chatModel.generateContent(chatPrompt);
@@ -943,7 +979,7 @@ Deno.serve(async (req: Request) => {
     const editQuota = await enforceQuota(supabaseAdmin, identity, 'chat');
     if (!editQuota.allowed) return quotaExceededResponse(editQuota);
 
-    const prompt = buildElementEditPrompt(elementKind, element, instruction, content);
+    const prompt = buildElementEditPrompt(elementKind, element, instruction, content, userMemory);
     const model = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
     try {
       const result = await model.generateContent(prompt);
@@ -1029,7 +1065,7 @@ Deno.serve(async (req: Request) => {
   // Main content generation with intent + UX plan injected into the user message.
   const builderModel = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    systemInstruction: buildSystemPrompt(today),
+    systemInstruction: buildSystemPrompt(today, userMemory),
   });
 
   const builderMessage = buildBuilderMessage(body, intent, uxPlan);

@@ -407,9 +407,9 @@ export default function App() {
       <IdeaIntakeSheet
         open={ideaIntakeOpen}
         onClose={() => setIdeaIntakeOpen(false)}
-        onSubmit={(categoryLabel, idea) => {
+        onSubmit={(categoryLabel, idea, intentId) => {
           setIdeaIntakeOpen(false);
-          createIdeaBoard(categoryLabel, idea);
+          createIdeaBoard(categoryLabel, idea, intentId);
         }}
       />
 

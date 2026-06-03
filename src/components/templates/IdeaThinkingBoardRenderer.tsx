@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   IdeaThinkingBoardContent,
   IdeaRisk,
@@ -70,93 +70,394 @@ function overallHealth(scores: IdeaThinkingBoardContent['scores']): number {
 // A distinct colour per branch so the map reads like a real mind map.
 const BRANCH_COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#db2777'];
 
-function IdeaMapSVG({ content, onTapBranch, changedKey }: {
+// ── Interactive mind map ──────────────────────────────────────────────────────
+
+interface MapPan { x: number; y: number; scale: number; }
+
+function IdeaMapSVG({ content, onTapBranch, changedKey, revealed }: {
   content: IdeaThinkingBoardContent;
   onTapBranch?: (branch: IdeaMapBranch) => void;
   changedKey?: string | null;
+  revealed?: boolean;
 }) {
   const branches = content.visualMap.branches.slice(0, 6);
-  const cx = 160, cy = 160, r = 112;
-  const centerR = 52;
+  const cx = 160, cy = 160, r = 112, centerR = 52, nodeR = 31;
+
+  // Pan / zoom state
+  const [pan, setPan] = useState<MapPan>({ x: 0, y: 0, scale: 1 });
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const lastDist = useRef<number | null>(null);
+
+  // Expanded branch (tap to reveal items on canvas)
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const prev = pointers.current.get(e.pointerId);
+    if (!prev) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = Array.from(pointers.current.values());
+    if (pts.length === 1) {
+      // Single finger pan
+      const dx = e.clientX - prev.x;
+      const dy = e.clientY - prev.y;
+      setPan(p => ({ ...p, x: p.x + dx, y: p.y + dy }));
+    } else if (pts.length === 2) {
+      // Pinch zoom
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (lastDist.current !== null) {
+        const ratio = dist / lastDist.current;
+        setPan(p => ({ ...p, scale: Math.min(2.5, Math.max(0.6, p.scale * ratio)) }));
+      }
+      lastDist.current = dist;
+    }
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 0) lastDist.current = null;
+  }, []);
+
+  function resetView() { setPan({ x: 0, y: 0, scale: 1 }); }
+
+  function handleNodeTap(branch: IdeaMapBranch) {
+    if (expandedId === branch.id) {
+      // Already expanded — open the AI sheet on second tap
+      onTapBranch?.(branch);
+    } else {
+      setExpandedId(branch.id);
+    }
+  }
 
   return (
-    <div data-testid="idea-visual-map" className="w-full overflow-x-auto">
-      <svg viewBox="0 0 320 320" className="w-full max-w-xs mx-auto" aria-label="Idea map">
-        {/* Curved branch lines */}
-        {branches.map((branch, i) => {
-          const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
-          const angle = (i * 360) / branches.length - 90;
-          const rad = (angle * Math.PI) / 180;
-          const x2 = cx + r * Math.cos(rad);
-          const y2 = cy + r * Math.sin(rad);
-          // Control point bowed perpendicular to the spoke for a gentle curve.
-          const mx = (cx + x2) / 2 + 14 * Math.cos(rad + Math.PI / 2);
-          const my = (cy + y2) / 2 + 14 * Math.sin(rad + Math.PI / 2);
+    <div data-testid="idea-visual-map" className="w-full select-none">
+      {/* Hint */}
+      <p className="text-[10px] text-gray-400 text-center mb-2">Drag to pan · Pinch to zoom · Tap a node to explore</p>
+
+      {/* SVG canvas */}
+      <div
+        style={{ touchAction: 'none', userSelect: 'none', cursor: 'grab' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="overflow-hidden rounded-2xl bg-gray-50 border border-gray-100"
+      >
+        <svg viewBox="0 0 320 320" className="w-full" aria-label="Idea map">
+          <g transform={`translate(${pan.x},${pan.y}) scale(${pan.scale})`} style={{ transformOrigin: '160px 160px' }}>
+            {/* Curved branch lines */}
+            {branches.map((branch, i) => {
+              const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
+              const angle = (i * 360) / branches.length - 90;
+              const rad = (angle * Math.PI) / 180;
+              const x2 = cx + r * Math.cos(rad);
+              const y2 = cy + r * Math.sin(rad);
+              const mx = (cx + x2) / 2 + 14 * Math.cos(rad + Math.PI / 2);
+              const my = (cy + y2) / 2 + 14 * Math.sin(rad + Math.PI / 2);
+              return (
+                <path key={branch.id} d={`M ${cx} ${cy} Q ${mx} ${my} ${x2} ${y2}`}
+                  stroke={color} strokeWidth="2" fill="none"
+                  opacity={revealed ? 0.4 : 0}
+                  style={{ transition: 'opacity 0.4s ease', transitionDelay: `${i * 80 + 200}ms` }}
+                />
+              );
+            })}
+
+            {/* Center halo + circle — pulses once on reveal */}
+            <circle cx={cx} cy={cy} r={centerR + 6} fill="#7c3aed" opacity="0.12" />
+            <circle cx={cx} cy={cy} r={centerR} fill="#7c3aed"
+              style={{ cursor: 'pointer' }}
+              onClick={resetView}
+            />
+            <text x={cx} y={cy - 4} textAnchor="middle" fill="white" fontSize="8" fontWeight="800">
+              {(content.visualMap.center || content.title).slice(0, 16)}
+            </text>
+            <text x={cx} y={cy + 8} textAnchor="middle" fill="white" fontSize="7" opacity="0.7">
+              tap to reset view
+            </text>
+
+            {/* Branch nodes — animated reveal */}
+            {branches.map((branch, i) => {
+              const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
+              const angle = (i * 360) / branches.length - 90;
+              const rad = (angle * Math.PI) / 180;
+              const nx = cx + r * Math.cos(rad);
+              const ny = cy + r * Math.sin(rad);
+              const isExpanded = expandedId === branch.id;
+              const isChanged = changedKey === `mapBranch:${branch.id}`;
+              const scale = isExpanded ? 1.18 : 1;
+
+              return (
+                <g
+                  key={branch.id}
+                  style={{
+                    cursor: 'pointer',
+                    transform: `translate(${nx}px,${ny}px) scale(${scale})`,
+                    transformOrigin: `${nx}px ${ny}px`,
+                    transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                    opacity: revealed ? 1 : 0,
+                    animation: revealed ? `node-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) ${i * 80 + 100}ms forwards` : undefined,
+                  }}
+                  onClick={() => handleNodeTap(branch)}
+                >
+                  <circle cx={0} cy={0} r={nodeR} fill={isChanged ? color : '#fff'} stroke={color} strokeWidth={isExpanded ? 2.5 : 2} />
+                  <circle cx={0} cy={0} r={nodeR} fill={color} opacity={isExpanded ? 0.18 : 0.08} />
+                  {/* Label */}
+                  <text x={0} y={-3} textAnchor="middle" fill={isChanged ? '#fff' : color}
+                    fontSize="8" fontWeight="700">
+                    {branch.label.length > 9 ? branch.label.slice(0, 8) + '…' : branch.label}
+                  </text>
+                  <text x={0} y={8} textAnchor="middle" fill={isChanged ? 'rgba(255,255,255,0.7)' : `${color}99`}
+                    fontSize="6.5">
+                    {branch.items.length} items
+                  </text>
+
+                  {/* Expanded items overlay */}
+                  {isExpanded && (
+                    <g>
+                      {/* Backdrop */}
+                      <rect
+                        x={-58} y={nodeR + 4}
+                        width={116} height={Math.min(branch.items.length, 3) * 16 + 10}
+                        rx={6} fill="white" stroke={color} strokeWidth="1" opacity="0.97"
+                        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' }}
+                      />
+                      {branch.items.slice(0, 3).map((item, j) => (
+                        <text key={j} x={-50} y={nodeR + 17 + j * 16}
+                          fill="#374151" fontSize="7" fontWeight="500">
+                          · {item.length > 20 ? item.slice(0, 19) + '…' : item}
+                        </text>
+                      ))}
+                      {branch.items.length > 3 && (
+                        <text x={0} y={nodeR + 17 + 3 * 16} textAnchor="middle"
+                          fill={color} fontSize="6.5" fontWeight="600">
+                          +{branch.items.length - 3} more · tap for AI
+                        </text>
+                      )}
+                    </g>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+
+      {/* Tap hint when a node is expanded */}
+      {expandedId && (
+        <p className="text-[10px] text-violet-500 text-center mt-1.5">
+          Tap the node again to ask Toolie about it ✦
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Radar / spider chart ─────────────────────────────────────────────────────
+
+function RadarChart({ scores, revealed, onTap }: {
+  scores: IdeaThinkingBoardContent['scores'];
+  revealed?: boolean;
+  onTap?: () => void;
+}) {
+  const CX = 110, CY = 100, maxR = 78;
+  const n = SCORE_META.length; // 6
+  const axes = SCORE_META.map((m, i) => {
+    const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
+    return { ...m, angle, ax: Math.cos(angle), ay: Math.sin(angle) };
+  });
+
+  // Polygon points for the score shape
+  const points = axes.map(({ key, ax, ay }) => {
+    const val = scores[key] ?? 5;
+    const d = (val / 10) * maxR;
+    return `${CX + d * ax},${CY + d * ay}`;
+  }).join(' ');
+
+  // Grid rings at 25%, 50%, 75%, 100%
+  const rings = [0.25, 0.5, 0.75, 1.0].map(pct =>
+    axes.map(({ ax, ay }) => `${CX + pct * maxR * ax},${CY + pct * maxR * ay}`).join(' ')
+  );
+
+  return (
+    <div
+      data-testid="radar-chart"
+      onClick={onTap}
+      style={{ cursor: onTap ? 'pointer' : 'default' }}
+    >
+      <svg viewBox={`0 0 ${CX * 2 + 40} ${CY * 2 + 20}`} className="w-full" aria-label="Idea health radar">
+        {/* Grid rings */}
+        {rings.map((pts, i) => (
+          <polygon key={i} points={pts} fill="none" stroke="#e5e7eb" strokeWidth="0.8" />
+        ))}
+
+        {/* Axis spokes */}
+        {axes.map(({ ax, ay, key }) => (
+          <line key={key}
+            x1={CX} y1={CY}
+            x2={CX + maxR * ax} y2={CY + maxR * ay}
+            stroke="#e5e7eb" strokeWidth="0.8"
+          />
+        ))}
+
+        {/* Score polygon fill */}
+        <polygon
+          points={points}
+          fill="rgba(124,58,237,0.12)"
+          stroke="#7c3aed"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+          style={{
+            strokeDasharray: revealed ? undefined : '1000',
+            strokeDashoffset: revealed ? 0 : 1000,
+            transition: 'stroke-dashoffset 1.2s ease-out, fill-opacity 0.8s ease-out',
+            fillOpacity: revealed ? 1 : 0,
+          }}
+        />
+
+        {/* Score dots */}
+        {axes.map(({ key, angle, ax, ay, color }, i) => {
+          const val = scores[key] ?? 5;
+          const d = (val / 10) * maxR;
           return (
-            <path
-              key={branch.id}
-              d={`M ${cx} ${cy} Q ${mx} ${my} ${x2} ${y2}`}
-              stroke={color} strokeWidth="2" fill="none" opacity="0.4"
+            <circle
+              key={key}
+              cx={CX + d * ax} cy={CY + d * ay}
+              r={4}
+              fill={color}
+              style={{
+                opacity: revealed ? 1 : 0,
+                animation: revealed ? `node-pop 0.3s ease-out ${i * 80 + 800}ms forwards` : undefined,
+              }}
             />
           );
         })}
 
-        {/* Center halo + circle */}
-        <circle cx={cx} cy={cy} r={centerR + 6} fill="#7c3aed" opacity="0.12" />
-        <circle cx={cx} cy={cy} r={centerR} fill="#7c3aed" />
-        <foreignObject x={cx - centerR + 6} y={cy - 20} width={(centerR - 6) * 2} height={40}>
-          <div style={{ fontSize: 10, color: 'white', textAlign: 'center', fontWeight: 800, lineHeight: 1.2, wordBreak: 'break-word' }}>
-            {content.visualMap.center || content.title}
-          </div>
-        </foreignObject>
-
-        {/* Branch nodes */}
-        {branches.map((branch, i) => {
-          const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
-          const angle = (i * 360) / branches.length - 90;
-          const rad = (angle * Math.PI) / 180;
-          const nx = cx + r * Math.cos(rad);
-          const ny = cy + r * Math.sin(rad);
-          const nodeR = 31;
+        {/* Axis labels */}
+        {axes.map(({ key, label, ax, ay }) => {
+          const lx = CX + (maxR + 14) * ax;
+          const ly = CY + (maxR + 14) * ay;
           return (
-            <g key={branch.id}>
-              <circle cx={nx} cy={ny} r={nodeR} fill="#fff" stroke={color} strokeWidth="2" />
-              <circle cx={nx} cy={ny} r={nodeR} fill={color} opacity="0.08" />
-              <foreignObject x={nx - nodeR + 4} y={ny - 14} width={(nodeR - 4) * 2} height={28}>
-                <div style={{ fontSize: 8.5, color, textAlign: 'center', fontWeight: 700, lineHeight: 1.15, wordBreak: 'break-word' }}>
-                  {branch.label}
-                </div>
-              </foreignObject>
+            <text key={key} x={lx} y={ly + 3}
+              textAnchor="middle" fontSize="7" fill="#6b7280" fontWeight="600">
+              {label.split(' ')[0]}
+            </text>
+          );
+        })}
+
+        {/* Center score */}
+        <text x={CX} y={CY + 3} textAnchor="middle" fontSize="10" fill="#7c3aed" fontWeight="900">
+          {scores.confidence}/10
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+// ── Risk / Reward Matrix ──────────────────────────────────────────────────────
+
+const SEVERITY_X: Record<string, number> = { low: 0.82, medium: 0.50, high: 0.18 };
+const IMPACT_Y:   Record<string, number> = { low: 0.75, medium: 0.50, high: 0.20 };
+
+function RiskMatrixChart({ content, onTapRisk, revealed }: {
+  content: IdeaThinkingBoardContent;
+  onTapRisk?: (risk: IdeaRisk) => void;
+  revealed?: boolean;
+}) {
+  const W = 280, H = 190;
+  const pad = 28; // space for axis labels
+  const innerW = W - pad * 2;
+  const innerH = H - pad * 2;
+
+  function px(xFrac: number) { return pad + xFrac * innerW; }
+  function py(yFrac: number) { return pad + yFrac * innerH; }
+
+  // Jitter identical positions slightly so dots don't stack
+  const seen = new Map<string, number>();
+  function jitter(key: string): { dx: number; dy: number } {
+    const count = seen.get(key) ?? 0;
+    seen.set(key, count + 1);
+    const spread = count * 14;
+    const angle = count * 2.4; // golden angle approx
+    return { dx: count === 0 ? 0 : Math.cos(angle) * spread, dy: count === 0 ? 0 : Math.sin(angle) * spread };
+  }
+
+  return (
+    <div data-testid="risk-matrix-chart" className="bg-white rounded-2xl border border-gray-100 p-4">
+      <h4 className="text-xs font-bold text-gray-700 mb-2">Risk vs Reward</h4>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Risk reward matrix">
+        {/* Quadrant fill */}
+        <rect x={pad} y={pad} width={innerW / 2} height={innerH / 2} fill="#059669" opacity="0.06" rx="2" />
+        <rect x={pad + innerW / 2} y={pad} width={innerW / 2} height={innerH / 2} fill="#059669" opacity="0.10" rx="2" />
+        <rect x={pad} y={pad + innerH / 2} width={innerW / 2} height={innerH / 2} fill="#dc2626" opacity="0.06" rx="2" />
+        <rect x={pad + innerW / 2} y={pad + innerH / 2} width={innerW / 2} height={innerH / 2} fill="#d97706" opacity="0.06" rx="2" />
+
+        {/* Grid lines */}
+        <line x1={px(0.5)} y1={pad} x2={px(0.5)} y2={pad + innerH} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
+        <line x1={pad} y1={py(0.5)} x2={pad + innerW} y2={py(0.5)} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
+
+        {/* Axis labels */}
+        <text x={pad + 2} y={pad - 6} fontSize="7" fill="#9ca3af">← More risk</text>
+        <text x={pad + innerW - 2} y={pad - 6} fontSize="7" fill="#9ca3af" textAnchor="end">Less risk →</text>
+        <text x={pad - 4} y={pad + 4} fontSize="7" fill="#9ca3af" textAnchor="middle" transform={`rotate(-90,${pad - 4},${pad + innerH / 2})`}>High reward</text>
+        <text x={pad - 4} y={pad + innerH} fontSize="7" fill="#9ca3af" textAnchor="middle" transform={`rotate(-90,${pad - 4},${pad + innerH / 2 + 30})`}>Low reward</text>
+
+        {/* Quadrant corner labels */}
+        <text x={pad + 4} y={pad + 12} fontSize="6.5" fill="#dc2626" fontWeight="600">Danger zone</text>
+        <text x={pad + innerW - 4} y={pad + 12} fontSize="6.5" fill="#059669" fontWeight="600" textAnchor="end">Sweet spot</text>
+        <text x={pad + 4} y={pad + innerH - 4} fontSize="6.5" fill="#9ca3af">Low priority</text>
+        <text x={pad + innerW - 4} y={pad + innerH - 4} fontSize="6.5" fill="#d97706" textAnchor="end">Worth tackling</text>
+
+        {/* Opportunity dots (teal, top-right quadrant) */}
+        {content.opportunities.slice(0, 3).map((opp, i) => {
+          const xF = 0.65 + (i % 2) * 0.2;
+          const yF = 0.1 + i * 0.12;
+          return (
+            <g key={opp.id} style={{ opacity: revealed ? 1 : 0, transition: `opacity 0.4s ease ${i * 80 + 300}ms` }}>
+              <circle cx={px(xF)} cy={py(yF)} r={9} fill="#059669" opacity="0.2" />
+              <circle cx={px(xF)} cy={py(yF)} r={6} fill="#059669" opacity="0.7" />
+              <title>{opp.title}</title>
+            </g>
+          );
+        })}
+
+        {/* Risk dots */}
+        {content.risks.map((risk, i) => {
+          const xF = SEVERITY_X[risk.severity] ?? 0.5;
+          const yF = IMPACT_Y[risk.impact ?? 'medium'] ?? 0.5;
+          const key = `${Math.round(xF * 4)}_${Math.round(yF * 4)}`;
+          const { dx, dy } = jitter(key);
+          const color = risk.severity === 'high' ? '#dc2626' : risk.severity === 'medium' ? '#d97706' : '#6b7280';
+          return (
+            <g
+              key={risk.id}
+              onClick={() => onTapRisk?.(risk)}
+              style={{
+                cursor: onTapRisk ? 'pointer' : 'default',
+                opacity: revealed ? 1 : 0,
+                transition: `opacity 0.4s ease ${i * 80 + 200}ms`,
+              }}
+            >
+              <circle cx={px(xF) + dx} cy={py(yF) + dy} r={14} fill={color} opacity="0.12" />
+              <circle cx={px(xF) + dx} cy={py(yF) + dy} r={9} fill={color} opacity="0.7" />
+              {/* Label abbreviated */}
+              <text x={px(xF) + dx} y={py(yF) + dy + 3} textAnchor="middle" fontSize="5.5" fill="white" fontWeight="700">
+                {risk.title.split(' ').slice(0, 2).join(' ').slice(0, 10)}
+              </text>
+              <title>{risk.title}</title>
             </g>
           );
         })}
       </svg>
-
-      {/* Branch items below map — colour-matched to the nodes */}
-      <div className="grid grid-cols-2 gap-2 mt-3">
-        {branches.map((branch, i) => {
-          const color = BRANCH_COLORS[i % BRANCH_COLORS.length];
-          return (
-            <div
-              key={branch.id}
-              onClick={onTapBranch ? () => onTapBranch(branch) : undefined}
-              className={`bg-white rounded-xl p-3 border border-gray-100${onTapBranch ? ' cursor-pointer active:scale-[0.99] transition-transform' : ''}${changedKey === `mapBranch:${branch.id}` ? ' ring-2 ring-violet-400 ring-offset-1' : ''}`}
-            >
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
-                <p className="text-xs font-bold text-gray-700">{branch.label}</p>
-              </div>
-              <ul className="space-y-0.5">
-                {branch.items.slice(0, 3).map((item, j) => (
-                  <li key={j} className="text-xs text-gray-500 flex items-start gap-1">
-                    <span className="mt-0.5 flex-shrink-0" style={{ color }}>·</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
+      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-red-500 opacity-70 inline-block" />High risk</span>
+        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-amber-500 opacity-70 inline-block" />Medium</span>
+        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-gray-500 opacity-70 inline-block" />Low risk</span>
+        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-emerald-500 opacity-70 inline-block" />Opportunity</span>
       </div>
     </div>
   );
@@ -167,6 +468,28 @@ function IdeaMapSVG({ content, onTapBranch, changedKey }: {
 export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [editMode, setEditMode] = useState(false);
+
+  // ── Reveal animation — triggers stagger on first mount ────────────────────
+  const [revealed, setRevealed] = useState(false);
+  const [displayHealth, setDisplayHealth] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Count up the health badge
+  const health = overallHealth(content.scores);
+  useEffect(() => {
+    if (!revealed) return;
+    setDisplayHealth(0);
+    let current = 0;
+    const interval = setInterval(() => {
+      current += 1;
+      setDisplayHealth(current);
+      if (current >= health) clearInterval(interval);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [revealed, health]);
 
   // ── Tap-to-talk inline AI ─────────────────────────────────────────────────
   const [active, setActive] = useState<ActiveElement | null>(null);
@@ -224,6 +547,14 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
     setActive(null);
   }
 
+  /** Staggered reveal class + style for a section card. n = 0,1,2,… */
+  function revealSection(n: number): { className: string; style: React.CSSProperties } {
+    return {
+      className: revealed ? 'animate-fade-in' : 'opacity-0',
+      style: { animationDelay: `${n * 80}ms` },
+    };
+  }
+
   /** Tappable card props for view mode: opens the sheet + highlights after a change. */
   function talkCard(base: string, kind: IdeaElementKind, id: string | null) {
     const tappable = !editMode ? ' cursor-pointer active:scale-[0.99] transition-transform' : '';
@@ -231,7 +562,6 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
     return base + tappable + highlight;
   }
 
-  const health = overallHealth(content.scores);
   const healthColor = health >= 7 ? '#059669' : health >= 5 ? '#d97706' : '#dc2626';
   const healthLabel = health >= 7 ? 'Looking good!' : health >= 5 ? 'Promising' : 'Needs work';
 
@@ -241,7 +571,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
     return (
       <div className="flex flex-col gap-4">
         {/* Hero card */}
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className={`bg-white rounded-2xl border border-gray-100 overflow-hidden ${revealed ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '0ms' }}>
           <div className="px-4 pt-4 pb-3" style={{ background: 'linear-gradient(135deg, #7c3aed15, #a855f715)' }}>
             {editMode ? (
               <input
@@ -312,23 +642,35 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         <div
           data-testid="idea-health-score"
           onClick={() => openElement('scores', null, 'Idea health scores', content.scores)}
-          className={talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'scores', null)}
+          className={`${talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'scores', null)} ${revealed ? 'animate-fade-in' : 'opacity-0'}`}
+          style={{ animationDelay: '80ms' }}
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-bold text-gray-800">Idea health</h3>
             <div className="flex items-center gap-1.5">
               <span className="text-lg font-black" style={{ color: healthColor }}>{health}/10</span>
               <span className="text-xs font-semibold" style={{ color: healthColor }}>{healthLabel}</span>
             </div>
           </div>
-          <div className="space-y-2.5">
-            {SCORE_META.map(({ key, label, color, invert }) => {
+
+          {/* Radar chart in view mode */}
+          {!editMode && (
+            <RadarChart
+              scores={content.scores}
+              revealed={revealed}
+              onTap={() => openElement('scores', null, 'Idea health scores', content.scores)}
+            />
+          )}
+
+          {/* Score bars — shown in edit mode for editing, and as compact list below radar */}
+          <div className={`space-y-2 ${editMode ? '' : 'mt-2'}`}>
+            {SCORE_META.map(({ key, label, color, invert }, idx) => {
               const val = content.scores[key];
               const pct = (val / 10) * 100;
               return (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs text-gray-600">{label}</span>
+                    <span className="text-xs text-gray-500">{label}</span>
                     {editMode ? (
                       <input
                         data-testid={`score-input-${key}`}
@@ -342,13 +684,19 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
                         className="w-12 text-xs text-right border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-400"
                       />
                     ) : (
-                      <span className="text-xs font-semibold text-gray-500">{val}/10 · {scoreLabel(val, invert)}</span>
+                      <span className="text-[10px] font-semibold text-gray-400">{val}/10</span>
                     )}
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, background: color }}
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${pct}%`,
+                        background: color,
+                        animation: revealed ? `bar-grow 0.8s ease-out forwards` : undefined,
+                        animationDelay: `${idx * 100 + 200}ms`,
+                        transition: 'width 0.5s ease-out',
+                      }}
                     />
                   </div>
                 </div>
@@ -380,7 +728,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
               <div
                 key={user.id}
                 onClick={() => openElement('targetUser', user.id, user.name, user)}
-                className={talkCard('bg-violet-50 rounded-xl p-3', 'targetUser', user.id)}
+                className={talkCard('bg-violet-50 rounded-xl p-3 border-l-[3px] border-l-violet-300', 'targetUser', user.id)}
               >
                 {editMode ? (
                   <div className="space-y-1.5">
@@ -412,9 +760,22 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs font-bold text-violet-800">{user.name}</p>
-                    <p className="text-xs text-violet-700 mt-0.5">Needs: {user.need}</p>
-                    <p className="text-xs text-violet-600 mt-0.5">Why they care: {user.whyTheyCare}</p>
+                    {/* Persona header */}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="text-2xl leading-none flex-shrink-0">👤</span>
+                      <p className="text-sm font-bold text-violet-900 leading-tight">{user.name}</p>
+                    </div>
+                    {/* Needs */}
+                    <div className="mb-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-0.5">Needs</p>
+                      <p className="text-xs text-violet-700 leading-relaxed">{user.need}</p>
+                    </div>
+                    <div className="h-px bg-violet-100 mb-2" />
+                    {/* Why they care */}
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-0.5">Why they'd care</p>
+                      <p className="text-xs text-violet-600 leading-relaxed">{user.whyTheyCare}</p>
+                    </div>
                   </>
                 )}
               </div>
@@ -451,6 +812,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
           <IdeaMapSVG
             content={content}
             changedKey={changedKey}
+            revealed={revealed}
             onTapBranch={editMode ? undefined : (b) => openElement('mapBranch', b.id, b.label, b)}
           />
         </div>
@@ -479,6 +841,14 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
   function renderRisks() {
     return (
       <div className="flex flex-col gap-3">
+        {/* Risk/Reward Matrix — only show when there are risks */}
+        {content.risks.length > 0 && (
+          <RiskMatrixChart
+            content={content}
+            revealed={revealed}
+            onTapRisk={editMode ? undefined : (r) => openElement('risk', r.id, r.title, r)}
+          />
+        )}
         <div className="flex items-center justify-between">
           <p className="text-xs text-gray-500">Honest concerns about this idea — good to know now.</p>
           {editMode && (
@@ -760,7 +1130,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
             className="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
             style={{ background: `${healthColor}20`, color: healthColor }}
           >
-            {health}/10
+            {displayHealth}/10
           </span>
         </div>
         <button

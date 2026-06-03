@@ -512,6 +512,8 @@ export interface IdeaRisk {
   title: string;
   severity: 'low' | 'medium' | 'high';
   note: string;
+  /** Upside / reward potential — used in the Risk/Reward Matrix. Optional; existing boards default to 'medium'. */
+  impact?: 'low' | 'medium' | 'high';
 }
 
 export interface IdeaOpportunity {

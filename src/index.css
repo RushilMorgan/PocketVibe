@@ -73,6 +73,31 @@ body {
   width: 3px;
 }
 
+/* ── Idea Board animations ────────────────────────────────────────────────── */
+
+/* Mind map node reveal — pop in with a slight overshoot */
+@keyframes node-pop {
+  0%   { opacity: 0; transform: scale(0.3); }
+  70%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-node-pop {
+  animation: node-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Score bar grow from zero */
+@keyframes bar-grow {
+  from { width: 0% !important; }
+}
+
+/* Radar chart polygon draw-in */
+@keyframes radar-draw {
+  from { stroke-dashoffset: 1000; opacity: 0; }
+  to   { stroke-dashoffset: 0;    opacity: 1; }
+}
+
+/* Section stagger — uses existing animate-fade-in but with custom delays set inline */
+
 /* Shimmer sweep animation for loading state on canvas blocks */
 @keyframes shimmer-sweep {
   from { background-position: -200% 0; }

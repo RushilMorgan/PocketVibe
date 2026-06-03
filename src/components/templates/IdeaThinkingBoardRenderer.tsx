@@ -192,17 +192,21 @@ function IdeaMapSVG({ content, onTapBranch, changedKey, revealed }: {
               const scale = isExpanded ? 1.18 : 1;
 
               return (
+                // Outer <g>: fixed position only — never animated so translate survives
                 <g
                   key={branch.id}
+                  style={{ transform: `translate(${nx}px,${ny}px)`, cursor: 'pointer' }}
+                  onClick={() => handleNodeTap(branch)}
+                >
+                  {/* Inner <g>: animation + expand scale only — no translate here */}
+                <g
                   style={{
-                    cursor: 'pointer',
-                    transform: `translate(${nx}px,${ny}px) scale(${scale})`,
-                    transformOrigin: `${nx}px ${ny}px`,
+                    transform: `scale(${scale})`,
+                    transformOrigin: '0px 0px',
                     transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
                     opacity: revealed ? 1 : 0,
                     animation: revealed ? `node-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) ${i * 80 + 100}ms forwards` : undefined,
                   }}
-                  onClick={() => handleNodeTap(branch)}
                 >
                   <circle cx={0} cy={0} r={nodeR} fill={isChanged ? color : '#fff'} stroke={color} strokeWidth={isExpanded ? 2.5 : 2} />
                   <circle cx={0} cy={0} r={nodeR} fill={color} opacity={isExpanded ? 0.18 : 0.08} />
@@ -240,6 +244,7 @@ function IdeaMapSVG({ content, onTapBranch, changedKey, revealed }: {
                       )}
                     </g>
                   )}
+                </g>
                 </g>
               );
             })}
@@ -368,96 +373,110 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
   onTapRisk?: (risk: IdeaRisk) => void;
   revealed?: boolean;
 }) {
-  const W = 280, H = 190;
-  const pad = 28; // space for axis labels
+  // Simple quadrant grid: no tiny SVG text — dots with numbers, legend below
+  const W = 280, H = 220;
+  const pad = 20;
   const innerW = W - pad * 2;
   const innerH = H - pad * 2;
+  const midX = pad + innerW / 2;
+  const midY = pad + innerH / 2;
 
   function px(xFrac: number) { return pad + xFrac * innerW; }
   function py(yFrac: number) { return pad + yFrac * innerH; }
 
-  // Jitter identical positions slightly so dots don't stack
+  // Jitter dots that land on the same cell
   const seen = new Map<string, number>();
-  function jitter(key: string): { dx: number; dy: number } {
-    const count = seen.get(key) ?? 0;
-    seen.set(key, count + 1);
-    const spread = count * 14;
-    const angle = count * 2.4; // golden angle approx
-    return { dx: count === 0 ? 0 : Math.cos(angle) * spread, dy: count === 0 ? 0 : Math.sin(angle) * spread };
+  function jitter(key: string) {
+    const n = seen.get(key) ?? 0;
+    seen.set(key, n + 1);
+    const spread = n * 16;
+    const a = n * 2.4;
+    return { dx: n === 0 ? 0 : Math.cos(a) * spread, dy: n === 0 ? 0 : Math.sin(a) * spread };
   }
 
   return (
     <div data-testid="risk-matrix-chart" className="bg-white rounded-2xl border border-gray-100 p-4">
-      <h4 className="text-xs font-bold text-gray-700 mb-2">Risk vs Reward</h4>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Risk reward matrix">
-        {/* Quadrant fill */}
-        <rect x={pad} y={pad} width={innerW / 2} height={innerH / 2} fill="#059669" opacity="0.06" rx="2" />
-        <rect x={pad + innerW / 2} y={pad} width={innerW / 2} height={innerH / 2} fill="#059669" opacity="0.10" rx="2" />
-        <rect x={pad} y={pad + innerH / 2} width={innerW / 2} height={innerH / 2} fill="#dc2626" opacity="0.06" rx="2" />
-        <rect x={pad + innerW / 2} y={pad + innerH / 2} width={innerW / 2} height={innerH / 2} fill="#d97706" opacity="0.06" rx="2" />
+      <h4 className="text-sm font-bold text-gray-800 mb-1">Risk vs Reward</h4>
+      <p className="text-xs text-gray-400 mb-3">Where each risk sits — tap a dot to explore it with Toolie</p>
 
-        {/* Grid lines */}
-        <line x1={px(0.5)} y1={pad} x2={px(0.5)} y2={pad + innerH} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
-        <line x1={pad} y1={py(0.5)} x2={pad + innerW} y2={py(0.5)} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Risk reward matrix">
+        {/* Quadrant backgrounds */}
+        <rect x={pad}   y={pad}   width={innerW/2} height={innerH/2} fill="#dc2626" opacity="0.05" rx="4"/>
+        <rect x={midX}  y={pad}   width={innerW/2} height={innerH/2} fill="#059669" opacity="0.08" rx="4"/>
+        <rect x={pad}   y={midY}  width={innerW/2} height={innerH/2} fill="#9ca3af" opacity="0.05" rx="4"/>
+        <rect x={midX}  y={midY}  width={innerW/2} height={innerH/2} fill="#d97706" opacity="0.06" rx="4"/>
+
+        {/* Divider lines */}
+        <line x1={midX} y1={pad} x2={midX} y2={pad+innerH} stroke="#e5e7eb" strokeWidth="1.5"/>
+        <line x1={pad} y1={midY} x2={pad+innerW} y2={midY} stroke="#e5e7eb" strokeWidth="1.5"/>
+
+        {/* Quadrant labels — readable size, corners only */}
+        <text x={pad+6} y={pad+16} fontSize="10" fill="#dc2626" fontWeight="700">⚠️ Danger</text>
+        <text x={midX+6} y={pad+16} fontSize="10" fill="#059669" fontWeight="700">✅ Sweet spot</text>
+        <text x={pad+6} y={pad+innerH-6} fontSize="10" fill="#9ca3af" fontWeight="600">Low priority</text>
+        <text x={midX+6} y={pad+innerH-6} fontSize="10" fill="#d97706" fontWeight="600">Worth it</text>
 
         {/* Axis labels */}
-        <text x={pad + 2} y={pad - 6} fontSize="7" fill="#9ca3af">← More risk</text>
-        <text x={pad + innerW - 2} y={pad - 6} fontSize="7" fill="#9ca3af" textAnchor="end">Less risk →</text>
-        <text x={pad - 4} y={pad + 4} fontSize="7" fill="#9ca3af" textAnchor="middle" transform={`rotate(-90,${pad - 4},${pad + innerH / 2})`}>High reward</text>
-        <text x={pad - 4} y={pad + innerH} fontSize="7" fill="#9ca3af" textAnchor="middle" transform={`rotate(-90,${pad - 4},${pad + innerH / 2 + 30})`}>Low reward</text>
+        <text x={pad} y={pad-5} fontSize="9" fill="#9ca3af">← High risk</text>
+        <text x={pad+innerW} y={pad-5} fontSize="9" fill="#9ca3af" textAnchor="end">Low risk →</text>
+        <text x={pad-6} y={midY-6} fontSize="9" fill="#9ca3af" textAnchor="middle"
+          transform={`rotate(-90 ${pad-6} ${midY})`}>High reward</text>
 
-        {/* Quadrant corner labels */}
-        <text x={pad + 4} y={pad + 12} fontSize="6.5" fill="#dc2626" fontWeight="600">Danger zone</text>
-        <text x={pad + innerW - 4} y={pad + 12} fontSize="6.5" fill="#059669" fontWeight="600" textAnchor="end">Sweet spot</text>
-        <text x={pad + 4} y={pad + innerH - 4} fontSize="6.5" fill="#9ca3af">Low priority</text>
-        <text x={pad + innerW - 4} y={pad + innerH - 4} fontSize="6.5" fill="#d97706" textAnchor="end">Worth tackling</text>
+        {/* Opportunity dots */}
+        {content.opportunities.slice(0, 3).map((opp, i) => (
+          <g key={opp.id} style={{ opacity: revealed ? 1 : 0, transition: `opacity 0.4s ease ${i*80+300}ms` }}>
+            <circle cx={px(0.68 + i*0.1)} cy={py(0.15 + i*0.1)} r={12} fill="#059669" opacity="0.15"/>
+            <circle cx={px(0.68 + i*0.1)} cy={py(0.15 + i*0.1)} r={8} fill="#059669" opacity="0.75"/>
+            <text x={px(0.68 + i*0.1)} y={py(0.15 + i*0.1)+3} textAnchor="middle" fontSize="9" fill="white" fontWeight="800">✦</text>
+          </g>
+        ))}
 
-        {/* Opportunity dots (teal, top-right quadrant) */}
-        {content.opportunities.slice(0, 3).map((opp, i) => {
-          const xF = 0.65 + (i % 2) * 0.2;
-          const yF = 0.1 + i * 0.12;
-          return (
-            <g key={opp.id} style={{ opacity: revealed ? 1 : 0, transition: `opacity 0.4s ease ${i * 80 + 300}ms` }}>
-              <circle cx={px(xF)} cy={py(yF)} r={9} fill="#059669" opacity="0.2" />
-              <circle cx={px(xF)} cy={py(yF)} r={6} fill="#059669" opacity="0.7" />
-              <title>{opp.title}</title>
-            </g>
-          );
-        })}
-
-        {/* Risk dots */}
+        {/* Risk dots — numbered, no text inside */}
         {content.risks.map((risk, i) => {
           const xF = SEVERITY_X[risk.severity] ?? 0.5;
           const yF = IMPACT_Y[risk.impact ?? 'medium'] ?? 0.5;
-          const key = `${Math.round(xF * 4)}_${Math.round(yF * 4)}`;
+          const key = `${Math.round(xF*3)}_${Math.round(yF*3)}`;
           const { dx, dy } = jitter(key);
           const color = risk.severity === 'high' ? '#dc2626' : risk.severity === 'medium' ? '#d97706' : '#6b7280';
           return (
-            <g
-              key={risk.id}
+            <g key={risk.id}
               onClick={() => onTapRisk?.(risk)}
-              style={{
-                cursor: onTapRisk ? 'pointer' : 'default',
-                opacity: revealed ? 1 : 0,
-                transition: `opacity 0.4s ease ${i * 80 + 200}ms`,
-              }}
+              style={{ cursor: onTapRisk ? 'pointer' : 'default', opacity: revealed ? 1 : 0, transition: `opacity 0.4s ease ${i*80+200}ms` }}
             >
-              <circle cx={px(xF) + dx} cy={py(yF) + dy} r={14} fill={color} opacity="0.12" />
-              <circle cx={px(xF) + dx} cy={py(yF) + dy} r={9} fill={color} opacity="0.7" />
-              {/* Label abbreviated */}
-              <text x={px(xF) + dx} y={py(yF) + dy + 3} textAnchor="middle" fontSize="5.5" fill="white" fontWeight="700">
-                {risk.title.split(' ').slice(0, 2).join(' ').slice(0, 10)}
-              </text>
-              <title>{risk.title}</title>
+              <circle cx={px(xF)+dx} cy={py(yF)+dy} r={18} fill={color} opacity="0.12"/>
+              <circle cx={px(xF)+dx} cy={py(yF)+dy} r={12} fill={color} opacity="0.85"/>
+              <text x={px(xF)+dx} y={py(yF)+dy+4} textAnchor="middle" fontSize="11" fill="white" fontWeight="900">{i+1}</text>
             </g>
           );
         })}
       </svg>
-      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-red-500 opacity-70 inline-block" />High risk</span>
-        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-amber-500 opacity-70 inline-block" />Medium</span>
-        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-gray-500 opacity-70 inline-block" />Low risk</span>
-        <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-emerald-500 opacity-70 inline-block" />Opportunity</span>
+
+      {/* Legend — readable list below the chart */}
+      <div className="mt-3 space-y-2">
+        {content.risks.map((risk, i) => {
+          const color = risk.severity === 'high' ? 'bg-red-500' : risk.severity === 'medium' ? 'bg-amber-500' : 'bg-gray-400';
+          return (
+            <button
+              key={risk.id}
+              onClick={() => onTapRisk?.(risk)}
+              className="w-full flex items-start gap-2.5 text-left active:bg-gray-50 rounded-lg p-1 -mx-1"
+            >
+              <span className={`w-5 h-5 rounded-full ${color} text-white text-[10px] font-black flex-shrink-0 flex items-center justify-center mt-0.5`}>
+                {i+1}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-gray-800 leading-snug">{risk.title}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{risk.note?.slice(0, 80)}{(risk.note?.length ?? 0) > 80 ? '…' : ''}</p>
+              </div>
+            </button>
+          );
+        })}
+        {content.opportunities.length > 0 && (
+          <div className="flex items-center gap-2 pt-1">
+            <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-black flex-shrink-0 flex items-center justify-center">✦</span>
+            <p className="text-[10px] text-gray-500">{content.opportunities.length} opportunit{content.opportunities.length === 1 ? 'y' : 'ies'} (top-right)</p>
+          </div>
+        )}
       </div>
     </div>
   );

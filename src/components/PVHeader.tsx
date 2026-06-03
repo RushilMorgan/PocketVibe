@@ -53,8 +53,8 @@ export default function PVHeader({
           </svg>
         </button>
       ) : (
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-violet-500 text-base leading-none">✦</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <img src="/icon.png" alt="Hey Toolie" className="h-7 w-7 rounded-lg" />
           <span
             className="text-base font-black tracking-tight"
             style={{ color: accentColor, transition: 'color 0.3s' }}

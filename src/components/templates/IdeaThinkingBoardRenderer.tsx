@@ -373,7 +373,14 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
   onTapRisk?: (risk: IdeaRisk) => void;
   revealed?: boolean;
 }) {
-  // Simple quadrant grid: no tiny SVG text — dots with numbers, legend below
+  // First tap → select (show label); second tap → open AI sheet
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Legend: show first 4, expandable
+  const INITIAL_VISIBLE = 4;
+  const [showAll, setShowAll] = useState(false);
+  const visibleRisks = showAll ? content.risks : content.risks.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = content.risks.length - INITIAL_VISIBLE;
+
   const W = 280, H = 220;
   const pad = 20;
   const innerW = W - pad * 2;
@@ -384,7 +391,6 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
   function px(xFrac: number) { return pad + xFrac * innerW; }
   function py(yFrac: number) { return pad + yFrac * innerH; }
 
-  // Jitter dots that land on the same cell
   const seen = new Map<string, number>();
   function jitter(key: string) {
     const n = seen.get(key) ?? 0;
@@ -394,33 +400,53 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
     return { dx: n === 0 ? 0 : Math.cos(a) * spread, dy: n === 0 ? 0 : Math.sin(a) * spread };
   }
 
+  // Pre-compute dot positions so we can render the tooltip
+  const dotPositions = content.risks.map((risk) => {
+    const xF = SEVERITY_X[risk.severity] ?? 0.5;
+    const yF = IMPACT_Y[risk.impact ?? 'medium'] ?? 0.5;
+    const key = `${Math.round(xF*3)}_${Math.round(yF*3)}`;
+    const { dx, dy } = jitter(key);
+    return { cx: px(xF)+dx, cy: py(yF)+dy };
+  });
+
+  function handleDotTap(risk: IdeaRisk) {
+    if (selectedId === risk.id) {
+      // Second tap → open AI sheet
+      setSelectedId(null);
+      onTapRisk?.(risk);
+    } else {
+      // First tap → show label
+      setSelectedId(risk.id);
+    }
+  }
+
+  const selectedRisk = content.risks.find(r => r.id === selectedId);
+  const selectedIdx  = content.risks.findIndex(r => r.id === selectedId);
+  const selectedPos  = selectedIdx >= 0 ? dotPositions[selectedIdx] : null;
+
   return (
     <div data-testid="risk-matrix-chart" className="bg-white rounded-2xl border border-gray-100 p-4">
       <h4 className="text-sm font-bold text-gray-800 mb-1">Risk vs Reward</h4>
-      <p className="text-xs text-gray-400 mb-3">Where each risk sits — tap a dot to explore it with Toolie</p>
+      <p className="text-xs text-gray-400 mb-3">
+        Tap a dot to see what it is · tap again to explore with Toolie
+      </p>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Risk reward matrix">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Risk reward matrix"
+        onClick={(e) => { if ((e.target as SVGElement).tagName === 'svg') setSelectedId(null); }}
+      >
         {/* Quadrant backgrounds */}
-        <rect x={pad}   y={pad}   width={innerW/2} height={innerH/2} fill="#dc2626" opacity="0.05" rx="4"/>
-        <rect x={midX}  y={pad}   width={innerW/2} height={innerH/2} fill="#059669" opacity="0.08" rx="4"/>
-        <rect x={pad}   y={midY}  width={innerW/2} height={innerH/2} fill="#9ca3af" opacity="0.05" rx="4"/>
-        <rect x={midX}  y={midY}  width={innerW/2} height={innerH/2} fill="#d97706" opacity="0.06" rx="4"/>
-
-        {/* Divider lines */}
+        <rect x={pad}  y={pad}  width={innerW/2} height={innerH/2} fill="#dc2626" opacity="0.05" rx="4"/>
+        <rect x={midX} y={pad}  width={innerW/2} height={innerH/2} fill="#059669" opacity="0.08" rx="4"/>
+        <rect x={pad}  y={midY} width={innerW/2} height={innerH/2} fill="#9ca3af" opacity="0.05" rx="4"/>
+        <rect x={midX} y={midY} width={innerW/2} height={innerH/2} fill="#d97706" opacity="0.06" rx="4"/>
         <line x1={midX} y1={pad} x2={midX} y2={pad+innerH} stroke="#e5e7eb" strokeWidth="1.5"/>
         <line x1={pad} y1={midY} x2={pad+innerW} y2={midY} stroke="#e5e7eb" strokeWidth="1.5"/>
-
-        {/* Quadrant labels — readable size, corners only */}
         <text x={pad+6} y={pad+16} fontSize="10" fill="#dc2626" fontWeight="700">⚠️ Danger</text>
         <text x={midX+6} y={pad+16} fontSize="10" fill="#059669" fontWeight="700">✅ Sweet spot</text>
         <text x={pad+6} y={pad+innerH-6} fontSize="10" fill="#9ca3af" fontWeight="600">Low priority</text>
         <text x={midX+6} y={pad+innerH-6} fontSize="10" fill="#d97706" fontWeight="600">Worth it</text>
-
-        {/* Axis labels */}
         <text x={pad} y={pad-5} fontSize="9" fill="#9ca3af">← High risk</text>
         <text x={pad+innerW} y={pad-5} fontSize="9" fill="#9ca3af" textAnchor="end">Low risk →</text>
-        <text x={pad-6} y={midY-6} fontSize="9" fill="#9ca3af" textAnchor="middle"
-          transform={`rotate(-90 ${pad-6} ${midY})`}>High reward</text>
 
         {/* Opportunity dots */}
         {content.opportunities.slice(0, 3).map((opp, i) => (
@@ -431,50 +457,96 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
           </g>
         ))}
 
-        {/* Risk dots — numbered, no text inside */}
+        {/* Risk dots */}
         {content.risks.map((risk, i) => {
-          const xF = SEVERITY_X[risk.severity] ?? 0.5;
-          const yF = IMPACT_Y[risk.impact ?? 'medium'] ?? 0.5;
-          const key = `${Math.round(xF*3)}_${Math.round(yF*3)}`;
-          const { dx, dy } = jitter(key);
+          const { cx, cy } = dotPositions[i];
           const color = risk.severity === 'high' ? '#dc2626' : risk.severity === 'medium' ? '#d97706' : '#6b7280';
+          const isSelected = selectedId === risk.id;
           return (
             <g key={risk.id}
-              onClick={() => onTapRisk?.(risk)}
-              style={{ cursor: onTapRisk ? 'pointer' : 'default', opacity: revealed ? 1 : 0, transition: `opacity 0.4s ease ${i*80+200}ms` }}
+              onClick={(e) => { e.stopPropagation(); handleDotTap(risk); }}
+              style={{ cursor: 'pointer', opacity: revealed ? 1 : 0, transition: `opacity 0.4s ease ${i*80+200}ms` }}
             >
-              <circle cx={px(xF)+dx} cy={py(yF)+dy} r={18} fill={color} opacity="0.12"/>
-              <circle cx={px(xF)+dx} cy={py(yF)+dy} r={12} fill={color} opacity="0.85"/>
-              <text x={px(xF)+dx} y={py(yF)+dy+4} textAnchor="middle" fontSize="11" fill="white" fontWeight="900">{i+1}</text>
+              {/* Selection ring */}
+              {isSelected && <circle cx={cx} cy={cy} r={22} fill={color} opacity="0.18" stroke={color} strokeWidth="1.5"/>}
+              <circle cx={cx} cy={cy} r={18} fill={color} opacity="0.12"/>
+              <circle cx={cx} cy={cy} r={12} fill={color} opacity={isSelected ? 1 : 0.85}/>
+              <text x={cx} y={cy+4} textAnchor="middle" fontSize="11" fill="white" fontWeight="900">{i+1}</text>
             </g>
           );
         })}
+
+        {/* Tooltip for selected dot — shown above or below based on position */}
+        {selectedRisk && selectedPos && (() => {
+          const { cx, cy } = selectedPos;
+          const above = cy > H / 2; // show tooltip above if dot is in lower half
+          const ty = above ? cy - 30 : cy + 30;
+          const maxW = 160;
+          const tx = Math.min(Math.max(cx, pad + maxW/2), W - pad - maxW/2);
+          return (
+            <g style={{ pointerEvents: 'none' }}>
+              <rect x={tx - maxW/2} y={ty - 18} width={maxW} height={36}
+                rx="8" fill="#1f2937" opacity="0.92"/>
+              {/* Arrow */}
+              <polygon
+                points={above
+                  ? `${cx-5},${cy-26} ${cx+5},${cy-26} ${cx},${cy-20}`
+                  : `${cx-5},${cy+26} ${cx+5},${cy+26} ${cx},${cy+20}`}
+                fill="#1f2937" opacity="0.92"/>
+              <text x={tx} y={ty-4} textAnchor="middle" fontSize="8.5" fill="white" fontWeight="700">
+                {selectedRisk.title.length > 28 ? selectedRisk.title.slice(0, 27) + '…' : selectedRisk.title}
+              </text>
+              <text x={tx} y={ty+9} textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.6)">
+                Tap again to explore with Toolie →
+              </text>
+            </g>
+          );
+        })()}
       </svg>
 
-      {/* Legend — readable list below the chart */}
-      <div className="mt-3 space-y-2">
-        {content.risks.map((risk, i) => {
+      {/* Legend — first 4 visible, expandable */}
+      <div className="mt-3 space-y-1.5">
+        {visibleRisks.map((risk, i) => {
           const color = risk.severity === 'high' ? 'bg-red-500' : risk.severity === 'medium' ? 'bg-amber-500' : 'bg-gray-400';
+          const isSelected = selectedId === risk.id;
           return (
             <button
               key={risk.id}
-              onClick={() => onTapRisk?.(risk)}
-              className="w-full flex items-start gap-2.5 text-left active:bg-gray-50 rounded-lg p-1 -mx-1"
+              onClick={() => handleDotTap(risk)}
+              className={`w-full flex items-start gap-2.5 text-left rounded-xl px-2 py-1.5 transition-colors ${
+                isSelected ? 'bg-gray-100' : 'active:bg-gray-50'
+              }`}
             >
               <span className={`w-5 h-5 rounded-full ${color} text-white text-[10px] font-black flex-shrink-0 flex items-center justify-center mt-0.5`}>
                 {i+1}
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-gray-800 leading-snug">{risk.title}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{risk.note?.slice(0, 80)}{(risk.note?.length ?? 0) > 80 ? '…' : ''}</p>
+                {isSelected && (
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{risk.note?.slice(0, 100)}{(risk.note?.length ?? 0) > 100 ? '…' : ''}</p>
+                )}
               </div>
+              {isSelected && (
+                <span className="text-[10px] text-violet-500 font-semibold flex-shrink-0 mt-0.5">Ask Toolie →</span>
+              )}
             </button>
           );
         })}
+
+        {/* Expand / collapse */}
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setShowAll(v => !v)}
+            className="w-full text-left text-xs text-violet-600 font-semibold py-1.5 px-2 rounded-xl active:bg-violet-50 flex items-center gap-1.5"
+          >
+            <span>{showAll ? '▲ Show less' : `▼ Show ${hiddenCount} more risk${hiddenCount !== 1 ? 's' : ''}`}</span>
+          </button>
+        )}
+
         {content.opportunities.length > 0 && (
           <div className="flex items-center gap-2 pt-1">
             <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-black flex-shrink-0 flex items-center justify-center">✦</span>
-            <p className="text-[10px] text-gray-500">{content.opportunities.length} opportunit{content.opportunities.length === 1 ? 'y' : 'ies'} (top-right)</p>
+            <p className="text-[10px] text-gray-500">{content.opportunities.length} opportunit{content.opportunities.length === 1 ? 'y' : 'ies'} shown in top-right</p>
           </div>
         )}
       </div>

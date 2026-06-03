@@ -17,6 +17,8 @@ interface MyThingsPageProps {
   onSignOut: () => void;
   /** Navigate home (used by the empty-state "Make something" button). */
   onGoHome: () => void;
+  /** Open the Toolie profile page. */
+  onGoMyProfile?: () => void;
 }
 
 const TYPE_EMOJI: Record<string, string> = {
@@ -80,6 +82,7 @@ export function MyThingsPage({
   onRename,
   onSignOut,
   onGoHome,
+  onGoMyProfile,
 }: MyThingsPageProps) {
   const [cloud, setCloud] = useState<CloudTool[]>([]);
   const [cloudLoading, setCloudLoading] = useState(Boolean(user));
@@ -179,8 +182,18 @@ export function MyThingsPage({
     <div className="flex flex-col h-full bg-gray-50">
       {/* Account row — only when signed in */}
       {user && (
-        <div className="flex items-center gap-3 px-4 pt-3 pb-3 border-b border-gray-100 flex-shrink-0 bg-white">
+        <div className="flex items-center gap-2 px-4 pt-3 pb-3 border-b border-gray-100 flex-shrink-0 bg-white">
           <p className="text-xs text-gray-400 flex-1 truncate">{user.email}</p>
+          {onGoMyProfile && (
+            <button
+              data-testid="my-profile-btn"
+              onClick={onGoMyProfile}
+              className="flex-shrink-0 flex items-center gap-1 text-xs text-violet-600 font-semibold px-2.5 py-1.5 rounded-xl bg-violet-50 active:bg-violet-100"
+            >
+              <span className="text-violet-400 text-[10px]">✦</span>
+              My profile
+            </button>
+          )}
           <button
             onClick={onSignOut}
             className="flex-shrink-0 text-xs text-gray-400 font-medium px-3 py-1.5 rounded-xl active:bg-gray-100"

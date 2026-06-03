@@ -8,6 +8,7 @@ import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
 import { AuthModal } from './components/AuthModal';
 import { IdeaIntakeSheet } from './components/IdeaIntakeSheet';
+import { UserProfilePage } from './components/UserProfilePage';
 import { usePocketVibe } from './hooks/usePocketVibe';
 import { useAuth } from './hooks/useAuth';
 import type { AuthModalVariant } from './components/AuthModal';
@@ -47,6 +48,7 @@ export default function App() {
     createIdeaBoard,
     quotaNotice,
     dismissQuotaNotice,
+    goToMyProfile,
   } = usePocketVibe(auth.user?.id);
 
   // ── Back-button / popstate handling ─────────────────────────────────────────
@@ -334,6 +336,14 @@ export default function App() {
             onRename={renameCreation}
             onSignOut={handleSignOut}
             onGoHome={goHome}
+            onGoMyProfile={auth.user ? goToMyProfile : undefined}
+          />
+        )}
+
+        {view === 'my-profile' && auth.user && (
+          <UserProfilePage
+            userId={auth.user.id}
+            onBack={goToMyCreations}
           />
         )}
       </div>

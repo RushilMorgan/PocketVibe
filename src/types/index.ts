@@ -685,7 +685,7 @@ export interface ValidationResult {
 
 // ── App navigation ────────────────────────────────────────────────────────────
 
-export type AppView = 'home' | 'creation' | 'my-creations';
+export type AppView = 'home' | 'creation' | 'my-creations' | 'my-profile';
 
 // ── Chat message ──────────────────────────────────────────────────────────────
 

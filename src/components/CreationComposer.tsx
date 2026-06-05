@@ -305,16 +305,11 @@ export function CreationComposer({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="absolute bottom-6 right-5 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-xl z-20 ring-2 ring-white/20"
-          style={{
-            background: hasActive
-              ? 'linear-gradient(135deg, #4c1d95, #7c3aed)'
-              : 'linear-gradient(135deg, #7c3aed, #a855f7)',
-            boxShadow: '0 4px 24px rgba(124,58,237,0.45)',
-          }}
+          className="absolute bottom-6 right-5 w-14 h-14 rounded-full shadow-xl overflow-hidden z-20"
+          style={{ boxShadow: '0 4px 24px rgba(124,58,237,0.55)' }}
           aria-label={hasActive ? context.title : 'Make something'}
         >
-          ✨
+          <img src="/icon-round.png" alt="Hey Toolie" className="w-full h-full object-cover" />
         </button>
       )}
 

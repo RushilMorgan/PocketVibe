@@ -2,8 +2,9 @@
   "rewrites": [
     { "source": "/privacy",   "destination": "/privacy.html" },
     { "source": "/terms",     "destination": "/terms.html" },
-    { "source": "/icon.png",  "destination": "/icon.png" },
-    { "source": "/logo.png",  "destination": "/logo.png" },
+    { "source": "/icon.png",       "destination": "/icon.png" },
+    { "source": "/icon-round.png", "destination": "/icon-round.png" },
+    { "source": "/logo.png",       "destination": "/logo.png" },
     { "source": "/manifest.json", "destination": "/manifest.json" },
     { "source": "/(.*)",      "destination": "/index.html" }
   ],

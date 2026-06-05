@@ -232,6 +232,8 @@ function timingSafeEqual(a: string, b: string): boolean {
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
+  // Top-level catch — ensures we always return JSON, never a bare platform 500
+  try {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'POST only' }), {
@@ -286,13 +288,23 @@ Deno.serve(async (req: Request) => {
     // ── 1. Ask Gemini (with Google Search grounding for live results) ─────────
     console.log(`[sync-wc] Querying Gemini for last ${daysBack} day(s) of WC 2026 results…`);
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      tools: [{ googleSearch: {} }], // ← enables real-time web search
-    });
-
-    const geminiResult = await model.generateContent(buildPrompt(daysBack));
-    const rawText = geminiResult.response.text().trim();
+    // Try with Google Search grounding first (real-time results).
+    // Fall back to plain generation if grounding isn't supported by this SDK version.
+    let rawText = '';
+    try {
+      const modelWithSearch = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        tools: [{ googleSearch: {} }] as any,
+      });
+      const res = await modelWithSearch.generateContent(buildPrompt(daysBack));
+      rawText = res.response.text().trim();
+      console.log('[sync-wc] Used Google Search grounding');
+    } catch (groundingErr: any) {
+      console.warn('[sync-wc] Search grounding unavailable, falling back:', groundingErr?.message);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const res = await model.generateContent(buildPrompt(daysBack));
+      rawText = res.response.text().trim();
+    }
     console.log(`[sync-wc] Gemini raw (${rawText.length} chars): ${rawText.slice(0, 400)}`);
 
     // ── 2. Validate ───────────────────────────────────────────────────────────
@@ -438,14 +450,18 @@ Deno.serve(async (req: Request) => {
   const durationMs = Date.now() - startMs;
 
   // ── Audit log ─────────────────────────────────────────────────────────────
-  await supabase.from('world_cup_sync_log').insert({
-    status:           syncStatus,
-    matches_upserted: matchesUpdated + matchesInserted,
-    teams_upserted:   stagesUpdated,
-    error_message:    errorMessage ?? (rejected.length > 0 ? `${rejected.length} item(s) rejected` : null),
-    provider:         'gemini-search',
-    duration_ms:      durationMs,
-  }).catch(e => console.error('[sync-wc] Log write failed:', e.message));
+  try {
+    await supabase.from('world_cup_sync_log').insert({
+      status:           syncStatus,
+      matches_upserted: matchesUpdated + matchesInserted,
+      teams_upserted:   stagesUpdated,
+      error_message:    errorMessage ?? (rejected.length > 0 ? `${rejected.length} item(s) rejected` : null),
+      provider:         'gemini-search',
+      duration_ms:      durationMs,
+    });
+  } catch (logErr: any) {
+    console.error('[sync-wc] Log write failed:', logErr?.message);
+  }
 
   console.log(`[sync-wc] Done in ${durationMs}ms — updated:${matchesUpdated} inserted:${matchesInserted} stages:${stagesUpdated} rejected:${rejected.length}`);
 
@@ -458,4 +474,13 @@ Deno.serve(async (req: Request) => {
     rejected: rejected.map(r => ({ reason: r.reason, match: r.raw })),
     error: errorMessage,
   }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+
+  } catch (topErr: any) {
+    // Safety net — should never reach here, but surfaces the real error if it does
+    console.error('[sync-wc] Unhandled top-level error:', topErr?.message ?? topErr);
+    return new Response(
+      JSON.stringify({ status: 'failed', error: topErr?.message ?? String(topErr) }),
+      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+    );
+  }
 });

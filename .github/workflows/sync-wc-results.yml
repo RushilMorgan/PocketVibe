@@ -1,0 +1,53 @@
+name: Sync World Cup Results
+
+on:
+  schedule:
+    # Every 6 hours — offset by 15 min so it doesn't clash on the hour
+    - cron: '15 */6 * * *'
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'How many days back to look for results (default 1)'
+        required: false
+        default: '1'
+
+jobs:
+  sync:
+    name: Fetch results from Gemini → Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Call sync-world-cup-results edge function
+        run: |
+          DAYS_BACK="${{ github.event.inputs.days_back || '1' }}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://trxmbkkxfafrommyhwkl.supabase.co/functions/v1/sync-world-cup-results" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-sync-secret: ${{ secrets.WC_SYNC_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"days_back\": $DAYS_BACK}")
+
+          HTTP_BODY=$(echo "$RESPONSE" | head -n -1)
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n 1)
+
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response: $HTTP_BODY"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Sync failed with HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          # Surface the sync status in the logs
+          STATUS=$(echo "$HTTP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "unknown")
+          UPDATED=$(echo "$HTTP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('matchesUpdated',0))" 2>/dev/null || echo "?")
+          INSERTED=$(echo "$HTTP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('matchesInserted',0))" 2>/dev/null || echo "?")
+          REJECTED=$(echo "$HTTP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('rejected',[])))" 2>/dev/null || echo "?")
+
+          echo "Sync status   : $STATUS"
+          echo "Matches updated : $UPDATED"
+          echo "Matches inserted: $INSERTED"
+          echo "Rejected        : $REJECTED"

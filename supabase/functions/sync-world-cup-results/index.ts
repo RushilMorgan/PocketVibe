@@ -1,19 +1,25 @@
-// Supabase Edge Function — sync-world-cup-results
-// Fetches World Cup 2026 fixtures and teams from API-Football (api-football.com),
-// upserts the canonical tables, and logs the result.
+// Supabase Edge Function — sync-world-cup-results (Gemini-powered)
+// Fetches recent FIFA World Cup 2026 results from Gemini with Google Search
+// grounding (no paid sports API needed), validates the data, and upserts into
+// the canonical world_cup_matches and world_cup_teams tables.
 //
-// Required secret: API_FOOTBALL_KEY
-//   supabase secrets set API_FOOTBALL_KEY=<your_key>
+// Required secrets (already in your project):
+//   GEMINI_API_KEY          — same key used by pocketvibe-generate
+//   SUPABASE_URL            — injected automatically by Supabase
+//   SUPABASE_SERVICE_ROLE_KEY — injected automatically by Supabase
+//   WORLD_CUP_SYNC_SECRET   — optional; used when calling manually
 //
 // Deploy: supabase functions deploy sync-world-cup-results
-//
-// Invoked by Supabase Cron (see schema-world-cup.sql for SQL) or manually:
+// Manual invoke:
 //   curl -X POST https://<project>.supabase.co/functions/v1/sync-world-cup-results \
 //     -H "Authorization: Bearer <service_role_key>"
+//
+// The cron job is set up via schema-wc-cron.sql — runs every 6 hours.
 
 // @ts-nocheck
 // deno-lint-ignore-file
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.24.1';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -21,154 +27,209 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
 };
 
-const API_BASE = 'https://v3.football.api-sports.io';
-const WC_LEAGUE_ID = 1;
-const WC_SEASON = 2026;
+// World Cup 2026 window: June 11 – July 19
+const WC_START = '2026-06-11';
+const WC_END   = '2026-07-19';
 
-// ── Local WC2026 verified team mapping ───────────────────────────────────────
-// Used to enrich DB rows with pot and FIFA rank after API sync.
-// Keys are lowercased team names matching API-Football response.
+// ── Team name normalisation ───────────────────────────────────────────────────
+// Gemini and web sources use many spellings. All values are canonical lowercase
+// names matching what's stored in world_cup_teams.name.
 
-interface TeamMeta { pot: number; fifaRank: number }
-
-// All 48 confirmed 2026 FIFA World Cup qualifiers.
-// Pots and FIFA ranks are from the official draw (December 5, 2025),
-// using the November 19, 2025 FIFA Men's World Ranking.
-// Playoff winners (Pot 4) carried their Nov-2025 rank but were seeded as Pot 4
-// regardless of rank because they qualified via playoffs.
-// Keys are lowercased to match API-Football team name responses.
-const WC2026_TEAM_META: Record<string, TeamMeta> = {
-  // ── Pot 1 ─────────────────────────────────────────────────────────────────
-  'spain':                    { pot: 1, fifaRank: 1  },
-  'argentina':                { pot: 1, fifaRank: 2  },
-  'france':                   { pot: 1, fifaRank: 3  },
-  'england':                  { pot: 1, fifaRank: 4  },
-  'brazil':                   { pot: 1, fifaRank: 5  },
-  'portugal':                 { pot: 1, fifaRank: 6  },
-  'netherlands':              { pot: 1, fifaRank: 7  },
-  'belgium':                  { pot: 1, fifaRank: 8  },
-  'germany':                  { pot: 1, fifaRank: 9  },
-  'usa':                      { pot: 1, fifaRank: 14 },
-  'mexico':                   { pot: 1, fifaRank: 15 },
-  'canada':                   { pot: 1, fifaRank: 27 },
-
-  // ── Pot 2 ─────────────────────────────────────────────────────────────────
-  'croatia':                  { pot: 2, fifaRank: 10 },
-  'morocco':                  { pot: 2, fifaRank: 11 },
-  'colombia':                 { pot: 2, fifaRank: 13 },
-  'uruguay':                  { pot: 2, fifaRank: 16 },
-  'switzerland':              { pot: 2, fifaRank: 17 },
-  'japan':                    { pot: 2, fifaRank: 18 },
-  'senegal':                  { pot: 2, fifaRank: 19 },
-  'iran':                     { pot: 2, fifaRank: 20 },
-  'south korea':              { pot: 2, fifaRank: 22 },
-  'korea republic':           { pot: 2, fifaRank: 22 }, // alternate API name
-  'ecuador':                  { pot: 2, fifaRank: 23 },
-  'austria':                  { pot: 2, fifaRank: 24 },
-  'australia':                { pot: 2, fifaRank: 26 },
-
-  // ── Pot 3 ─────────────────────────────────────────────────────────────────
-  'norway':                   { pot: 3, fifaRank: 29 },
-  'panama':                   { pot: 3, fifaRank: 30 },
-  'egypt':                    { pot: 3, fifaRank: 34 },
-  'algeria':                  { pot: 3, fifaRank: 35 },
-  'scotland':                 { pot: 3, fifaRank: 36 },
-  'paraguay':                 { pot: 3, fifaRank: 39 },
-  'tunisia':                  { pot: 3, fifaRank: 40 },
-  'ivory coast':              { pot: 3, fifaRank: 42 },
-  "côte d'ivoire":            { pot: 3, fifaRank: 42 }, // alternate name
-  'uzbekistan':               { pot: 3, fifaRank: 50 },
-  'qatar':                    { pot: 3, fifaRank: 51 },
-  'saudi arabia':             { pot: 3, fifaRank: 60 },
-  'south africa':             { pot: 3, fifaRank: 61 },
-
-  // ── Pot 4 — ranked qualifiers ─────────────────────────────────────────────
-  'jordan':                   { pot: 4, fifaRank: 66 },
-  'cape verde':               { pot: 4, fifaRank: 68 },
-  'cabo verde':               { pot: 4, fifaRank: 68 }, // alternate API name
-  'ghana':                    { pot: 4, fifaRank: 72 },
-  'curacao':                  { pot: 4, fifaRank: 82 },
-  'curaçao':                  { pot: 4, fifaRank: 82 }, // alternate spelling
-  'haiti':                    { pot: 4, fifaRank: 84 },
-  'new zealand':              { pot: 4, fifaRank: 86 },
-
-  // ── Pot 4 — European playoff winners (seeded Pot 4 regardless of rank) ──
-  'bosnia':                   { pot: 4, fifaRank: 57 },
-  'bosnia and herzegovina':   { pot: 4, fifaRank: 57 }, // alternate API name
-  'sweden':                   { pot: 4, fifaRank: 25 }, // high rank but Pot 4 via playoff
-  'turkey':                   { pot: 4, fifaRank: 28 },
-  'türkiye':                  { pot: 4, fifaRank: 28 }, // alternate spelling
-  'czechia':                  { pot: 4, fifaRank: 38 },
-  'czech republic':           { pot: 4, fifaRank: 38 }, // alternate API name
-
-  // ── Pot 4 — Intercontinental playoff winners ───────────────────────────
-  'dr congo':                 { pot: 4, fifaRank: 100 },
-  'congo dr':                 { pot: 4, fifaRank: 100 }, // alternate API name
-  'iraq':                     { pot: 4, fifaRank: 80  },
+const TEAM_ALIASES: Record<string, string> = {
+  // USA
+  'usa':                              'united states',
+  'usmnt':                            'united states',
+  'united states of america':         'united states',
+  'u.s.a.':                           'united states',
+  'u.s.':                             'united states',
+  // Korea
+  'korea republic':                   'south korea',
+  'republic of korea':                'south korea',
+  'korea':                            'south korea',
+  // Ivory Coast
+  "cote d'ivoire":                    "côte d'ivoire",
+  "cote d ivoire":                    "côte d'ivoire",
+  'ivory coast':                      "côte d'ivoire",
+  // Cape Verde
+  'cape verde':                       'cabo verde',
+  // Congo
+  'dr congo':                         'dr congo',
+  'congo dr':                         'dr congo',
+  'democratic republic of congo':     'dr congo',
+  'democratic republic of the congo': 'dr congo',
+  'drc':                              'dr congo',
+  // Bosnia
+  'bosnia':                           'bosnia and herzegovina',
+  'bosnia-herzegovina':               'bosnia and herzegovina',
+  // Turkey
+  'türkiye':                          'turkey',
+  'turkiye':                          'turkey',
+  // Czech Republic
+  'czech republic':                   'czechia',
+  // Netherlands
+  'holland':                          'netherlands',
+  'the netherlands':                  'netherlands',
+  // Curacao
+  'curaçao':                          'curacao',
 };
 
-function safeCompare(a: string, b: string): boolean {
+function normalise(name: string): string {
+  const lower = (name ?? '').trim().toLowerCase();
+  return TEAM_ALIASES[lower] ?? lower;
+}
+
+// ── Stage helpers ─────────────────────────────────────────────────────────────
+
+const VALID_STAGES = new Set([
+  'group', 'round_of_32', 'round_of_16',
+  'quarter_final', 'semi_final', 'final',
+]);
+
+function normaliseStage(raw: string): string {
+  const s = (raw ?? '').toLowerCase();
+  if (s.includes('group'))                                         return 'group';
+  if (s.includes('32'))                                            return 'round_of_32';
+  if (s.includes('16'))                                            return 'round_of_16';
+  if (s.includes('quarter'))                                       return 'quarter_final';
+  if (s.includes('semi'))                                          return 'semi_final';
+  if (s.includes('final') && !s.includes('semi') && !s.includes('quarter')) return 'final';
+  return 'group';
+}
+
+function stageRank(stage: string): number {
+  const ORDER = ['active', 'group', 'round_of_32', 'round_of_16',
+                 'quarter_final', 'semi_final', 'final', 'winner'];
+  const i = ORDER.indexOf(stage);
+  return i === -1 ? 0 : i;
+}
+
+// ── Synthetic match ID ────────────────────────────────────────────────────────
+// API-Football uses large positive integers; we use negatives for Gemini rows.
+// Deterministic hash → idempotent (re-running doesn't create duplicates).
+
+function syntheticMatchId(homeTeamId: number, awayTeamId: number, date: string): number {
+  const key = `${homeTeamId}-${awayTeamId}-${date}`;
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return -(Number(h % 9000000) + 1000000); // always negative, 7 digits
+}
+
+// ── Gemini prompt ─────────────────────────────────────────────────────────────
+
+function buildPrompt(daysBack: number): string {
+  const today = new Date();
+  const from  = new Date(today.getTime() - daysBack * 86_400_000);
+  const fmt   = (d: Date) => d.toISOString().slice(0, 10);
+
+  return [
+    'You are a football data assistant. Use Google Search to find the latest information.',
+    '',
+    `Find all FIFA World Cup 2026 match results between ${fmt(from)} and ${fmt(today)}.`,
+    'Include ONLY matches that have fully finished with a confirmed final score.',
+    'Do NOT include scheduled, live, postponed, or future matches.',
+    '',
+    'Return ONLY a valid JSON array — no markdown, no explanation, no extra text.',
+    'Each element must have exactly these fields:',
+    '{',
+    '  "home_team": "official FIFA team name",',
+    '  "away_team": "official FIFA team name",',
+    '  "score_home": <integer>,',
+    '  "score_away": <integer>,',
+    '  "match_date": "YYYY-MM-DD",',
+    '  "stage": "group | round_of_32 | round_of_16 | quarter_final | semi_final | final"',
+    '}',
+    '',
+    'Important:',
+    '- Use official FIFA names (e.g. "United States" not "USA", "Côte d\'Ivoire" not "Ivory Coast")',
+    '- Scores must be the FINAL score (after extra time or penalties if played)',
+    '- Only FIFA World Cup 2026 matches — no friendlies or other tournaments',
+    `- If no finished World Cup matches occurred between ${fmt(from)} and ${fmt(today)}, return: []`,
+  ].join('\n');
+}
+
+// ── Response validation ───────────────────────────────────────────────────────
+
+interface MatchResult {
+  home_team:  string;
+  away_team:  string;
+  score_home: number;
+  score_away: number;
+  match_date: string;
+  stage:      string;
+}
+
+interface ValidationResult {
+  valid:       MatchResult[];
+  rejected:    Array<{ raw: unknown; reason: string }>;
+  parseError?: string;
+}
+
+function validateResponse(rawText: string): ValidationResult {
+  const result: ValidationResult = { valid: [], rejected: [] };
+
+  // Strip markdown fences the model occasionally adds
+  const cleaned = rawText
+    .replace(/^```(?:json)?\s*/im, '')
+    .replace(/\s*```\s*$/m, '')
+    .trim();
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    result.parseError = `JSON parse failed. Raw preview: ${rawText.slice(0, 300)}`;
+    return result;
+  }
+
+  if (!Array.isArray(parsed)) {
+    result.parseError = `Expected array, got: ${typeof parsed}`;
+    return result;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const item of parsed) {
+    const reject = (reason: string) => result.rejected.push({ raw: item, reason });
+
+    if (!item || typeof item !== 'object') { reject('not an object'); continue; }
+
+    const { home_team, away_team, score_home, score_away, match_date, stage } = item as any;
+
+    if (!home_team || typeof home_team !== 'string')   { reject(`missing/invalid home_team: ${home_team}`);  continue; }
+    if (!away_team || typeof away_team !== 'string')   { reject(`missing/invalid away_team: ${away_team}`);  continue; }
+    if (!Number.isInteger(score_home) || score_home < 0 || score_home > 20) { reject(`invalid score_home: ${score_home}`); continue; }
+    if (!Number.isInteger(score_away) || score_away < 0 || score_away > 20) { reject(`invalid score_away: ${score_away}`); continue; }
+    if (!match_date || !/^\d{4}-\d{2}-\d{2}$/.test(match_date)) { reject(`invalid match_date: ${match_date}`); continue; }
+    if (match_date < WC_START || match_date > WC_END)  { reject(`date ${match_date} outside WC window`); continue; }
+    if (match_date > today)                            { reject(`future date: ${match_date}`); continue; }
+    if (normalise(home_team) === normalise(away_team)) { reject('home and away teams are the same'); continue; }
+
+    result.valid.push({
+      home_team:  home_team.trim(),
+      away_team:  away_team.trim(),
+      score_home,
+      score_away,
+      match_date,
+      stage: normaliseStage(stage ?? 'group'),
+    });
+  }
+
+  return result;
+}
+
+// ── Timing-safe string compare (prevent timing attacks on secrets) ────────────
+
+function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
 
-// ── API-Football status → our status ─────────────────────────────────────────
-
-const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN', 'AWD', 'WO']);
-const LIVE_STATUSES     = new Set(['1H', 'HT', '2H', 'ET', 'P', 'BT', 'LIVE']);
-
-function mapStatus(apiStatus: string): 'finished' | 'live' | 'scheduled' | 'postponed' | 'cancelled' {
-  if (FINISHED_STATUSES.has(apiStatus)) return 'finished';
-  if (LIVE_STATUSES.has(apiStatus))     return 'live';
-  if (apiStatus === 'PST')              return 'postponed';
-  if (apiStatus === 'CANC' || apiStatus === 'ABD') return 'cancelled';
-  return 'scheduled';
-}
-
-// ── Round string → stage ──────────────────────────────────────────────────────
-
-function mapRoundToStage(round: string): string {
-  const r = round.toLowerCase();
-  if (r.includes('group'))       return 'group';
-  if (r.includes('32'))          return 'round_of_32';
-  if (r.includes('16'))          return 'round_of_16';
-  if (r.includes('quarter'))     return 'quarter_final';
-  if (r.includes('semi'))        return 'semi_final';
-  if (r.includes('3rd') || r.includes('third') || r.includes('place')) return 'semi_final';
-  if (r.includes('final'))       return 'final';
-  return 'group';
-}
-
-// Knock-out stage advancement: return the stage a WINNER progresses to,
-// and what stage the LOSER ends their run at.
-function knockoutProgression(stage: string): { winnerStage: string; loserStage: string } | null {
-  switch (stage) {
-    case 'round_of_32':  return { winnerStage: 'round_of_16',    loserStage: 'eliminated' };
-    case 'round_of_16':  return { winnerStage: 'quarter_final',  loserStage: 'eliminated' };
-    case 'quarter_final':return { winnerStage: 'semi_final',     loserStage: 'eliminated' };
-    case 'semi_final':   return { winnerStage: 'final',          loserStage: 'eliminated' };
-    case 'final':        return { winnerStage: 'winner',         loserStage: 'final' };
-    default: return null; // group stage — handled separately
-  }
-}
-
-// ── API-Football fetch helper ─────────────────────────────────────────────────
-
-async function apiFetch(path: string, apiKey: string): Promise<any> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'x-apisports-key': apiKey,
-      'x-rapidapi-key': apiKey,
-      'x-rapidapi-host': 'v3.football.api-sports.io',
-    },
-  });
-  if (!res.ok) throw new Error(`API-Football ${path} → HTTP ${res.status}`);
-  return res.json();
-}
-
-// ── Handler ───────────────────────────────────────────────────────────────────
+// ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
@@ -178,26 +239,25 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // ── Auth: require either the sync secret header or a service role bearer ──
-  const syncSecret = Deno.env.get('WORLD_CUP_SYNC_SECRET');
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const syncSecret  = Deno.env.get('WORLD_CUP_SYNC_SECRET');
   const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const requestSecret = req.headers.get('x-sync-secret');
-  const authHeader = req.headers.get('authorization') ?? '';
-  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const reqSecret   = req.headers.get('x-sync-secret');
+  const authHeader  = req.headers.get('authorization') ?? '';
+  const bearer      = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-  const hasValidSecret = syncSecret && requestSecret && safeCompare(requestSecret, syncSecret);
-  const hasServiceRole = serviceRole && bearerToken && safeCompare(bearerToken, serviceRole);
+  const validSecret = syncSecret && reqSecret && timingSafeEqual(reqSecret, syncSecret);
+  const validBearer = serviceRole && bearer  && timingSafeEqual(bearer, serviceRole);
 
-  if (!hasValidSecret && !hasServiceRole) {
-    return new Response(JSON.stringify({ error: 'Unauthorized — missing or invalid sync secret' }), {
+  if (!validSecret && !validBearer) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
 
-  const startMs = Date.now();
-  const apiKey = Deno.env.get('API_FOOTBALL_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'API_FOOTBALL_KEY secret not set' }), {
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), {
       status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
@@ -207,175 +267,195 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  let teamsUpserted = 0;
-  let matchesUpserted = 0;
-  let teamsFromApi = 0;
-  let fixturesFromApi = 0;
+  // Optional body param: { days_back: number } — how far back to look (default 3)
+  let daysBack = 3;
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (typeof body.days_back === 'number') daysBack = Math.min(Math.max(1, body.days_back), 14);
+  } catch { /* ignore */ }
+
+  const startMs = Date.now();
+  let matchesUpdated   = 0;
+  let matchesInserted  = 0;
+  let stagesUpdated    = 0;
+  let rejected: Array<{ raw: unknown; reason: string }> = [];
   let errorMessage: string | null = null;
-  let syncStatus: 'success' | 'partial' | 'failed' = 'success';
+  let syncStatus: 'success' | 'partial' | 'no_matches' | 'failed' = 'success';
 
   try {
-    // ── 1. Sync teams ─────────────────────────────────────────────────────────
-    const teamsData = await apiFetch(
-      `/teams?league=${WC_LEAGUE_ID}&season=${WC_SEASON}`,
-      apiKey,
-    );
-
-    teamsFromApi = (teamsData.response ?? []).length;
-    const teamRows = (teamsData.response ?? []).map((item: any) => {
-      const meta = WC2026_TEAM_META[item.team.name?.toLowerCase() ?? ''];
-      return {
-        provider_team_id: item.team.id,
-        name: item.team.name,
-        code: item.team.code ?? null,
-        country: item.team.country ?? null,
-        flag_url: item.team.logo ?? null,
-        pot: meta?.pot ?? null,
-        fifa_rank: meta?.fifaRank ?? null,
-        updated_at: new Date().toISOString(),
-      };
+    // ── 1. Ask Gemini (with Google Search grounding for live results) ─────────
+    console.log(`[sync-wc] Querying Gemini for last ${daysBack} day(s) of WC 2026 results…`);
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      tools: [{ googleSearch: {} }], // ← enables real-time web search
     });
 
-    if (teamRows.length > 0) {
-      const { error: teamErr } = await supabase
+    const geminiResult = await model.generateContent(buildPrompt(daysBack));
+    const rawText = geminiResult.response.text().trim();
+    console.log(`[sync-wc] Gemini raw (${rawText.length} chars): ${rawText.slice(0, 400)}`);
+
+    // ── 2. Validate ───────────────────────────────────────────────────────────
+    const validation = validateResponse(rawText);
+    rejected = validation.rejected;
+
+    if (validation.parseError) throw new Error(validation.parseError);
+
+    if (validation.valid.length === 0) {
+      console.log('[sync-wc] No finished matches found in this window.');
+      syncStatus = 'no_matches';
+    } else {
+      console.log(`[sync-wc] ${validation.valid.length} valid, ${rejected.length} rejected.`);
+
+      // ── 3. Load known teams from DB ───────────────────────────────────────
+      const { data: dbTeams, error: teamsErr } = await supabase
         .from('world_cup_teams')
-        .upsert(teamRows, {
-          onConflict: 'provider_team_id',
-          ignoreDuplicates: false,
-        });
-      if (teamErr) throw new Error(`Team upsert failed: ${teamErr.message}`);
-      teamsUpserted = teamRows.length;
-    }
+        .select('id, name, provider_team_id, stage');
+      if (teamsErr) throw new Error(`Could not load teams: ${teamsErr.message}`);
 
-    // ── 2. Sync fixtures (all statuses) ───────────────────────────────────────
-    const fixturesData = await apiFetch(
-      `/fixtures?league=${WC_LEAGUE_ID}&season=${WC_SEASON}`,
-      apiKey,
-    );
+      const teamByName = new Map<string, any>();
+      for (const t of (dbTeams ?? [])) {
+        teamByName.set(normalise(t.name), t);
+      }
 
-    const fixtures: any[] = fixturesData.response ?? [];
-    fixturesFromApi = fixtures.length;
-
-    // Build match rows — skip manual overrides (is_manual_override = true in DB)
-    const { data: existingOverrides } = await supabase
-      .from('world_cup_matches')
-      .select('provider_match_id')
-      .eq('is_manual_override', true);
-    const overrideIds = new Set((existingOverrides ?? []).map((r: any) => r.provider_match_id));
-
-    const matchRows: any[] = [];
-    for (const f of fixtures) {
-      const provId: number = f.fixture.id;
-      if (overrideIds.has(provId)) continue; // never overwrite manual corrections
-
-      const status    = mapStatus(f.fixture.status.short);
-      const round: string = f.league.round ?? '';
-      const stage     = mapRoundToStage(round);
-      const isLiveOrFinished = status === 'finished' || status === 'live';
-      const scoreHome = isLiveOrFinished ? (f.goals?.home ?? null) : null;
-      const scoreAway = isLiveOrFinished ? (f.goals?.away ?? null) : null;
-
-      matchRows.push({
-        provider_match_id: provId,
-        home_team_id:      f.teams.home.id,
-        away_team_id:      f.teams.away.id,
-        score_home:        scoreHome,
-        score_away:        scoreAway,
-        match_date:        f.fixture.date ?? null,
-        stage,
-        round,
-        status,
-        venue:             f.fixture.venue?.name ?? null,
-        is_manual_override: false,
-        updated_at:        new Date().toISOString(),
-      });
-    }
-
-    if (matchRows.length > 0) {
-      const { error: matchErr } = await supabase
+      // ── 4. Load manual-override IDs (never touch these) ───────────────────
+      const { data: overrides } = await supabase
         .from('world_cup_matches')
-        .upsert(matchRows, { onConflict: 'provider_match_id', ignoreDuplicates: false });
-      if (matchErr) throw new Error(`Match upsert failed: ${matchErr.message}`);
-      matchesUpserted = matchRows.length;
-    }
+        .select('provider_match_id')
+        .eq('is_manual_override', true);
+      const overrideIds = new Set((overrides ?? []).map((r: any) => r.provider_match_id));
 
-    // ── 3. Update team stages from knockout results ───────────────────────────
-    // For each finished knockout match, advance the winner and mark the loser.
-    const knockoutUpdates = new Map<number, string>(); // provider_team_id → stage
+      // ── 5. Upsert each validated result ───────────────────────────────────
+      const pendingStageUpdates = new Map<number, string>(); // provider_team_id → next stage
 
-    for (const f of fixtures) {
-      const status = mapStatus(f.fixture.status.short);
-      if (status !== 'finished') continue;
+      for (const m of validation.valid) {
+        const homeTeam = teamByName.get(normalise(m.home_team));
+        const awayTeam = teamByName.get(normalise(m.away_team));
 
-      const round: string = f.league.round ?? '';
-      const stage = mapRoundToStage(round);
-      const progression = knockoutProgression(stage);
-      if (!progression) continue; // group stage — skip
-
-      const homeId: number = f.teams.home.id;
-      const awayId: number = f.teams.away.id;
-      const scoreHome: number | null = f.goals?.home ?? null;
-      const scoreAway: number | null = f.goals?.away ?? null;
-      if (scoreHome === null || scoreAway === null) continue;
-
-      // Penalty/ET winners use winner field if available
-      const homeWon = f.teams.home.winner ?? (scoreHome > scoreAway);
-      const awayWon = f.teams.away.winner ?? (scoreAway > scoreHome);
-
-      if (homeWon) {
-        const prev = knockoutUpdates.get(homeId);
-        if (!prev || stageRank(progression.winnerStage) > stageRank(prev)) {
-          knockoutUpdates.set(homeId, progression.winnerStage);
+        if (!homeTeam || !awayTeam) {
+          rejected.push({ raw: m, reason: `Unknown team: ${!homeTeam ? m.home_team : m.away_team}` });
+          continue;
         }
-        if (!knockoutUpdates.has(awayId)) {
-          knockoutUpdates.set(awayId, progression.loserStage);
+
+        // Find existing match row — try both home/away orientations in case
+        // Gemini swapped them (it sometimes does for away games)
+        let matchRow: any = null;
+        for (const [hId, aId] of [
+          [homeTeam.provider_team_id, awayTeam.provider_team_id],
+          [awayTeam.provider_team_id, homeTeam.provider_team_id],
+        ]) {
+          const { data } = await supabase
+            .from('world_cup_matches')
+            .select('*')
+            .eq('home_team_id', hId)
+            .eq('away_team_id', aId)
+            .gte('match_date', `${m.match_date}T00:00:00Z`)
+            .lte('match_date', `${m.match_date}T23:59:59Z`)
+            .maybeSingle();
+          if (data) { matchRow = data; break; }
         }
-      } else if (awayWon) {
-        const prev = knockoutUpdates.get(awayId);
-        if (!prev || stageRank(progression.winnerStage) > stageRank(prev)) {
-          knockoutUpdates.set(awayId, progression.winnerStage);
+
+        if (matchRow) {
+          if (overrideIds.has(matchRow.provider_match_id)) {
+            console.log(`[sync-wc] Protected (manual override): ${m.home_team} vs ${m.away_team}`);
+            continue;
+          }
+          const { error } = await supabase
+            .from('world_cup_matches')
+            .update({ score_home: m.score_home, score_away: m.score_away, status: 'finished', updated_at: new Date().toISOString() })
+            .eq('id', matchRow.id);
+          if (error) { rejected.push({ raw: m, reason: `Update failed: ${error.message}` }); continue; }
+          matchesUpdated++;
+        } else {
+          // No existing row — create one with a synthetic ID
+          const synthId = syntheticMatchId(homeTeam.provider_team_id, awayTeam.provider_team_id, m.match_date);
+          if (overrideIds.has(synthId)) continue;
+
+          const { error } = await supabase.from('world_cup_matches').upsert({
+            provider_match_id: synthId,
+            home_team_id:      homeTeam.provider_team_id,
+            away_team_id:      awayTeam.provider_team_id,
+            score_home:        m.score_home,
+            score_away:        m.score_away,
+            match_date:        `${m.match_date}T12:00:00Z`,
+            stage:             m.stage,
+            round:             m.stage,
+            status:            'finished',
+            is_manual_override: false,
+            updated_at:        new Date().toISOString(),
+          }, { onConflict: 'provider_match_id', ignoreDuplicates: false });
+
+          if (error) { rejected.push({ raw: m, reason: `Insert failed: ${error.message}` }); continue; }
+          matchesInserted++;
         }
-        if (!knockoutUpdates.has(homeId)) {
-          knockoutUpdates.set(homeId, progression.loserStage);
+
+        // ── Stage advancement for knockout matches ─────────────────────────
+        if (m.stage !== 'group') {
+          const WIN_NEXT: Record<string, string> = {
+            round_of_32: 'round_of_16', round_of_16: 'quarter_final',
+            quarter_final: 'semi_final', semi_final: 'final', final: 'winner',
+          };
+          const homeWins   = m.score_home > m.score_away;
+          const winner     = homeWins ? homeTeam : awayTeam;
+          const loser      = homeWins ? awayTeam : homeTeam;
+          const nextStage  = WIN_NEXT[m.stage];
+
+          if (nextStage) {
+            const prev = pendingStageUpdates.get(winner.provider_team_id);
+            if (!prev || stageRank(nextStage) > stageRank(prev)) {
+              pendingStageUpdates.set(winner.provider_team_id, nextStage);
+            }
+            if (!pendingStageUpdates.has(loser.provider_team_id)) {
+              pendingStageUpdates.set(loser.provider_team_id, 'eliminated');
+            }
+          }
         }
+      }
+
+      // ── 6. Apply team stage updates ───────────────────────────────────────
+      for (const [provTeamId, newStage] of pendingStageUpdates) {
+        const { error } = await supabase
+          .from('world_cup_teams')
+          .update({ stage: newStage, updated_at: new Date().toISOString() })
+          .eq('provider_team_id', provTeamId)
+          .neq('stage', newStage); // skip if already at this stage
+        if (!error) stagesUpdated++;
+      }
+
+      if (matchesUpdated === 0 && matchesInserted === 0 && rejected.length > 0) {
+        syncStatus = 'failed';
+      } else if (rejected.length > 0) {
+        syncStatus = 'partial';
       }
     }
 
-    // Batch update team stages
-    for (const [provTeamId, stage] of knockoutUpdates) {
-      await supabase
-        .from('world_cup_teams')
-        .update({ stage, updated_at: new Date().toISOString() })
-        .eq('provider_team_id', provTeamId)
-        .neq('stage', stage); // skip if already correct
-    }
-
   } catch (err: any) {
-    console.error('[sync-world-cup-results]', err?.message ?? err);
+    console.error('[sync-wc] Fatal error:', err?.message ?? err);
     errorMessage = err?.message ?? String(err);
-    syncStatus = matchesUpserted > 0 || teamsUpserted > 0 ? 'partial' : 'failed';
+    syncStatus = 'failed';
   }
 
   const durationMs = Date.now() - startMs;
 
+  // ── Audit log ─────────────────────────────────────────────────────────────
   await supabase.from('world_cup_sync_log').insert({
+    status:           syncStatus,
+    matches_upserted: matchesUpdated + matchesInserted,
+    teams_upserted:   stagesUpdated,
+    error_message:    errorMessage ?? (rejected.length > 0 ? `${rejected.length} item(s) rejected` : null),
+    provider:         'gemini-search',
+    duration_ms:      durationMs,
+  }).catch(e => console.error('[sync-wc] Log write failed:', e.message));
+
+  console.log(`[sync-wc] Done in ${durationMs}ms — updated:${matchesUpdated} inserted:${matchesInserted} stages:${stagesUpdated} rejected:${rejected.length}`);
+
+  return new Response(JSON.stringify({
     status: syncStatus,
-    matches_upserted: matchesUpserted,
-    teams_upserted: teamsUpserted,
-    error_message: errorMessage,
-    provider: 'api-football',
-    duration_ms: durationMs,
-  });
-
-  return new Response(
-    JSON.stringify({ status: syncStatus, teamsUpserted, matchesUpserted, teamsFromApi, fixturesFromApi, durationMs, error: errorMessage }),
-    { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-  );
+    matchesUpdated,
+    matchesInserted,
+    stagesUpdated,
+    durationMs,
+    rejected: rejected.map(r => ({ reason: r.reason, match: r.raw })),
+    error: errorMessage,
+  }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 });
-
-// Return a numeric rank for a stage string (used to not downgrade a team's stage).
-function stageRank(stage: string): number {
-  const ORDER = ['active', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final', 'winner', 'eliminated'];
-  const i = ORDER.indexOf(stage);
-  return i === -1 ? 0 : (stage === 'eliminated' ? -1 : i);
-}

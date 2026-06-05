@@ -7,28 +7,21 @@
 -- If not available, invoke the function manually or via GitHub Actions.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- Enable pg_net if not already (needed to call HTTP endpoints from cron)
-CREATE EXTENSION IF NOT EXISTS pg_net;
+-- Cron scheduling for sync-world-cup-results is handled via the Supabase Dashboard.
+-- pg_cron is not available on the free plan.
+--
+-- To set up the schedule:
+--   1. Go to https://supabase.com/dashboard/project/trxmbkkxfafrommyhwkl/functions
+--   2. Click sync-world-cup-results → Schedule
+--   3. Set cron expression: 0 */6 * * *  (every 6 hours)
+--   4. Set HTTP method: POST
+--   5. Add header: x-sync-secret: heytoolie-wc-sync-2026
+--   6. Set body: {"days_back":1}
+--
+-- Or invoke manually:
+--   curl -X POST https://trxmbkkxfafrommyhwkl.supabase.co/functions/v1/sync-world-cup-results \
+--     -H "x-sync-secret: heytoolie-wc-sync-2026" \
+--     -H "Content-Type: application/json" \
+--     -d '{"days_back":3}'
 
--- Remove any existing schedule with this name before recreating
-SELECT cron.unschedule('sync-wc-results') WHERE EXISTS (
-  SELECT 1 FROM cron.job WHERE jobname = 'sync-wc-results'
-);
-
--- Schedule: every 6 hours, June–July 2026
--- Adjust the URL to match your Supabase project reference.
--- The Authorization header uses the service role key stored as a DB setting.
-SELECT cron.schedule(
-  'sync-wc-results',
-  '0 */6 * * *',   -- every 6 hours, on the hour
-  $$
-    SELECT net.http_post(
-      url     := 'https://trxmbkkxfafrommyhwkl.supabase.co/functions/v1/sync-world-cup-results',
-      headers := jsonb_build_object(
-        'Content-Type',  'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.supabase_service_role_key', true)
-      ),
-      body    := '{"days_back": 1}'::jsonb
-    ) AS request_id;
-  $$
-);
+SELECT 1; -- no-op so migration applies cleanly

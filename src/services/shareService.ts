@@ -209,6 +209,38 @@ export async function deleteOwnedCreation(id: string): Promise<boolean> {
 }
 
 /**
+ * Update a shared creation's content directly as the signed-in OWNER, without
+ * needing the admin token stored on this device. Relies on the
+ * `owner_can_update_own` RLS policy (UPDATE allowed only where
+ * owner_user_id = auth.uid()), so it can only ever change the caller's own rows.
+ *
+ * Uses an optimistic version check (.eq('version', expectedVersion)) so it never
+ * clobbers a concurrent edit — on a version mismatch or permission failure it
+ * returns null and the caller can refresh. Never touches other users' pools.
+ */
+export async function updateOwnedCreationContent(
+  shareSlug: string,
+  content: CreationContent | Partial<CreationContent>,
+  expectedVersion: number,
+): Promise<{ version: number; content: CreationContent } | null> {
+  if (!supabase) return null;
+  try {
+    const newVersion = expectedVersion + 1;
+    const { data, error } = await supabase
+      .from('shared_creations')
+      .update({ content, version: newVersion, updated_at: new Date().toISOString() })
+      .eq('share_slug', shareSlug)
+      .eq('version', expectedVersion)
+      .select('version, content')
+      .maybeSingle();
+    if (error || !data) return null;
+    return { version: data.version as number, content: data.content as CreationContent };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Apply a named action to a shared creation.
  * Admin and participant actions are validated server-side.
  * Returns the new version number and updated content.

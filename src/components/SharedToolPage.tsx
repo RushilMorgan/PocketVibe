@@ -13,6 +13,7 @@ import type {
 import {
   getSharedCreation,
   updateSharedCreation,
+  updateOwnedCreationContent,
   getStoredAdminToken,
   applyCreationAction,
 } from '../services/shareService';
@@ -102,12 +103,22 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
     if (accessMode === 'viewer') return;
 
     const activeToken = resolvedAdminToken ?? participantToken;
-    if (!activeToken) return;
+    // Admins may save without a stored token: a signed-in owner is authorised by
+    // their login (RLS owner_can_update_own). Participants still need their token.
+    if (!activeToken && accessMode !== 'admin') return;
 
     setSaveStatus('saving');
     try {
-      const result = await updateSharedCreation(shareSlug, activeToken, updatedContent, creation.version);
-      setCreation(prev => prev ? { ...prev, content: result.content as CreationContent, version: result.version } : prev);
+      if (activeToken) {
+        // Admin (with token) or participant → go through the edge function.
+        const result = await updateSharedCreation(shareSlug, activeToken, updatedContent, creation.version);
+        setCreation(prev => prev ? { ...prev, content: result.content as CreationContent, version: result.version } : prev);
+      } else {
+        // Signed-in owner, no token on this device → write directly (RLS-gated).
+        const result = await updateOwnedCreationContent(shareSlug, updatedContent, creation.version);
+        if (!result) { setSaveStatus('conflict'); return; }
+        setCreation(prev => prev ? { ...prev, content: result.content, version: result.version } : prev);
+      }
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (err) {

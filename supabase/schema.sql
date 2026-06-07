@@ -116,6 +116,17 @@ CREATE POLICY "owner_can_delete_own"
   TO authenticated
   USING (owner_user_id = auth.uid());
 
+-- Authenticated owners can update their own shared creations (e.g. lock the draw,
+-- edit content) directly, without needing the admin token stored on the device.
+-- Scoped both ways to owner_user_id = auth.uid() so a user can only ever change
+-- their own rows and cannot reassign ownership.
+DROP POLICY IF EXISTS "owner_can_update_own" ON shared_creations;
+CREATE POLICY "owner_can_update_own"
+  ON shared_creations FOR UPDATE
+  TO authenticated
+  USING (owner_user_id = auth.uid())
+  WITH CHECK (owner_user_id = auth.uid());
+
 -- Track when a creation was claimed by an authenticated user.
 ALTER TABLE shared_creations
   ADD COLUMN IF NOT EXISTS owner_claimed_at timestamptz;

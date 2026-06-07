@@ -162,16 +162,14 @@ describe('computePoolGuidance', () => {
     expect(sendLinksSuggestion!.label).toMatch(/invite|links/i);
   });
 
-  it('demo_fallback teams banner is a suggestion with info variant', () => {
+  it('does not show a demo/built-in teams suggestion (teams are confirmed)', () => {
     const content = makePool({
       participants: [makeParticipant('p1', 'Alice')],
       teams: [makeTeam('t1', 1)],
       teamsSource: 'demo_fallback',
     });
     const guidance = computePoolGuidance(content, false);
-    const localTeamsSuggestion = guidance.suggestions.find(s => s.id === 'local-teams');
-    expect(localTeamsSuggestion).toBeDefined();
-    expect(localTeamsSuggestion!.variant).toBe('info');
+    expect(guidance.suggestions.find(s => s.id === 'local-teams')).toBeUndefined();
   });
 
   it('all teams assigned but NOT locked: suggests lock-draw with primary quick action', () => {

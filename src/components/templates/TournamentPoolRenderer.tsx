@@ -47,7 +47,7 @@ interface DrawCompleteResult {
   fairnessWarning: string | null;
 }
 
-type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'drawComplete' | 'addResult' | 'lockConfirm';
+type SheetView = 'manage' | 'editPeople' | 'editTeams' | 'scoring' | 'drawComplete' | 'addResult';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -508,7 +508,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
           {/* Draw actions */}
           <div className="grid grid-cols-2 gap-2">
             <button data-testid="draw-all-btn" onClick={drawAll} className="col-span-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}>🎯 Run fair draw</button>
-            <button data-testid="lock-draw-btn" onClick={() => setSheetView('lockConfirm')} className="col-span-2 rounded-xl px-3 py-2.5 text-xs font-semibold" style={{ backgroundColor: accentBg, color: accentText, border: `1px solid ${accentBg40}` }}>🔒 Lock draw</button>
+            <button data-testid="lock-draw-btn" onClick={() => lockDraw()} className="col-span-2 rounded-xl px-3 py-2.5 text-xs font-semibold" style={{ backgroundColor: accentBg, color: accentText, border: `1px solid ${accentBg40}` }}>🔒 Lock draw</button>
           </div>
 
           {/* Navigation to sub-views */}
@@ -856,43 +856,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       );
     }
 
-    // ── LOCK CONFIRM ────────────────────────────────────────────────────────────
-    if (sheetView === 'lockConfirm') {
-      return (
-        <>
-          <SheetHeader title="⚠️ Lock draw?" onBack={() => setSheetView('manage')} />
-          <div
-            data-testid="lock-confirm-view"
-            className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2"
-          >
-            <p className="text-sm font-semibold text-amber-900">
-              These teams may not be official yet.
-            </p>
-            <p className="text-xs text-amber-700">
-              {content.teamsSource === 'incomplete_canonical'
-                ? 'World Cup teams are still loading — this pool is using demo teams.'
-                : 'This pool is using a demo team list. Check teams before locking.'}
-            </p>
-          </div>
-          <div className="mt-4 flex flex-col gap-2">
-            <button
-              data-testid="confirm-lock-btn"
-              onClick={() => { update({ drawLocked: true }); setSheetView(null); }}
-              className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white active:bg-amber-700"
-            >
-              Lock draw anyway
-            </button>
-            <button
-              onClick={() => setSheetView('manage')}
-              className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
-            >
-              Cancel
-            </button>
-          </div>
-        </>
-      );
-    }
-
     return null;
   }
 
@@ -982,32 +945,6 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
           </div>
         </div>
       </div>
-
-      {/* Teams source status banner */}
-      {content.teamsSource === 'official' && (
-        <div
-          data-testid="teams-source-banner"
-          className="rounded-2xl border border-green-200 bg-green-50 px-4 py-2.5 text-xs font-medium text-green-700"
-        >
-          ✅ Official teams loaded
-        </div>
-      )}
-      {content.teamsSource === 'demo_fallback' && (
-        <div
-          data-testid="teams-source-banner"
-          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-700"
-        >
-          ⚠️ Using demo team list — check teams before locking draw
-        </div>
-      )}
-      {content.teamsSource === 'incomplete_canonical' && (
-        <div
-          data-testid="teams-source-banner"
-          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-700"
-        >
-          ⏳ World Cup teams are still loading — using demo teams for now
-        </div>
-      )}
 
       {/* SmartGuidance */}
       <SmartGuidance guidance={poolGuidance} onAction={handleAction} />

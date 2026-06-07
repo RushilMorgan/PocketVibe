@@ -49,7 +49,7 @@ export function computePoolGuidance(
   content: TournamentPoolTrackerContent,
   hasShareLink: boolean,
 ): GuidanceState {
-  const { participants, teams, drawLocked, teamsSource, prizeNote } = content;
+  const { participants, teams, drawLocked, prizeNote } = content;
   const unassigned = teams.filter(t => !t.assignedTo);
   const allAssigned = teams.length > 0 && unassigned.length === 0 && participants.length > 0;
 
@@ -109,9 +109,6 @@ export function computePoolGuidance(
   }
   if (drawLocked && hasShareLink) {
     raw.push({ id: 'send-links', icon: '🔗', label: 'Send invite links to all participants', actionId: 'share', variant: 'tip', priority: 5 });
-  }
-  if ((teamsSource === 'demo_fallback' || teamsSource === 'incomplete_canonical') && !drawLocked) {
-    raw.push({ id: 'local-teams', icon: 'ℹ️', label: 'Using built-in team list — connect sync for live results', variant: 'info', priority: 2 });
   }
   if (!prizeNote && drawLocked) {
     raw.push({ id: 'add-prize', icon: '🏆', label: 'Add a prize note to make it official', actionId: 'add-people', variant: 'tip', priority: 3 });

@@ -125,7 +125,8 @@ export type CreationType =
   | 'price_calculator'
   | 'task_planner'
   | 'tournament_pool_tracker'
-  | 'idea_thinking_board';
+  | 'idea_thinking_board'
+  | 'recipe';
 
 export type CreationStatus = 'generating' | 'ready' | 'error';
 
@@ -571,6 +572,56 @@ export interface IdeaThinkingBoardContent {
   theme?: string;
 }
 
+// ── Recipe ──────────────────────────────────────────────────────────────────
+
+export type RecipeLayoutMode = 'card' | 'list' | 'step';
+
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  quantity?: string;   // plain text — "1/2", "a pinch", "2-3"
+  unit?: string;       // "cup", "g", "tbsp"
+  have: boolean;       // ticked = already have it (kept off the shopping list)
+}
+
+export interface RecipeStep {
+  id: string;
+  number: number;      // 1-based display order
+  text: string;
+  time?: string;       // optional per-step time, e.g. "5 min"
+}
+
+export interface RecipeShoppingItem {
+  id: string;
+  name: string;
+  checked: boolean;    // ticked off while shopping
+}
+
+/** One link in the "where this came from" chain (original Shorts → adapters). */
+export interface RecipeAttribution {
+  label: string;       // e.g. "Original recipe", "Adapted from"
+  url?: string;
+}
+
+export interface RecipeContent {
+  type: 'recipe';
+  title: string;
+  sourceUrl?: string;        // original YouTube Shorts / source video
+  thumbnailUrl?: string;
+  servings?: number;
+  prepTime?: string;
+  cookTime?: string;
+  ingredients: RecipeIngredient[];
+  steps: RecipeStep[];
+  /** Only manually-added extras are stored. The shopping list itself is derived:
+   *  ingredients.filter(i => !i.have) plus these. */
+  extraShoppingItems: RecipeShoppingItem[];
+  notes?: string;
+  tags?: string[];
+  layoutMode: RecipeLayoutMode;
+  attribution?: RecipeAttribution[];
+}
+
 // ── Content union ─────────────────────────────────────────────────────────────
 
 export type CreationContent =
@@ -585,7 +636,8 @@ export type CreationContent =
   | PriceCalculatorContent
   | TaskPlannerContent
   | TournamentPoolTrackerContent
-  | IdeaThinkingBoardContent;
+  | IdeaThinkingBoardContent
+  | RecipeContent;
 
 // ── Creation entity ────────────────────────────────────────────────────────────
 

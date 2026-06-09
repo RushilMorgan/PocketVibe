@@ -12,6 +12,7 @@ import { TaskPlannerRenderer } from './TaskPlannerRenderer';
 import { PriceCalculatorRenderer } from './PriceCalculatorRenderer';
 import { TournamentPoolRenderer } from './TournamentPoolRenderer';
 import { IdeaThinkingBoardRenderer } from './IdeaThinkingBoardRenderer';
+import { RecipeRenderer } from './RecipeRenderer';
 
 interface TemplateRendererProps {
   creation: Creation;
@@ -77,6 +78,9 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
 
       case 'idea_thinking_board':
         return <IdeaThinkingBoardRenderer content={content} onChange={handleChange} />;
+
+      case 'recipe':
+        return <RecipeRenderer content={content} onChange={handleChange} />;
 
       default:
         return (

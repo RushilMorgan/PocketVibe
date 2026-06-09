@@ -13,6 +13,7 @@ const SUPPORTED_TYPES = new Set<CreationType>([
   'task_planner',
   'tournament_pool_tracker',
   'idea_thinking_board',
+  'recipe',
   // generative_html is intentionally excluded — AI must not return raw HTML
 ]);
 
@@ -96,6 +97,12 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       if (typeof content.ideaSummary !== 'string') errors.push('Idea board requires an ideaSummary string');
       if (!content.scores || typeof content.scores !== 'object') errors.push('Idea board requires a scores object');
       if (!content.visualMap || typeof content.visualMap !== 'object') errors.push('Idea board requires a visualMap object');
+      break;
+    case 'recipe':
+      // Lenient: coercion fills missing arrays/fields, so only require the essentials.
+      if (typeof content.title !== 'string') errors.push('Recipe requires a title string');
+      if (!Array.isArray(content.ingredients)) errors.push('Recipe requires an ingredients array');
+      if (!Array.isArray(content.steps)) errors.push('Recipe requires a steps array');
       break;
   }
   return errors;
@@ -246,6 +253,19 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
     if (typeof content.problem !== 'string')     content.problem = '';
     if (typeof content.solution !== 'string')    content.solution = '';
     if (typeof content.notes !== 'string')       content.notes = '';
+  }
+  if (type === 'recipe') {
+    if (!Array.isArray(content.ingredients)) content.ingredients = [];
+    if (!Array.isArray(content.steps))       content.steps = [];
+    if (!Array.isArray(content.extraShoppingItems)) content.extraShoppingItems = [];
+    if (typeof content.layoutMode !== 'string') content.layoutMode = 'card';
+    if (typeof content.notes !== 'string')   content.notes = '';
+    (content.ingredients as Array<Record<string, unknown>>).forEach(i => {
+      if (typeof i.have !== 'boolean') i.have = false;
+    });
+    (content.steps as Array<Record<string, unknown>>).forEach((s, idx) => {
+      if (typeof s.number !== 'number') s.number = idx + 1;
+    });
   }
 
   // Always normalize sub-object fields (scoringRules etc.) regardless of type

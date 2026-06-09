@@ -19,11 +19,21 @@ export interface CloudTool {
   created_at: string;
   updated_at: string;
   public_view: boolean;
+  tags?: string[];   // extracted from content.tags (e.g. recipes) for cookbook filtering
 }
 
 export type UnifiedThing =
   | { kind: 'local'; key: string; updatedAtMs: number; creation: Creation }
   | { kind: 'cloud'; key: string; updatedAtMs: number; tool: CloudTool };
+
+/** Tags on a unified item, for the cookbook tag filter. */
+export function thingTags(t: UnifiedThing): string[] {
+  if (t.kind === 'local') {
+    const tags = (t.creation.content as { tags?: unknown }).tags;
+    return Array.isArray(tags) ? tags.filter((x): x is string => typeof x === 'string') : [];
+  }
+  return t.tool.tags ?? [];
+}
 
 /**
  * Returns the merged list, newest first. `cloud` may be empty (e.g. signed-out

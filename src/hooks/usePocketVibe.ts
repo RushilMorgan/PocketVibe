@@ -13,6 +13,7 @@ import type {
 import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
 import { formatQuotaMessage } from '../lib/quotaMessage';
 import { buildIdeaBoardPrompt } from '../lib/ideaBoardPrompt';
+import { buildRecipePrompt } from '../lib/recipePrompt';
 import { getUsage, _resetUsageStore, type UsageKind, type UsageTier } from '../lib/usageStore';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
@@ -477,6 +478,7 @@ export function usePocketVibe(userId?: string) {
         price_calculator: '#8b5cf6',
         task_planner: '#6366f1',
         tournament_pool_tracker: '#f59e0b',
+        recipe: '#e11d48',
       };
       dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
     } catch (err) {
@@ -599,6 +601,21 @@ export function usePocketVibe(userId?: string) {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     void _runGeneration({ userRequest, mode: 'new', locale, forcedType: 'idea_thinking_board' });
+  }, [_runGeneration, isBlockedByQuota]);
+
+  const createRecipe = useCallback((input: {
+    youtubeUrl: string; manualText: string; servings?: number; dietary?: string;
+  }) => {
+    if (stateRef.current.isGenerating) return;
+    if (isBlockedByQuota('generation')) return;
+    const userRequest = buildRecipePrompt(input);
+    trackCreationStarted('recipe', userRequest);
+    dispatch({ type: 'CLEAR_MESSAGES' });
+    const locale = {
+      date: new Date().toISOString().slice(0, 10),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    void _runGeneration({ userRequest, mode: 'new', locale, forcedType: 'recipe' });
   }, [_runGeneration, isBlockedByQuota]);
 
   const confirmNewCreation = useCallback(() => {
@@ -923,6 +940,7 @@ export function usePocketVibe(userId?: string) {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
+    createRecipe,
     quotaNotice,
     dismissQuotaNotice,
     goToMyProfile,

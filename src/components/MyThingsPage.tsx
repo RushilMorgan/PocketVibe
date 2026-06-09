@@ -3,7 +3,7 @@ import type { Creation, CreationType } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { getStoredAdminToken, deleteOwnedCreation } from '../services/shareService';
-import { mergeThings, type CloudTool, type UnifiedThing } from '../lib/mergeThings';
+import { mergeThings, thingTags, type CloudTool, type UnifiedThing } from '../lib/mergeThings';
 
 interface MyThingsPageProps {
   creations: Creation[];
@@ -34,6 +34,7 @@ const TYPE_EMOJI: Record<string, string> = {
   task_planner: '📌',
   tournament_pool_tracker: '🏆',
   idea_thinking_board: '💡',
+  recipe: '🍳',
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -49,6 +50,7 @@ const TYPE_LABEL: Record<string, string> = {
   task_planner: 'Task planner',
   tournament_pool_tracker: 'Tournament pool',
   idea_thinking_board: 'Idea board',
+  recipe: 'Recipe',
 };
 
 function timeAgo(ms: number): string {
@@ -90,6 +92,7 @@ export function MyThingsPage({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch the user's cloud tools and merge them in ──────────────────────────
@@ -104,11 +107,17 @@ export function MyThingsPage({
     // authenticated users, so without it this would return other users' public tools.
     supabase
       .from('shared_creations')
-      .select('id, share_slug, title, creation_type, created_at, updated_at, public_view')
+      .select('id, share_slug, title, creation_type, created_at, updated_at, public_view, content')
       .eq('owner_user_id', user.id)
       .order('updated_at', { ascending: false })
       .then(({ data }) => {
-        setCloud((data as CloudTool[]) ?? []);
+        const rows = (data ?? []).map((r: Record<string, unknown>) => {
+          const tags = (r.content as { tags?: unknown } | null)?.tags;
+          const { content, ...rest } = r;
+          void content;
+          return { ...rest, tags: Array.isArray(tags) ? tags : undefined } as CloudTool;
+        });
+        setCloud(rows);
         setCloudLoading(false);
       });
   }, [user]);
@@ -117,7 +126,11 @@ export function MyThingsPage({
 
   useEffect(() => () => { if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current); }, []);
 
-  const things: UnifiedThing[] = mergeThings(creations, cloud);
+  const allThings: UnifiedThing[] = mergeThings(creations, cloud);
+  const allTags = Array.from(new Set(allThings.flatMap(thingTags))).sort();
+  const things: UnifiedThing[] = activeTag
+    ? allThings.filter(t => thingTags(t).includes(activeTag))
+    : allThings;
 
   function startRename(creation: Creation) {
     setRenamingId(creation.id);
@@ -215,6 +228,28 @@ export function MyThingsPage({
 
       {deleteError && (
         <div className="mx-4 mb-2 bg-red-50 text-red-700 text-xs px-3 py-2 rounded-xl flex-shrink-0">{deleteError}</div>
+      )}
+
+      {/* Tag filter */}
+      {allTags.length > 0 && (
+        <div className="px-4 pb-2 flex-shrink-0 flex gap-1.5 overflow-x-auto">
+          <button
+            onClick={() => setActiveTag(null)}
+            className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap ${activeTag === null ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+          >
+            All
+          </button>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              data-testid={`tag-filter-${tag}`}
+              onClick={() => setActiveTag(t => t === tag ? null : tag)}
+              className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap ${activeTag === tag ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* List */}

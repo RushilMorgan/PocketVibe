@@ -11,6 +11,7 @@ import type {
   PriceCalculatorContent,
   TaskPlannerContent,
   TournamentPoolTrackerContent,
+  RecipeContent,
 } from '../types';
 
 function fmtCurrency(currency: string, amount: number): string {
@@ -258,6 +259,27 @@ function formatTaskPlanner(c: TaskPlannerContent): string {
     .join('\n');
 }
 
+function formatRecipe(c: RecipeContent): string {
+  const lines: string[] = [];
+  const meta = [
+    c.servings != null ? `Serves ${c.servings}` : '',
+    c.prepTime ? `Prep ${c.prepTime}` : '',
+    c.cookTime ? `Cook ${c.cookTime}` : '',
+  ].filter(Boolean).join(' · ');
+  if (meta) lines.push(meta);
+  if (c.ingredients.length > 0) {
+    lines.push('', 'Ingredients:');
+    for (const i of c.ingredients) {
+      lines.push(`- ${[i.quantity, i.unit, i.name].filter(Boolean).join(' ').trim() || i.name}`);
+    }
+  }
+  if (c.steps.length > 0) {
+    lines.push('', 'Steps:');
+    c.steps.forEach(s => lines.push(`${s.number}. ${s.text}`));
+  }
+  return lines.join('\n');
+}
+
 export function formatCreationSummary(creation: Creation): string {
   const { title, creationType, content } = creation;
   let body = '';
@@ -295,6 +317,9 @@ export function formatCreationSummary(creation: Creation): string {
       break;
     case 'tournament_pool_tracker':
       body = formatTournamentPool(content as TournamentPoolTrackerContent);
+      break;
+    case 'recipe':
+      body = formatRecipe(content as RecipeContent);
       break;
     default:
       body = creation.description;

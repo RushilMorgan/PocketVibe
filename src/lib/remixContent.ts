@@ -7,7 +7,11 @@
  */
 import type { CreationContent } from '../types';
 
-export function remixContent(content: CreationContent, creationType: string): CreationContent {
+export function remixContent(
+  content: CreationContent,
+  creationType: string,
+  sourceUrl?: string,
+): CreationContent {
   const base = { ...content } as Record<string, unknown>;
 
   // Always strip pending change requests — those belong to the original pool
@@ -30,6 +34,20 @@ export function remixContent(content: CreationContent, creationType: string): Cr
     }
     // Clear personal notes
     base.notes = '';
+  }
+
+  if (creationType === 'recipe') {
+    // Reset the personal checklist + shopping list and notes for the new cook.
+    if (Array.isArray(base.ingredients)) {
+      base.ingredients = (base.ingredients as Array<{ have: boolean }>).map(i => ({ ...i, have: false }));
+    }
+    base.extraShoppingItems = [];
+    base.notes = '';
+    // Extend the attribution chain so credit follows the adaptation.
+    const prior = Array.isArray(base.attribution) ? (base.attribution as Array<unknown>) : [];
+    base.attribution = sourceUrl
+      ? [...prior, { label: 'Adapted from', url: sourceUrl }]
+      : prior;
   }
 
   return base as unknown as CreationContent;

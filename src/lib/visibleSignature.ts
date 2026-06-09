@@ -23,6 +23,7 @@ import type {
   TaskPlannerContent,
   TournamentPoolTrackerContent,
   IdeaThinkingBoardContent,
+  RecipeContent,
 } from '../types';
 
 export function getCreationVisibleSignature(creation: Creation): string {
@@ -55,6 +56,8 @@ export function getContentVisibleSignature(content: CreationContent): string {
       return tournamentSignature(content as TournamentPoolTrackerContent);
     case 'idea_thinking_board':
       return ideaBoardSignature(content as IdeaThinkingBoardContent);
+    case 'recipe':
+      return recipeSignature(content as RecipeContent);
     default:
       // For all other types use full content serialization
       return JSON.stringify(content);
@@ -196,6 +199,20 @@ function ideaBoardSignature(c: IdeaThinkingBoardContent): string {
     targetUsers: c.targetUsers.map(u => ({ name: u.name, need: u.need })),
     nextSteps: c.nextSteps.map(s => ({ label: s.label, done: s.done })),
     notes: c.notes,
+  });
+}
+
+function recipeSignature(c: RecipeContent): string {
+  // Captures only AI-meaningful fields: not ids, the "have" tick, layout, or the
+  // manual shopping extras (those are user actions, not AI changes).
+  return JSON.stringify({
+    title: c.title,
+    servings: c.servings ?? 0,
+    prepTime: c.prepTime ?? '',
+    cookTime: c.cookTime ?? '',
+    ingredients: (c.ingredients ?? []).map(i => ({ name: i.name, quantity: i.quantity ?? '', unit: i.unit ?? '' })),
+    steps: (c.steps ?? []).map(s => ({ text: s.text, time: s.time ?? '' })),
+    notes: c.notes ?? '',
   });
 }
 

@@ -288,7 +288,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
                     <div className="h-px w-3 bg-rose-400/40" />
                   </div>
                   <h2 className="text-xl font-black text-white leading-tight tracking-wide uppercase">Recipe</h2>
-                  <h2 className="text-xl font-black text-rose-300 leading-tight tracking-wide uppercase">from a video</h2>
+                  <h2 className="text-xl font-black text-rose-300 leading-tight tracking-wide uppercase">Cookbook</h2>
                   <div className="flex items-center gap-2 mt-0.5">
                     <div className="h-px w-8 bg-rose-400" />
                     <div className="h-px w-3 bg-rose-400/40" />
@@ -298,7 +298,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
 
               {/* Description */}
               <p className="relative z-10 text-sm text-white/65 leading-relaxed mb-4">
-                Paste a cooking video link. Toolie writes up clear steps, an ingredient checklist, and a shopping list you can share.
+                Build a personal cookbook, then paste cooking-video links to pull recipes in — each with clear steps, an ingredient checklist and a shopping list.
               </p>
 
               {/* Feature chips */}
@@ -321,7 +321,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
 
             {/* Rose CTA strip */}
             <div className="bg-rose-500 px-5 py-3.5 flex items-center justify-between">
-              <span className="text-sm font-black text-white tracking-tight">Save a recipe</span>
+              <span className="text-sm font-black text-white tracking-tight">Build a cookbook</span>
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" />

@@ -1,11 +1,12 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import type { RecipeContent } from '../types';
+import type { RecipeContent, RecipeBookContent } from '../types';
 import { validateGenerateResponse, coerceGenerateResponse } from '../lib/validator';
 import { getContentVisibleSignature } from '../lib/visibleSignature';
 import { remixContent } from '../lib/remixContent';
 import { buildRecipePrompt } from '../lib/recipePrompt';
 import { RecipeRenderer } from '../components/templates/RecipeRenderer';
+import { RecipeBookRenderer } from '../components/templates/RecipeBookRenderer';
 import { RecipeIntakeSheet } from '../components/RecipeIntakeSheet';
 
 function makeRecipe(overrides: Partial<RecipeContent> = {}): RecipeContent {
@@ -125,22 +126,79 @@ describe('RecipeRenderer', () => {
   });
 });
 
-describe('RecipeIntakeSheet', () => {
-  it('build is disabled until a URL or text is entered, then submits the payload', () => {
-    const onSubmit = vi.fn();
-    render(<RecipeIntakeSheet open onClose={noopFn} onSubmit={onSubmit} />);
-    const build = screen.getByTestId('build-recipe-btn') as HTMLButtonElement;
-    expect(build.disabled).toBe(true);
-    fireEvent.change(screen.getByTestId('recipe-url-input'), { target: { value: 'https://youtube.com/shorts/abc' } });
-    expect(build.disabled).toBe(false);
-    fireEvent.click(build);
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ youtubeUrl: 'https://youtube.com/shorts/abc' }));
+function makeBook(overrides: Partial<RecipeBookContent> = {}): RecipeBookContent {
+  return {
+    type: 'recipe_book',
+    title: 'My Cookbook',
+    preferences: { dietary: 'vegetarian', servings: 2, units: 'metric' },
+    recipes: [],
+    ...overrides,
+  };
+}
+
+describe('recipe_book validator', () => {
+  it('accepts a cookbook and coerces missing fields', () => {
+    const res = { title: 'Cookbook', creationType: 'recipe_book', description: 'd', summary: 's', content: makeBook() };
+    expect(validateGenerateResponse(res).valid).toBe(true);
+    const raw: Record<string, unknown> = { content: { type: 'recipe_book', title: 'X' } };
+    coerceGenerateResponse(raw);
+    const c = raw.content as Record<string, unknown>;
+    expect(Array.isArray(c.recipes)).toBe(true);
+    expect(c.preferences).toBeTruthy();
+  });
+});
+
+describe('recipe_book remix', () => {
+  it('keeps recipes but resets each one\'s personal ticks/notes', () => {
+    const book = makeBook({
+      recipes: [makeRecipe({ ingredients: [{ id: 'i1', name: 'Egg', have: true }], notes: 'mine', extraShoppingItems: [{ id: 'x', name: 'Salt', checked: true }] })],
+    });
+    const remixed = remixContent(book, 'recipe_book') as RecipeBookContent;
+    expect(remixed.recipes).toHaveLength(1);
+    expect(remixed.recipes[0].ingredients[0].have).toBe(false);
+    expect(remixed.recipes[0].notes).toBe('');
+    expect(remixed.recipes[0].extraShoppingItems).toHaveLength(0);
+  });
+});
+
+describe('RecipeBookRenderer', () => {
+  it('extracts a recipe from a link and appends it to the cookbook', async () => {
+    const onChange = vi.fn();
+    const onExtractRecipe = vi.fn().mockResolvedValue(makeRecipe({ title: 'Pulled Recipe' }));
+    render(<RecipeBookRenderer content={makeBook()} onChange={onChange} onExtractRecipe={onExtractRecipe} />);
+    fireEvent.change(screen.getByTestId('cookbook-url-input'), { target: { value: 'https://youtu.be/x' } });
+    fireEvent.click(screen.getByTestId('cookbook-add-recipe-btn'));
+    await waitFor(() => expect(onExtractRecipe).toHaveBeenCalled());
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ recipes: expect.arrayContaining([expect.objectContaining({ title: 'Pulled Recipe' })]) }),
+    ));
+    // extraction was called with the cookbook's dietary preference
+    expect(onExtractRecipe).toHaveBeenCalledWith(expect.objectContaining({ dietary: 'vegetarian' }));
   });
 
-  it('warns when the link does not look like a video URL', () => {
-    render(<RecipeIntakeSheet open onClose={noopFn} onSubmit={vi.fn()} />);
-    fireEvent.change(screen.getByTestId('recipe-url-input'), { target: { value: 'not a url' } });
-    expect(screen.getByTestId('recipe-url-warning')).toBeInTheDocument();
+  it('hides the add-recipe box for viewers (no onExtractRecipe)', () => {
+    render(<RecipeBookRenderer content={makeBook()} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('cookbook-add-recipe-btn')).not.toBeInTheDocument();
+  });
+
+  it('updates preferences', () => {
+    const onChange = vi.fn();
+    render(<RecipeBookRenderer content={makeBook()} onChange={onChange} onExtractRecipe={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('cookbook-prefs-toggle'));
+    fireEvent.click(screen.getByText('vegan'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ preferences: expect.objectContaining({ dietary: 'vegan' }) }));
+  });
+});
+
+describe('RecipeIntakeSheet (cookbook setup)', () => {
+  it('builds a cookbook with the chosen preferences', () => {
+    const onSubmit = vi.fn();
+    render(<RecipeIntakeSheet open onClose={noopFn} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByTestId('cookbook-name-input'), { target: { value: 'Weeknight Dinners' } });
+    fireEvent.click(screen.getByTestId('cookbook-dietary-vegan'));
+    fireEvent.click(screen.getByTestId('cookbook-units-imperial'));
+    fireEvent.click(screen.getByTestId('build-cookbook-btn'));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: 'Weeknight Dinners', dietary: 'vegan', units: 'imperial' }));
   });
 });
 

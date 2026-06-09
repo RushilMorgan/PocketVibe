@@ -13,6 +13,8 @@ interface RecipeBookRendererProps {
   onChange: (updated: RecipeBookContent) => void;
   /** Pulls a recipe from a link/text (respecting preferences). Absent for viewers. */
   onExtractRecipe?: (input: RecipeIntakeInput) => Promise<RecipeContent | null>;
+  /** Chat about one recipe (AI has that recipe's context). Absent for viewers. */
+  onRecipeChat?: (recipe: RecipeContent, message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
 }
 
 const DIETARY = ['none', 'vegetarian', 'vegan', 'gluten-free', 'dairy-free'] as const;
@@ -27,7 +29,7 @@ function recipeMeta(r: RecipeContent): string {
   ].filter(Boolean).join(' · ');
 }
 
-export function RecipeBookRenderer({ content, onChange, onExtractRecipe }: RecipeBookRendererProps) {
+export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecipeChat }: RecipeBookRendererProps) {
   const [showPrefs, setShowPrefs] = useState(false);
   const [url, setUrl] = useState('');
   const [showManual, setShowManual] = useState(false);
@@ -215,7 +217,11 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe }: Recip
                 </div>
                 {expanded && (
                   <div className="border-t border-gray-100">
-                    <RecipeRenderer content={r} onChange={updated => updateRecipeAt(i, updated)} />
+                    <RecipeRenderer
+                      content={r}
+                      onChange={updated => updateRecipeAt(i, updated)}
+                      onChat={onRecipeChat ? (msg) => onRecipeChat(r, msg) : undefined}
+                    />
                   </div>
                 )}
               </div>

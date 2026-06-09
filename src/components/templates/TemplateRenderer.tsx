@@ -25,9 +25,11 @@ interface TemplateRendererProps {
   onLocalActionConsumed?: () => void;
   /** Pulls a recipe from a link/text for the cookbook. Absent on shared pages. */
   onExtractRecipe?: (input: RecipeIntakeInput) => Promise<RecipeContent | null>;
+  /** Chat about one recipe (AI has that recipe's context). Absent on shared pages. */
+  onRecipeChat?: (recipe: RecipeContent, message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
 }
 
-export function TemplateRenderer({ creation, onContentChange, onShare, pendingLocalAction, onLocalActionConsumed, onExtractRecipe }: TemplateRendererProps) {
+export function TemplateRenderer({ creation, onContentChange, onShare, pendingLocalAction, onLocalActionConsumed, onExtractRecipe, onRecipeChat }: TemplateRendererProps) {
   const { content } = creation;
   const hasShareLink = !!creation.shareSlug;
 
@@ -85,10 +87,10 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
         return <IdeaThinkingBoardRenderer content={content} onChange={handleChange} />;
 
       case 'recipe':
-        return <RecipeRenderer content={content} onChange={handleChange} />;
+        return <RecipeRenderer content={content} onChange={handleChange} onChat={onRecipeChat ? (msg) => onRecipeChat(content, msg) : undefined} />;
 
       case 'recipe_book':
-        return <RecipeBookRenderer content={content} onChange={handleChange} onExtractRecipe={onExtractRecipe} />;
+        return <RecipeBookRenderer content={content} onChange={handleChange} onExtractRecipe={onExtractRecipe} onRecipeChat={onRecipeChat} />;
 
       default:
         return (

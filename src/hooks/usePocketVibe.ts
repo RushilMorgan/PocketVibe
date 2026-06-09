@@ -688,6 +688,55 @@ export function usePocketVibe(userId?: string) {
     }
   }, [isBlockedByQuota]);
 
+  // Chat about ONE recipe (inside a cookbook). Wraps the recipe as a `recipe`
+  // creation so the AI gets that recipe's full context — independent of the
+  // active cookbook. Returns an answer, or an updated recipe when the user asked
+  // for a change (the renderer applies it via onChange).
+  const chatAboutRecipe = useCallback(async (
+    recipe: RecipeContent,
+    message: string,
+  ): Promise<{ answer?: string; updatedRecipe?: RecipeContent }> => {
+    if (isBlockedByQuota('chat')) {
+      return { answer: "You've reached today's chat limit — please try again later." };
+    }
+    const synthetic: Creation = {
+      id: 'recipe-chat', title: recipe.title, creationType: 'recipe',
+      description: '', summary: '', originalRequest: '', status: 'ready',
+      version: 1, createdAt: Date.now(), updatedAt: Date.now(), content: recipe,
+    };
+    const locale = {
+      date: new Date().toISOString().slice(0, 10),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    try {
+      const result = await chatWithCreation(synthetic, message);
+      if (result.type === 'answer') return { answer: result.text };
+      // modify → rebuild this one recipe with the change applied
+      const req: GenerateRequest = {
+        userRequest: message,
+        mode: 'improve',
+        forcedType: 'recipe',
+        currentCreation: {
+          id: synthetic.id, title: recipe.title, creationType: 'recipe',
+          content: recipe, originalRequest: '', version: 1,
+        },
+        locale,
+      };
+      const res = await generateCreation(req);
+      const safe = normalizeGenerateResponse(res, req) ?? res;
+      if (safe.creationType === 'recipe' && safe.content.type === 'recipe') {
+        return { updatedRecipe: safe.content as RecipeContent, answer: 'Done — updated the recipe. 👍' };
+      }
+      return { answer: "I couldn't change that one — try rephrasing." };
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        setQuotaNotice({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt });
+        return { answer: "You've reached today's limit — please try again later." };
+      }
+      return { answer: 'Something went wrong. Please try again.' };
+    }
+  }, [isBlockedByQuota]);
+
   const confirmNewCreation = useCallback(() => {
     const pending = stateRef.current.pendingAction;
     if (!pending || pending.type !== 'new-creation') return;
@@ -1012,6 +1061,7 @@ export function usePocketVibe(userId?: string) {
     createIdeaBoard,
     createRecipeBook,
     extractRecipe,
+    chatAboutRecipe,
     quotaNotice,
     dismissQuotaNotice,
     goToMyProfile,

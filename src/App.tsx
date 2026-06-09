@@ -49,6 +49,7 @@ export default function App() {
     createIdeaBoard,
     createRecipeBook,
     extractRecipe,
+    chatAboutRecipe,
     quotaNotice,
     dismissQuotaNotice,
     goToMyProfile,
@@ -280,6 +281,7 @@ export default function App() {
                   pendingLocalAction={pendingToolAction}
                   onLocalActionConsumed={() => setPendingToolAction(null)}
                   onExtractRecipe={extractRecipe}
+                  onRecipeChat={chatAboutRecipe}
                 />
               </div>
             ) : !isGenerating && (

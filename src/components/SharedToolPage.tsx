@@ -6,6 +6,7 @@ import type {
   CreationContent,
   WorkoutTrackerContent,
   TournamentPoolTrackerContent,
+  RecipeContent,
   ChangeRequest,
   Creation,
   CreationType,
@@ -27,6 +28,7 @@ import { TemplateRenderer } from './templates/TemplateRenderer';
 import { PartnerChallengeParticipantView } from './shared/PartnerChallengeParticipantView';
 import { TournamentPoolReadView } from './shared/TournamentPoolReadView';
 import { WorkoutTrackerReadView } from './shared/WorkoutTrackerReadView';
+import { RecipeReadView } from './shared/RecipeReadView';
 
 interface SharedToolPageProps {
   shareSlug: string;
@@ -149,7 +151,7 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       version: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      content: remixContent(creation.content, creation.creationType),
+      content: remixContent(creation.content, creation.creationType, `${window.location.origin}/s/${shareSlug}`),
       // Keep a reference so the user can navigate back to the original shared pool
       remixSourceUrl: `${window.location.origin}/s/${shareSlug}`,
     };
@@ -160,6 +162,29 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
     // Open the main app in a new tab so the shared page stays visible for reference
     window.open('/', '_blank');
   }, [creation]);
+
+  // Save a copy to "My things" without navigating away (used by Recipe read view).
+  const handleSaveToCookbook = useCallback((): boolean => {
+    if (!creation) return false;
+    trackRemixClicked(creation.creationType, shareSlug);
+    const newId = `remix-${Date.now()}`;
+    const copy: Creation = {
+      id: newId,
+      title: creation.title,
+      creationType: creation.creationType as CreationType,
+      description: '',
+      summary: '',
+      originalRequest: '',
+      status: 'ready',
+      version: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      content: remixContent(creation.content, creation.creationType, `${window.location.origin}/s/${shareSlug}`),
+      remixSourceUrl: `${window.location.origin}/s/${shareSlug}`,
+    };
+    saveCreations([...loadCreations(), copy]);
+    return true;
+  }, [creation, shareSlug]);
 
   // ── Badge ─────────────────────────────────────────────────────────────────
 
@@ -331,6 +356,13 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
               setCreation(prev => prev ? { ...prev, content: updatedContent, version } : prev)
             }
             onRemix={accessMode === 'viewer' ? handleRemix : undefined}
+          />
+        ) : creation.creationType === 'recipe' && accessMode !== 'admin' ? (
+          /* Viewer of a Recipe → read-only view with save / make-it-mine */
+          <RecipeReadView
+            content={creation.content as RecipeContent}
+            onSave={handleSaveToCookbook}
+            onMakeMine={handleRemix}
           />
         ) : (
           <>

@@ -14,6 +14,7 @@ const SUPPORTED_TYPES = new Set<CreationType>([
   'tournament_pool_tracker',
   'idea_thinking_board',
   'recipe',
+  'recipe_book',
   // generative_html is intentionally excluded — AI must not return raw HTML
 ]);
 
@@ -103,6 +104,9 @@ function validateContent(type: CreationType, content: Record<string, unknown>): 
       if (typeof content.title !== 'string') errors.push('Recipe requires a title string');
       if (!Array.isArray(content.ingredients)) errors.push('Recipe requires an ingredients array');
       if (!Array.isArray(content.steps)) errors.push('Recipe requires a steps array');
+      break;
+    case 'recipe_book':
+      if (!Array.isArray(content.recipes)) errors.push('Cookbook requires a recipes array');
       break;
   }
   return errors;
@@ -266,6 +270,12 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
     (content.steps as Array<Record<string, unknown>>).forEach((s, idx) => {
       if (typeof s.number !== 'number') s.number = idx + 1;
     });
+  }
+  if (type === 'recipe_book') {
+    if (!Array.isArray(content.recipes)) content.recipes = [];
+    if (!content.preferences || typeof content.preferences !== 'object') {
+      content.preferences = { dietary: 'none', units: 'metric' };
+    }
   }
 
   // Always normalize sub-object fields (scoringRules etc.) regardless of type

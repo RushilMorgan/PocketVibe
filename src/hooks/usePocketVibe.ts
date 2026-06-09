@@ -9,6 +9,7 @@ import type {
   GenerationMode,
   GenerateRequest,
   TournamentTeam,
+  RecipeContent,
 } from '../types';
 import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
 import { formatQuotaMessage } from '../lib/quotaMessage';
@@ -496,6 +497,7 @@ export function usePocketVibe(userId?: string) {
         task_planner: '#6366f1',
         tournament_pool_tracker: '#f59e0b',
         recipe: '#e11d48',
+        recipe_book: '#e11d48',
       };
       dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
     } catch (err) {
@@ -620,20 +622,71 @@ export function usePocketVibe(userId?: string) {
     void _runGeneration({ userRequest, mode: 'new', locale, forcedType: 'idea_thinking_board' });
   }, [_runGeneration, isBlockedByQuota]);
 
-  const createRecipe = useCallback((input: {
-    youtubeUrl: string; manualText: string; servings?: number; dietary?: string;
+  // Build a personal Cookbook tool from the setup preferences (no AI — direct).
+  const createRecipeBook = useCallback((prefs: {
+    title?: string; dietary: string; servings?: number; units: 'metric' | 'imperial'; likes?: string; avoids?: string;
   }) => {
     if (stateRef.current.isGenerating) return;
-    if (isBlockedByQuota('generation')) return;
-    const userRequest = buildRecipePrompt(input);
-    trackCreationStarted('recipe', userRequest);
+    const now = Date.now();
+    const creationId = `c-${now}`;
+    const title = (prefs.title?.trim() || 'My Cookbook').slice(0, 100);
+    trackCreationStarted('recipe_book', title);
     dispatch({ type: 'CLEAR_MESSAGES' });
+    const creation: Creation = {
+      id: creationId,
+      title,
+      creationType: 'recipe_book',
+      description: '',
+      summary: '',
+      originalRequest: 'Recipe cookbook',
+      status: 'ready',
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      ownerUserId: userIdRef.current,
+      content: {
+        type: 'recipe_book',
+        title,
+        preferences: {
+          dietary: prefs.dietary,
+          servings: prefs.servings,
+          units: prefs.units,
+          likes: prefs.likes,
+          avoids: prefs.avoids,
+        },
+        recipes: [],
+      },
+    };
+    dispatch({ type: 'UPSERT_CREATION', payload: creation });
+    dispatch({ type: 'SET_ACTIVE_CREATION', payload: creationId });
+    dispatch({ type: 'SET_VIEW', payload: 'creation' });
+    trackCreationCompleted('recipe_book', 1);
+  }, []);
+
+  // Extract a single recipe from a link/text (respecting cookbook preferences),
+  // returned for the cookbook renderer to append. Reuses the deployed `recipe`
+  // generation; quota-guarded; returns null on failure.
+  const extractRecipe = useCallback(async (input: {
+    youtubeUrl: string; manualText: string; servings?: number; dietary?: string;
+  }): Promise<RecipeContent | null> => {
+    if (isBlockedByQuota('generation')) return null;
     const locale = {
       date: new Date().toISOString().slice(0, 10),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
-    void _runGeneration({ userRequest, mode: 'new', locale, forcedType: 'recipe' });
-  }, [_runGeneration, isBlockedByQuota]);
+    const req: GenerateRequest = { userRequest: buildRecipePrompt(input), mode: 'new', locale, forcedType: 'recipe' };
+    try {
+      const res = await generateCreation(req);
+      const safe = normalizeGenerateResponse(res, req) ?? res;
+      if (safe.creationType !== 'recipe' || safe.content.type !== 'recipe') return null;
+      return safe.content as RecipeContent;
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        setQuotaNotice({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt });
+      }
+      return null;
+    }
+  }, [isBlockedByQuota]);
 
   const confirmNewCreation = useCallback(() => {
     const pending = stateRef.current.pendingAction;
@@ -957,7 +1010,8 @@ export function usePocketVibe(userId?: string) {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
-    createRecipe,
+    createRecipeBook,
+    extractRecipe,
     quotaNotice,
     dismissQuotaNotice,
     goToMyProfile,

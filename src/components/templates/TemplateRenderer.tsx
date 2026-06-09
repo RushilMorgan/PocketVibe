@@ -13,6 +13,9 @@ import { PriceCalculatorRenderer } from './PriceCalculatorRenderer';
 import { TournamentPoolRenderer } from './TournamentPoolRenderer';
 import { IdeaThinkingBoardRenderer } from './IdeaThinkingBoardRenderer';
 import { RecipeRenderer } from './RecipeRenderer';
+import { RecipeBookRenderer } from './RecipeBookRenderer';
+import type { RecipeContent } from '../../types';
+import type { RecipeIntakeInput } from '../../lib/recipePrompt';
 
 interface TemplateRendererProps {
   creation: Creation;
@@ -20,9 +23,11 @@ interface TemplateRendererProps {
   onShare?: () => void;
   pendingLocalAction?: string | null;
   onLocalActionConsumed?: () => void;
+  /** Pulls a recipe from a link/text for the cookbook. Absent on shared pages. */
+  onExtractRecipe?: (input: RecipeIntakeInput) => Promise<RecipeContent | null>;
 }
 
-export function TemplateRenderer({ creation, onContentChange, onShare, pendingLocalAction, onLocalActionConsumed }: TemplateRendererProps) {
+export function TemplateRenderer({ creation, onContentChange, onShare, pendingLocalAction, onLocalActionConsumed, onExtractRecipe }: TemplateRendererProps) {
   const { content } = creation;
   const hasShareLink = !!creation.shareSlug;
 
@@ -81,6 +86,9 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
 
       case 'recipe':
         return <RecipeRenderer content={content} onChange={handleChange} />;
+
+      case 'recipe_book':
+        return <RecipeBookRenderer content={content} onChange={handleChange} onExtractRecipe={onExtractRecipe} />;
 
       default:
         return (

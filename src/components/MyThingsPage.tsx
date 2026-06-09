@@ -35,6 +35,7 @@ const TYPE_EMOJI: Record<string, string> = {
   tournament_pool_tracker: '🏆',
   idea_thinking_board: '💡',
   recipe: '🍳',
+  recipe_book: '📖',
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -51,6 +52,7 @@ const TYPE_LABEL: Record<string, string> = {
   tournament_pool_tracker: 'Tournament pool',
   idea_thinking_board: 'Idea board',
   recipe: 'Recipe',
+  recipe_book: 'Cookbook',
 };
 
 function timeAgo(ms: number): string {

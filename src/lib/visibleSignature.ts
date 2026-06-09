@@ -24,6 +24,7 @@ import type {
   TournamentPoolTrackerContent,
   IdeaThinkingBoardContent,
   RecipeContent,
+  RecipeBookContent,
 } from '../types';
 
 export function getCreationVisibleSignature(creation: Creation): string {
@@ -58,6 +59,8 @@ export function getContentVisibleSignature(content: CreationContent): string {
       return ideaBoardSignature(content as IdeaThinkingBoardContent);
     case 'recipe':
       return recipeSignature(content as RecipeContent);
+    case 'recipe_book':
+      return recipeBookSignature(content as RecipeBookContent);
     default:
       // For all other types use full content serialization
       return JSON.stringify(content);
@@ -213,6 +216,14 @@ function recipeSignature(c: RecipeContent): string {
     ingredients: (c.ingredients ?? []).map(i => ({ name: i.name, quantity: i.quantity ?? '', unit: i.unit ?? '' })),
     steps: (c.steps ?? []).map(s => ({ text: s.text, time: s.time ?? '' })),
     notes: c.notes ?? '',
+  });
+}
+
+function recipeBookSignature(c: RecipeBookContent): string {
+  return JSON.stringify({
+    title: c.title,
+    preferences: c.preferences,
+    recipes: (c.recipes ?? []).map(r => recipeSignature(r)),
   });
 }
 

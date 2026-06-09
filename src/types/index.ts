@@ -126,7 +126,8 @@ export type CreationType =
   | 'task_planner'
   | 'tournament_pool_tracker'
   | 'idea_thinking_board'
-  | 'recipe';
+  | 'recipe'
+  | 'recipe_book';
 
 export type CreationStatus = 'generating' | 'ready' | 'error';
 
@@ -622,6 +623,27 @@ export interface RecipeContent {
   attribution?: RecipeAttribution[];
 }
 
+// ── Recipe Book (Cookbook) ──────────────────────────────────────────────────
+// The "tool" the user builds: a personal cookbook configured to their tastes.
+// Recipes are added inside it by pasting cooking-video links.
+
+export type RecipeUnits = 'metric' | 'imperial';
+
+export interface RecipeBookPreferences {
+  dietary: string;        // 'none' | 'vegetarian' | 'vegan' | 'gluten-free' | 'dairy-free' | custom
+  servings?: number;      // default household size to scale recipes to
+  units: RecipeUnits;
+  likes?: string;         // free text — cuisines/ingredients they love
+  avoids?: string;        // free text — allergies / dislikes to avoid
+}
+
+export interface RecipeBookContent {
+  type: 'recipe_book';
+  title: string;
+  preferences: RecipeBookPreferences;
+  recipes: RecipeContent[];   // each pulled in from a link, respecting preferences
+}
+
 // ── Content union ─────────────────────────────────────────────────────────────
 
 export type CreationContent =
@@ -637,7 +659,8 @@ export type CreationContent =
   | TaskPlannerContent
   | TournamentPoolTrackerContent
   | IdeaThinkingBoardContent
-  | RecipeContent;
+  | RecipeContent
+  | RecipeBookContent;
 
 // ── Creation entity ────────────────────────────────────────────────────────────
 

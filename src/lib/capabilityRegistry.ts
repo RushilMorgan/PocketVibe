@@ -94,6 +94,7 @@ const RENDERER_CAPABILITIES: Record<string, CreationCapability[]> = {
   tournament_pool_tracker: ['edit_labels', 'add_items', 'delete_items', 'log_activity', 'edit_participants', 'edit_scoring_rules'],
   idea_thinking_board: ['edit_labels', 'add_items', 'delete_items', 'edit_notes'],
   recipe: ['toggle_items', 'edit_labels', 'add_items', 'delete_items', 'edit_notes'],
+  recipe_book: ['toggle_items', 'edit_labels', 'add_items', 'delete_items', 'edit_notes'],
 };
 
 export function getSupportedCapabilities(type: CreationType): CreationCapability[] {
@@ -139,6 +140,7 @@ export function isRendererAlreadyEditable(
     'tournament_pool_tracker',
     'idea_thinking_board',
     'recipe',
+    'recipe_book',
   ];
   if (!fullyEditable.includes(creationType)) return false;
   if (supported.length < 3) return false;
@@ -173,6 +175,8 @@ export function getEditableRedirectMessage(creationType: CreationType): string {
       "Tap 'Edit idea' to update any section — the title, summary, risks, money ideas, next steps, and scores are all editable.",
     recipe:
       "Tap 'Edit recipe' to change ingredients, steps, servings, and notes. Tick ingredients you already have to build your shopping list.",
+    recipe_book:
+      "Paste a cooking-video link in 'Add a recipe' to pull recipes in, and tap 'Preferences' to update your dietary, servings, and units anytime.",
   };
   return (
     messages[creationType] ??

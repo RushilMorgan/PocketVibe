@@ -12,6 +12,7 @@ import type {
   TaskPlannerContent,
   TournamentPoolTrackerContent,
   RecipeContent,
+  RecipeBookContent,
 } from '../types';
 
 function fmtCurrency(currency: string, amount: number): string {
@@ -280,6 +281,11 @@ function formatRecipe(c: RecipeContent): string {
   return lines.join('\n');
 }
 
+function formatRecipeBook(c: RecipeBookContent): string {
+  if (c.recipes.length === 0) return 'An empty cookbook — add recipes by pasting cooking-video links.';
+  return [`${c.recipes.length} recipe${c.recipes.length !== 1 ? 's' : ''}:`, ...c.recipes.map(r => `• ${r.title}`)].join('\n');
+}
+
 export function formatCreationSummary(creation: Creation): string {
   const { title, creationType, content } = creation;
   let body = '';
@@ -320,6 +326,9 @@ export function formatCreationSummary(creation: Creation): string {
       break;
     case 'recipe':
       body = formatRecipe(content as RecipeContent);
+      break;
+    case 'recipe_book':
+      body = formatRecipeBook(content as RecipeBookContent);
       break;
     default:
       body = creation.description;

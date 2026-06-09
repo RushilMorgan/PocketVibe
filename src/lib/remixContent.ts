@@ -50,5 +50,19 @@ export function remixContent(
       : prior;
   }
 
+  if (creationType === 'recipe_book') {
+    // Reset each recipe's personal ticks/notes for the new owner; keep the recipes.
+    if (Array.isArray(base.recipes)) {
+      base.recipes = (base.recipes as Array<Record<string, unknown>>).map(r => ({
+        ...r,
+        ingredients: Array.isArray(r.ingredients)
+          ? (r.ingredients as Array<{ have: boolean }>).map(i => ({ ...i, have: false }))
+          : r.ingredients,
+        extraShoppingItems: [],
+        notes: '',
+      }));
+    }
+  }
+
   return base as unknown as CreationContent;
 }

@@ -47,7 +47,8 @@ export default function App() {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
-    createRecipe,
+    createRecipeBook,
+    extractRecipe,
     quotaNotice,
     dismissQuotaNotice,
     goToMyProfile,
@@ -278,6 +279,7 @@ export default function App() {
                   onShare={() => setSharePanelOpen(true)}
                   pendingLocalAction={pendingToolAction}
                   onLocalActionConsumed={() => setPendingToolAction(null)}
+                  onExtractRecipe={extractRecipe}
                 />
               </div>
             ) : !isGenerating && (
@@ -420,7 +422,7 @@ export default function App() {
         onClose={() => setRecipeIntakeOpen(false)}
         onSubmit={(input) => {
           setRecipeIntakeOpen(false);
-          createRecipe(input);
+          createRecipeBook(input);
         }}
       />
 

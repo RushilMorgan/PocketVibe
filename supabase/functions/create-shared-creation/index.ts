@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
     'checklist', 'habit_tracker', 'budget_calculator', 'savings_tracker',
     'landing_page', 'event_planner', 'meal_planner', 'workout_tracker',
     'price_calculator', 'task_planner', 'tournament_pool_tracker',
-    'idea_thinking_board', 'recipe',
+    'idea_thinking_board', 'recipe', 'recipe_book',
   ];
   if (!SUPPORTED_TYPES.includes(creationType)) {
     return json({ error: `Unsupported creationType: ${creationType}` }, 400);

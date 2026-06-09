@@ -368,6 +368,23 @@ export function usePocketVibe(userId?: string) {
         res = safeRes;
       }
 
+      // ── Forced-type guard ─────────────────────────────────────────────────
+      // Guided entry points (Recipe, Idea Board) lock the output type. If the
+      // backend returns a different type — e.g. a newly added type whose edge
+      // function support isn't deployed yet — don't save a mismatched creation.
+      if (req.mode === 'new' && req.forcedType && res.creationType !== req.forcedType) {
+        dispatch({ type: 'DELETE_CREATION', payload: creationId });
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            text: 'This one is still finishing setup on our side — please try again in a few minutes.',
+          },
+        });
+        return;
+      }
+
       // ── Trust: visible-change verification for improve/add ────────────────
       if (req.mode !== 'new' && existing) {
         // Task 5: Honor server-side changeReport — if the server's QA pass confirmed

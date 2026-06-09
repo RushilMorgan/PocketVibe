@@ -192,7 +192,7 @@ const SUPPORTED_TYPES = [
   'checklist', 'habit_tracker', 'budget_calculator', 'savings_tracker',
   'landing_page', 'event_planner', 'meal_planner', 'workout_tracker',
   'price_calculator', 'task_planner', 'tournament_pool_tracker',
-  'idea_thinking_board',
+  'idea_thinking_board', 'recipe',
 ] as const;
 type SupportedType = typeof SUPPORTED_TYPES[number];
 
@@ -275,6 +275,17 @@ function getVisibleSignature(content: Record<string, unknown>): string {
       notes: content.notes ?? '',
     });
   }
+  if (type === 'recipe') {
+    return JSON.stringify({
+      title: content.title,
+      servings: content.servings ?? 0,
+      prepTime: content.prepTime ?? '',
+      cookTime: content.cookTime ?? '',
+      ingredients: (content.ingredients as Array<{name:string;quantity?:string;unit?:string}> ?? []).map(i => ({ name: i.name, quantity: i.quantity ?? '', unit: i.unit ?? '' })),
+      steps: (content.steps as Array<{text:string;time?:string}> ?? []).map(s => ({ text: s.text, time: s.time ?? '' })),
+      notes: content.notes ?? '',
+    });
+  }
   return JSON.stringify(content);
 }
 
@@ -318,6 +329,14 @@ function describeChanges(oldContent: Record<string, unknown>, newContent: Record
   return changes;
 }
 
+// ── YouTube URL extraction (for recipe video ingestion) ──────────────────────
+function extractYouTubeUrl(text: string): string | null {
+  const m = text.match(
+    /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:shorts\/|watch\?[^\s]*v=|live\/)|youtu\.be\/)[\w-]+[^\s]*/i,
+  );
+  return m ? m[0] : null;
+}
+
 // ── JSON parse with fence stripping ──────────────────────────────────────────
 function parseJson(raw: string): unknown {
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
@@ -347,7 +366,8 @@ function buildIntentPrompt(body: Record<string, unknown>, today: string): string
 - price_calculator: quotes, estimates, invoices, price lists, service calculators
 - task_planner: project management, work tasks, weekly or daily planning
 - tournament_pool_tracker: private family/friend/office tournament pools and draws, World Cup sweepstakes, team draws with seeded pots
-- idea_thinking_board: brainstorming or thinking through a business idea, app idea, side hustle, product, service, or creative concept — any request to explore, evaluate, structure, or improve an idea`;
+- idea_thinking_board: brainstorming or thinking through a business idea, app idea, side hustle, product, service, or creative concept — any request to explore, evaluate, structure, or improve an idea
+- recipe: extracting or structuring a cooking recipe (often from a YouTube/TikTok/Instagram cooking video link) — ingredients, quantities, and step-by-step method`;
 
   const parts: string[] = [];
   parts.push(`Today: ${today}`);
@@ -440,7 +460,7 @@ Use this exact structure:
 SUPPORTED CREATION TYPES:
 checklist, habit_tracker, budget_calculator, savings_tracker, landing_page,
 event_planner, meal_planner, workout_tracker, price_calculator, task_planner, tournament_pool_tracker,
-idea_thinking_board
+idea_thinking_board, recipe
 
 CONTENT FORMATS:
 checklist: { "type":"checklist","sections":[{"id":"s1","title":"Section Name","items":[{"id":"i1","label":"Item","checked":false}]}] }
@@ -450,6 +470,7 @@ savings_tracker: { "type":"savings_tracker","goalName":"Holiday Fund","targetAmo
 landing_page: { "type":"landing_page","businessName":"Business Name","tagline":"What you do","description":"About paragraph","features":[{"icon":"⭐","title":"Feature","description":"What this offers"}],"ctaLabel":"Get in touch","ctaUrl":"","contactEmail":"" }
 event_planner: { "type":"event_planner","eventName":"Event Name","eventDate":"","tasks":[{"id":"t1","label":"Task","dueDate":"","done":false}],"guestCount":0,"notes":"" }
 meal_planner: { "type":"meal_planner","weekLabel":"This week","meals":[{"id":"m1","day":"Monday","slot":"dinner","name":"Meal name"}],"groceryList":["Ingredient 1"] }
+recipe: { "type":"recipe","title":"Dish Name","sourceUrl":"","thumbnailUrl":"","servings":2,"prepTime":"10 min","cookTime":"20 min","ingredients":[{"id":"ing1","name":"Flour","quantity":"1","unit":"cup","have":false}],"steps":[{"id":"st1","number":1,"text":"Do this first.","time":"5 min"}],"extraShoppingItems":[],"notes":"","tags":["quick"],"layoutMode":"card" }
 workout_tracker (challenge mode): { "type":"workout_tracker","planName":"Partner Challenge","challengeMode":true,"participants":[{"id":"p1","name":"Alice","emoji":"🏃"},{"id":"p2","name":"Bob","emoji":"🚶"}],"activityTypes":["walk","run","gym","other"],"weeklyTarget":3,"logs":[],"scoringRules":{"pointsPerActivity":10,"weeklyTargetBonus":20,"runningBonus":5} }
 workout_tracker (basic plan): { "type":"workout_tracker","planName":"My Workout Plan","days":[{"id":"d1","label":"Day 1","exercises":[{"id":"e1","name":"Push-ups","sets":3,"reps":"15"}],"completed":false}] }
 price_calculator: { "type":"price_calculator","title":"Service Quote","currency":"R","description":"Quote for services","lineItems":[{"id":"li1","label":"Service name","quantity":1,"unitPrice":500,"category":"Services"},{"id":"li2","label":"Additional item","quantity":2,"unitPrice":150,"category":"Materials"}],"taxRate":15,"notes":"" }
@@ -472,6 +493,7 @@ ${userMemory ? `${userMemory}\nUse their name, location, and goals to make this 
 - Never return raw HTML — always use a structured creationType from the list above
 - If the user mentions World Cup, tournament pool, sweepstake, seeded pots, or team draw, use tournament_pool_tracker
 - For tournament_pool_tracker: never use gambling language; use friendly draw, private pool, prize note. Do not collect money.
+- For recipe: write beginner-friendly numbered steps with no assumed knowledge; keep ingredient quantities as plain text (e.g. "1/2 cup", "a pinch"); set every ingredient have=false; leave extraShoppingItems and notes empty; set layoutMode to "card". If a video URL is provided, use it to identify the dish and method and put it in sourceUrl.
 - For idea_thinking_board: read the user's prompt carefully — the INTENT changes everything.
   * If the prompt starts with "I want to understand and explore" → this is a LEARNING board. Fill fields as: ideaSummary=overview of the topic, problem=the question being explored, solution=the clearest current answer/approach, targetUsers=who this topic is most relevant for, risks=hard truths/misconceptions/pitfalls, moneyIdeas=ways to apply this knowledge (model=application, note=how), nextSteps=what to learn/do first, visualMap=key concepts and how they relate.
   * If the prompt starts with "I want to compare" → this is a COMPARISON board. Fill fields as: ideaSummary=what is being compared, problem=the decision/question at hand, solution=the high-level recommendation, targetUsers=personas who'd choose each option, risks=where each option falls short, moneyIdeas=use cases for each option (model=option name, note=when to use it), nextSteps=how to decide/validate.
@@ -1070,16 +1092,28 @@ Deno.serve(async (req: Request) => {
   });
 
   const builderMessage = buildBuilderMessage(body, intent, uxPlan);
+
+  // For recipe extraction, pass the cooking video to Gemini as a multimodal part
+  // so it can actually "watch" it. Guarded to YouTube hosts; on any video error
+  // the existing try/catch repair chain falls back to text-only (never 500s).
+  const recipeVideoUrl = intent.creationType === 'recipe' && userRequest ? extractYouTubeUrl(userRequest) : null;
+  const callBuilder = (message: string) =>
+    builderModel.generateContent(
+      recipeVideoUrl
+        ? [{ text: message }, { fileData: { fileUri: recipeVideoUrl, mimeType: 'video/*' } }]
+        : message,
+    );
+
   let parsed: Record<string, unknown>;
 
   try {
-    const result = await builderModel.generateContent(builderMessage);
+    const result = await callBuilder(builderMessage);
     const raw = result.response.text();
     parsed = parseJson(raw) as Record<string, unknown>;
   } catch {
     // ── Step 6 (early repair): parse failure on first attempt ───────────────
     try {
-      const retry = await builderModel.generateContent(
+      const retry = await callBuilder(
         `${builderMessage}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no explanation.`,
       );
       parsed = parseJson(retry.response.text()) as Record<string, unknown>;
@@ -1097,7 +1131,7 @@ Deno.serve(async (req: Request) => {
   const serverValidation = validateServerResponse(parsed);
   if (!serverValidation.valid) {
     try {
-      const repairResult = await builderModel.generateContent(
+      const repairResult = await callBuilder(
         `${builderMessage}\n\n[VALIDATION FAILED: ${serverValidation.errors.join('; ')}. Fix all issues and return valid JSON only.]`,
       );
       const repairParsed = parseJson(repairResult.response.text()) as Record<string, unknown>;
@@ -1128,7 +1162,7 @@ Deno.serve(async (req: Request) => {
       // ── Step 6: Repair — explicit no-op warning ───────────────────────────
       try {
         const repairMsg = `${builderMessage}\n\n[QA FAILURE: Your previous response returned identical visible content. The user's request was not satisfied. You MUST return content that visibly differs from the current version. Make a real change based on: "${userRequest}"]`;
-        const repairResult = await builderModel.generateContent(repairMsg);
+        const repairResult = await callBuilder(repairMsg);
         const repairParsed = parseJson(repairResult.response.text()) as Record<string, unknown>;
         const repairContent = repairParsed.content as Record<string, unknown> | undefined;
         if (repairContent && getVisibleSignature(repairContent) !== oldSig) {

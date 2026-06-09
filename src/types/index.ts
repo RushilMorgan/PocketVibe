@@ -583,6 +583,7 @@ export interface RecipeIngredient {
   quantity?: string;   // plain text — "1/2", "a pinch", "2-3"
   unit?: string;       // "cup", "g", "tbsp"
   have: boolean;       // ticked = already have it (kept off the shopping list)
+  emoji?: string;      // optional visual (AI-filled; falls back to a smart guess)
 }
 
 export interface RecipeStep {
@@ -590,6 +591,7 @@ export interface RecipeStep {
   number: number;      // 1-based display order
   text: string;
   time?: string;       // optional per-step time, e.g. "5 min"
+  emoji?: string;      // optional visual (AI-filled; falls back to a smart guess)
 }
 
 export interface RecipeShoppingItem {

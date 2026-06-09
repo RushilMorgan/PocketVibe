@@ -8,6 +8,7 @@ import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
 import { AuthModal } from './components/AuthModal';
 import { IdeaIntakeSheet } from './components/IdeaIntakeSheet';
+import { RecipeIntakeSheet } from './components/RecipeIntakeSheet';
 import { UserProfilePage } from './components/UserProfilePage';
 import { usePocketVibe } from './hooks/usePocketVibe';
 import { useAuth } from './hooks/useAuth';
@@ -46,6 +47,7 @@ export default function App() {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
+    createRecipe,
     quotaNotice,
     dismissQuotaNotice,
     goToMyProfile,
@@ -95,6 +97,7 @@ export default function App() {
   const [pendingToolAction, setPendingToolAction] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [ideaIntakeOpen, setIdeaIntakeOpen] = useState(false);
+  const [recipeIntakeOpen, setRecipeIntakeOpen] = useState(false);
 
   const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
 
@@ -221,6 +224,7 @@ export default function App() {
             onSignIn={auth.isAvailable && !auth.user && !auth.loading ? () => openAuthModal('account') : undefined}
             onOpenChat={() => setComposerOpen(true)}
             onOpenIdeaBoard={() => setIdeaIntakeOpen(true)}
+            onOpenRecipe={() => setRecipeIntakeOpen(true)}
           />
         )}
 
@@ -407,6 +411,16 @@ export default function App() {
         onSubmit={(categoryLabel, idea, intentId) => {
           setIdeaIntakeOpen(false);
           createIdeaBoard(categoryLabel, idea, intentId);
+        }}
+      />
+
+      {/* Recipe intake */}
+      <RecipeIntakeSheet
+        open={recipeIntakeOpen}
+        onClose={() => setRecipeIntakeOpen(false)}
+        onSubmit={(input) => {
+          setRecipeIntakeOpen(false);
+          createRecipe(input);
         }}
       />
 

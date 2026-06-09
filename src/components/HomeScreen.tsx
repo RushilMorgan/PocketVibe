@@ -12,6 +12,8 @@ interface HomeScreenProps {
   onOpenChat?: () => void;
   /** Opens the guided Idea Board intake. */
   onOpenIdeaBoard?: () => void;
+  /** Opens the guided Recipe intake. */
+  onOpenRecipe?: () => void;
 }
 
 // ── Card data ─────────────────────────────────────────────────────────────────
@@ -28,7 +30,7 @@ const PARTNER_CHALLENGE = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn, onOpenChat, onOpenIdeaBoard }: HomeScreenProps) {
+export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSignIn, onOpenChat, onOpenIdeaBoard, onOpenRecipe }: HomeScreenProps) {
   const [input, setInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -241,6 +243,85 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
             {/* Violet CTA strip */}
             <div className="bg-violet-500 px-5 py-3.5 flex items-center justify-between">
               <span className="text-sm font-black text-white tracking-tight">Think through an idea</span>
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+            </div>
+          </button>
+
+          {/* Recipe — warm rose/orange */}
+          <button
+            data-testid="flagship-recipe"
+            onClick={onOpenRecipe}
+            disabled={isGenerating || !onOpenRecipe}
+            className="text-left rounded-3xl overflow-hidden shadow-lg active:scale-[0.985] transition-all disabled:opacity-50 w-full ring-1 ring-rose-400/30"
+          >
+            {/* Dark warm panel */}
+            <div className="relative bg-gradient-to-br from-rose-950 via-orange-950 to-rose-950 px-5 pt-5 pb-5 overflow-hidden">
+              {/* Geometric accents */}
+              <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full border-2 border-rose-400/10 pointer-events-none" />
+              <div className="absolute right-8 bottom-2 w-16 h-16 rounded-full border border-rose-400/8 pointer-events-none" />
+              <div className="absolute -left-4 bottom-0 w-20 h-20 rounded-full border border-orange-400/6 pointer-events-none" />
+
+              {/* Top row: labels */}
+              <div className="relative z-10 flex items-center justify-between mb-4">
+                <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
+                  <span className="text-base leading-none">📺</span>
+                  <span className="text-base leading-none">🥘</span>
+                  <span className="text-base leading-none">🛒</span>
+                  <span className="text-xs text-white/60 font-semibold ml-1 tracking-wide">Cooking</span>
+                </div>
+                <span className="text-xs font-black bg-rose-400 text-rose-950 px-3 py-1 rounded-full tracking-widest uppercase">
+                  New ✦
+                </span>
+              </div>
+
+              {/* Icon + title */}
+              <div className="relative z-10 flex items-center gap-4 mb-3">
+                <span className="text-5xl leading-none">🍳</span>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div className="h-px w-8 bg-rose-400" />
+                    <div className="h-px w-3 bg-rose-400/40" />
+                  </div>
+                  <h2 className="text-xl font-black text-white leading-tight tracking-wide uppercase">Recipe</h2>
+                  <h2 className="text-xl font-black text-rose-300 leading-tight tracking-wide uppercase">from a video</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="h-px w-8 bg-rose-400" />
+                    <div className="h-px w-3 bg-rose-400/40" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="relative z-10 text-sm text-white/65 leading-relaxed mb-4">
+                Paste a cooking video link. Toolie writes up clear steps, an ingredient checklist, and a shopping list you can share.
+              </p>
+
+              {/* Feature chips */}
+              <div className="relative z-10 flex flex-wrap gap-2">
+                {[
+                  { icon: '📝', label: 'Clear steps' },
+                  { icon: '✅', label: 'Ingredient checklist' },
+                  { icon: '🛒', label: 'Shopping list' },
+                  { icon: '💬', label: 'Scale & swap' },
+                ].map(chip => (
+                  <span
+                    key={chip.label}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-200 bg-rose-400/10 border border-rose-400/25 px-2.5 py-1 rounded-full"
+                  >
+                    {chip.icon} {chip.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Rose CTA strip */}
+            <div className="bg-rose-500 px-5 py-3.5 flex items-center justify-between">
+              <span className="text-sm font-black text-white tracking-tight">Save a recipe</span>
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" />

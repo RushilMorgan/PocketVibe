@@ -8,6 +8,7 @@ import { buildRecipePrompt } from '../lib/recipePrompt';
 import { RecipeRenderer } from '../components/templates/RecipeRenderer';
 import { RecipeBookRenderer } from '../components/templates/RecipeBookRenderer';
 import { RecipeIntakeSheet } from '../components/RecipeIntakeSheet';
+import { ingredientEmoji, stepEmoji } from '../lib/recipeIcons';
 
 function makeRecipe(overrides: Partial<RecipeContent> = {}): RecipeContent {
   return {
@@ -199,6 +200,39 @@ describe('RecipeIntakeSheet (cookbook setup)', () => {
     fireEvent.click(screen.getByTestId('cookbook-units-imperial'));
     fireEvent.click(screen.getByTestId('build-cookbook-btn'));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: 'Weeknight Dinners', dietary: 'vegan', units: 'imperial' }));
+  });
+});
+
+describe('recipeIcons', () => {
+  it('matches sensible fallback emoji and defaults', () => {
+    expect(ingredientEmoji('Chicken breast')).toBe('🍗');
+    expect(ingredientEmoji('2 eggs')).toBe('🥚');
+    expect(ingredientEmoji('quux widget')).toBe('🥘');
+    expect(stepEmoji('Chop the onion finely')).toBe('🔪');
+    expect(stepEmoji('Bake for 20 minutes')).toBe('🔥');
+    expect(stepEmoji('ponder existence')).toBe('👩‍🍳');
+  });
+});
+
+describe('RecipeRenderer tap-to-talk', () => {
+  it('shows Ask Toolie only when onChat is provided', () => {
+    const { rerender } = render(<RecipeRenderer content={makeRecipe()} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('recipe-ask-toolie')).not.toBeInTheDocument();
+    rerender(<RecipeRenderer content={makeRecipe()} onChange={vi.fn()} onChat={vi.fn()} />);
+    expect(screen.getByTestId('recipe-ask-toolie')).toBeInTheDocument();
+  });
+
+  it('sends a message and applies an updated recipe from the AI', async () => {
+    const onChange = vi.fn();
+    const updated = makeRecipe({ title: 'Dairy-free Pasta' });
+    const onChat = vi.fn().mockResolvedValue({ answer: 'Swapped the butter for olive oil.', updatedRecipe: updated });
+    render(<RecipeRenderer content={makeRecipe()} onChange={onChange} onChat={onChat} />);
+    fireEvent.click(screen.getByTestId('recipe-ask-toolie'));
+    fireEvent.change(screen.getByTestId('recipe-chat-input'), { target: { value: 'make it dairy free' } });
+    fireEvent.submit(screen.getByTestId('recipe-chat-input').closest('form')!);
+    await waitFor(() => expect(onChat).toHaveBeenCalledWith('make it dairy free'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(updated));
+    expect(await screen.findByText('Swapped the butter for olive oil.')).toBeInTheDocument();
   });
 });
 

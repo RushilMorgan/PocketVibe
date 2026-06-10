@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSpeechInput } from '../hooks/useSpeechInput';
 import type { ChatMessage, Creation, TournamentPoolTrackerContent, WorkoutTrackerContent, IdeaThinkingBoardContent } from '../types';
 import { getAIConnectionStatus } from '../services/aiService';
 import { useUsage } from '../hooks/useUsage';
@@ -258,6 +259,24 @@ export function CreationComposer({
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // ── Tap-to-talk ─────────────────────────────────────────────────────────────
+  // Speech streams into the input live; the user reviews and taps send.
+  const speechBaseRef = useRef('');
+  const speech = useSpeechInput({
+    onTranscript: (text) => {
+      const base = speechBaseRef.current;
+      setInput(base ? `${base} ${text}` : text);
+    },
+  });
+  function toggleMic() {
+    if (speech.listening) {
+      speech.stop();
+    } else {
+      speechBaseRef.current = input.trim();
+      speech.start();
+    }
+  }
+
   const hasActive = Boolean(activeCreation);
   const aiStatus = getAIConnectionStatus();
   const context = getContext(activeCreation);
@@ -283,6 +302,7 @@ export function CreationComposer({
 
   function sendPrompt(prompt: string) {
     if (!prompt.trim() || isGenerating || limitReached) return;
+    if (speech.listening) speech.stop();
     if (hasActive) {
       // Use the smart chat path when available: the AI decides whether this is
       // a Q&A question (gets a direct answer) or a modification (full pipeline).
@@ -290,6 +310,8 @@ export function CreationComposer({
       else onImprove(prompt.trim());
     } else {
       onNew(prompt.trim());
+      // Close the sheet so the live build narration on the canvas is visible
+      setIsOpen(false);
     }
     setInput('');
   }
@@ -447,10 +469,35 @@ export function CreationComposer({
                     type="text"
                     value={input}
                     onChange={e => setInput(e.target.value)}
-                    placeholder={isGenerating ? 'Working on it…' : context.placeholder}
+                    placeholder={
+                      isGenerating ? 'Working on it…'
+                        : speech.listening ? 'Listening… speak now'
+                        : context.placeholder
+                    }
                     disabled={isGenerating}
                     className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
                   />
+                  {speech.supported && (
+                    <button
+                      type="button"
+                      data-testid="mic-btn"
+                      onClick={toggleMic}
+                      disabled={isGenerating}
+                      aria-label={speech.listening ? 'Stop listening' : 'Speak instead of typing'}
+                      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${
+                        speech.listening
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : 'bg-white/8 text-white/70 border border-white/10 active:bg-white/15'
+                      }`}
+                    >
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={isGenerating || !input.trim()}

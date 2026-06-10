@@ -16,6 +16,7 @@ import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigEr
 import { formatQuotaMessage } from '../lib/quotaMessage';
 import { buildIdeaBoardPrompt } from '../lib/ideaBoardPrompt';
 import { buildRecipePrompt } from '../lib/recipePrompt';
+import { TYPE_ACCENT } from '../lib/creationTypeMeta';
 import { getUsage, _resetUsageStore, type UsageKind, type UsageTier } from '../lib/usageStore';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
@@ -30,9 +31,8 @@ import {
   saveCreations,
   loadActiveCreationId,
   saveActiveCreationId,
-  upsertCreation,
-  deleteCreationById,
 } from '../lib/creationStore';
+import { INITIAL_STATE, pocketVibeReducer } from '../lib/pocketVibeReducer';
 import {
   pushCreationsToCloud,
   pullCreationsFromCloud,
@@ -47,143 +47,10 @@ import {
   trackCreationDeleted,
 } from '../lib/analytics';
 
-// ── Initial state ─────────────────────────────────────────────────────────────
-
-const INITIAL_STATE: PocketVibeState = {
-  view: 'home',
-  creations: [],
-  activeCreationId: null,
-  isGenerating: false,
-  processingStatus: null,
-  stageEvents: [],
-  pendingAction: null,
-  messages: [],
-  accentColor: '#7c3aed',
-};
-
-// ── Actions ───────────────────────────────────────────────────────────────────
-
-type PVAction =
-  | { type: 'HYDRATE'; payload: { creations: Creation[]; activeCreationId: string | null } }
-  | { type: 'SET_VIEW'; payload: AppView }
-  | { type: 'UPSERT_CREATION'; payload: Creation }
-  | { type: 'DELETE_CREATION'; payload: string }
-  | { type: 'SET_ACTIVE_CREATION'; payload: string | null }
-  | { type: 'SET_GENERATING'; payload: boolean }
-  | { type: 'SET_PROCESSING_STATUS'; payload: string | null }
-  | { type: 'ADD_STAGE_EVENT'; payload: GenerationStageEvent }
-  | { type: 'SET_PENDING_ACTION'; payload: PendingAction | null }
-  | { type: 'ADD_MESSAGE'; payload: ChatMessage }
-  | { type: 'CLEAR_MESSAGES' }
-  | { type: 'UPDATE_CREATION_CONTENT'; payload: { id: string; content: CreationContent } }
-  | { type: 'RENAME_CREATION'; payload: { id: string; title: string } }
-  | { type: 'TOGGLE_FAVORITE'; payload: string }
-  | { type: 'SET_ACCENT_COLOR'; payload: string }
-  | { type: 'SET_CREATION_SHARE_SLUG'; payload: { id: string; shareSlug: string } };
-
-// ── Reducer ───────────────────────────────────────────────────────────────────
-
-function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
-  switch (action.type) {
-    case 'HYDRATE': {
-      const { creations, activeCreationId } = action.payload;
-      const validActiveId = activeCreationId && creations.some(c => c.id === activeCreationId)
-        ? activeCreationId
-        : null;
-      return {
-        ...state,
-        creations,
-        activeCreationId: validActiveId,
-        view: validActiveId ? 'creation' : 'home',
-      };
-    }
-
-    case 'SET_VIEW':
-      return { ...state, view: action.payload };
-
-    case 'UPSERT_CREATION': {
-      const updated = upsertCreation(state.creations, action.payload);
-      return { ...state, creations: updated };
-    }
-
-    case 'DELETE_CREATION': {
-      const updated = deleteCreationById(state.creations, action.payload);
-      const newActiveId = state.activeCreationId === action.payload ? null : state.activeCreationId;
-      return {
-        ...state,
-        creations: updated,
-        activeCreationId: newActiveId,
-        view: newActiveId ? state.view : (updated.length > 0 ? 'my-creations' : 'home'),
-      };
-    }
-
-    case 'SET_ACTIVE_CREATION':
-      return { ...state, activeCreationId: action.payload };
-
-    case 'SET_GENERATING':
-      // Starting a new run clears the previous run's stage timeline
-      return action.payload
-        ? { ...state, isGenerating: true, stageEvents: [] }
-        : { ...state, isGenerating: false };
-
-    case 'SET_PROCESSING_STATUS':
-      return { ...state, processingStatus: action.payload };
-
-    case 'ADD_STAGE_EVENT':
-      return { ...state, stageEvents: [...state.stageEvents, action.payload] };
-
-    case 'SET_PENDING_ACTION':
-      return { ...state, pendingAction: action.payload };
-
-    case 'ADD_MESSAGE':
-      return { ...state, messages: [...state.messages, action.payload] };
-
-    case 'CLEAR_MESSAGES':
-      return { ...state, messages: [] };
-
-    case 'UPDATE_CREATION_CONTENT': {
-      const { id, content } = action.payload;
-      const updated = state.creations.map(c =>
-        c.id === id ? { ...c, content, updatedAt: Date.now() } : c,
-      );
-      return { ...state, creations: updated };
-    }
-
-    case 'RENAME_CREATION': {
-      const { id, title } = action.payload;
-      const updated = state.creations.map(c =>
-        c.id === id ? { ...c, title: title.trim().slice(0, 100), updatedAt: Date.now() } : c,
-      );
-      return { ...state, creations: updated };
-    }
-
-    case 'SET_ACCENT_COLOR':
-      return { ...state, accentColor: action.payload };
-
-    case 'TOGGLE_FAVORITE': {
-      const updated = state.creations.map(c =>
-        c.id === action.payload ? { ...c, isFavorite: !c.isFavorite, updatedAt: Date.now() } : c,
-      );
-      return { ...state, creations: updated };
-    }
-
-    case 'SET_CREATION_SHARE_SLUG': {
-      const { id, shareSlug } = action.payload;
-      const updated = state.creations.map(c =>
-        c.id === id ? { ...c, shareSlug, updatedAt: Date.now() } : c,
-      );
-      return { ...state, creations: updated };
-    }
-
-    default:
-      return state;
-  }
-}
-
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function usePocketVibe(userId?: string) {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [state, dispatch] = useReducer(pocketVibeReducer, INITIAL_STATE);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -581,22 +448,7 @@ export function usePocketVibe(userId?: string) {
         payload: { id: `a-${Date.now()}`, role: 'assistant', text: assistantMessage },
       });
 
-      const accentByType: Record<string, string> = {
-        checklist: '#7c3aed',
-        habit_tracker: '#f97316',
-        budget_calculator: '#16a34a',
-        savings_tracker: '#0ea5e9',
-        landing_page: '#ec4899',
-        event_planner: '#f43f5e',
-        meal_planner: '#14b8a6',
-        workout_tracker: '#ef4444',
-        price_calculator: '#8b5cf6',
-        task_planner: '#6366f1',
-        tournament_pool_tracker: '#f59e0b',
-        recipe: '#e11d48',
-        recipe_book: '#e11d48',
-      };
-      dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
+      dispatch({ type: 'SET_ACCENT_COLOR', payload: TYPE_ACCENT[res.creationType] ?? '#7c3aed' });
     } catch (err) {
       const message = toUserSafeErrorMessage(err);
       const isConfig = err instanceof AIConfigError;

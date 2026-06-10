@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BottomSheet } from './shared/BottomSheet';
 import type { RecipeUnits } from '../types';
 
 export interface CookbookSetupInput {
@@ -29,8 +30,6 @@ export function RecipeIntakeSheet({ open, onClose, onSubmit }: RecipeIntakeSheet
   const [servings, setServings] = useState<number | undefined>(undefined);
   const [units, setUnits] = useState<RecipeUnits>('metric');
 
-  if (!open) return null;
-
   function handleBuild() {
     onSubmit({ title: title.trim() || undefined, dietary, servings, units });
     setTitle('');
@@ -40,16 +39,7 @@ export function RecipeIntakeSheet({ open, onClose, onSubmit }: RecipeIntakeSheet
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      <div
-        data-testid="recipe-intake-sheet"
-        className="relative bg-gray-950 rounded-t-3xl shadow-2xl flex flex-col max-h-[88%] z-10 border-t border-rose-500/20"
-      >
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 bg-white/20 rounded-full" />
-        </div>
+    <BottomSheet open={open} onClose={onClose} testId="recipe-intake-sheet" accent="rose">
 
         {/* Header */}
         <div className="px-5 pb-3 pt-2 flex-shrink-0">
@@ -129,7 +119,6 @@ export function RecipeIntakeSheet({ open, onClose, onSubmit }: RecipeIntakeSheet
             ✨ Build my cookbook
           </button>
         </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }

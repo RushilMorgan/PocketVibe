@@ -63,6 +63,52 @@ it to the user, explain the data impact, and ask how they want to handle it.
 ### Lucide React
 - Icon library — use existing icons before adding new ones
 
+---
+
+## 📦 Modularity — no mega-files (mandatory)
+
+We learned this the hard way: 1,000+ line files (`usePocketVibe.ts`,
+`pocketvibe-generate/index.ts`, the big renderers) made changes slow and let a
+half-registered creation type ship to production. **All new code is modular,
+and big files get smaller every time they're touched — never bigger.**
+
+### Size limits
+- **New files: aim for ≤300 lines; hard stop at ~500.** If a file needs more,
+  that's the signal to split it *before* writing more code.
+- **Existing oversized files** (`usePocketVibe.ts`, the 1,000+ line renderers,
+  `pocketvibe-generate/index.ts`): never add a new feature *into* them. Put the
+  new logic in its own module and import it. Opportunistically extract when
+  touching nearby code (boy-scout rule).
+
+### How to split (the patterns already in the repo — copy these)
+- **Pure logic out of components/hooks** → `src/lib/` as side-effect-free,
+  unit-tested modules. Examples: `pocketVibeReducer.ts` (state machine out of
+  the hook), `mergeThings.ts`, `creationSync.ts`, `recipeIcons.ts`,
+  `drawEngine.ts`.
+- **Pure logic out of edge functions** → a sibling dependency-free file the
+  function imports (e.g. `pocketvibe-generate/pure.ts`). No Deno/npm imports in
+  it, so vitest can test it directly from `src/__tests__/`.
+- **Shared UI** → `src/components/shared/` (e.g. `BottomSheet.tsx`,
+  `ElementChatSheet.tsx`). Never copy-paste sheet/modal/row scaffolding — if
+  you're about to paste JSX from another component, extract it instead.
+- **Single source of truth for cross-cutting maps** →
+  `src/lib/creationTypeMeta.ts` (emoji/label/accent per type, exhaustively
+  typed `Record<CreationType, …>` so the compiler flags a missing entry). Never
+  re-declare per-type maps locally.
+- **Big renderers**: split by section into sub-components in the same folder
+  (header / list / sheet views), keeping the `content`-in, `onChange`-out
+  contract at the top level.
+
+### Registration & drift (new creation types)
+- A new creation type touches many registries by design. The **drift test**
+  (`src/__tests__/typeRegistry.test.ts`) fails the build until the type is
+  registered in: both edge functions' `SUPPORTED_TYPES`, the system-prompt
+  content formats, the client validator, `TemplateRenderer`'s switch, the
+  capability registry, and `creationTypeMeta`. Keep that test green — never
+  weaken it to make a build pass.
+- Code-splitting is in place (`React.lazy` per renderer + per route in
+  `main.tsx`). New renderers must be added as lazy chunks, not eager imports.
+
 ### DOMPurify
 - Sanitise any AI-generated HTML before rendering — mandatory, never skip
 
@@ -163,7 +209,9 @@ templates should adopt it as they're meaningfully touched.
 - Run: `npm test` (single run) or `npm run test:watch`
 - Coverage: `npm run test:coverage`
 - Tests live in `src/__tests__/`
-- **462+ tests** covering scoring mechanics, sharing logic, auth, and UI components
+- **690+ tests** covering scoring mechanics, sharing logic, auth, UI components,
+  the app reducer, edge-function pure logic (incl. client/edge signature parity),
+  and the creation-type drift guard (`typeRegistry.test.ts`)
 - All tests must pass before merging to `main`
 - Mock Supabase and external services in tests — never hit real APIs
 
@@ -172,7 +220,9 @@ templates should adopt it as they're meaningfully touched.
 ## Key Conventions
 
 - **Branch strategy:** `qa` for active work → merge to `main` for production
-- **Creation types:** `tournament_pool_tracker`, `workout_tracker` (more coming)
+- **Creation types:** 14 types — the canonical list lives in
+  `src/lib/creationTypeMeta.ts` (`ALL_CREATION_TYPES`); never hand-maintain type
+  lists elsewhere
 - **Local storage:** Creations stored in `localStorage` — tagged with `ownerUserId` when signed in, stripped on sign-out
 - **Shared links:** `/s/:slug` — viewer/participant/admin access modes, 30-second auto-refresh
 - **Versioning:** All shared creation updates use `expected_version` for optimistic concurrency — never overwrite without checking

@@ -196,152 +196,12 @@ const SUPPORTED_TYPES = [
 ] as const;
 type SupportedType = typeof SUPPORTED_TYPES[number];
 
-// ── Visible signature (mirrors src/lib/visibleSignature.ts) ───────────────────
-function getVisibleSignature(content: Record<string, unknown>): string {
-  const type = content.type as string;
-  if (type === 'habit_tracker') {
-    const habits = (content.habits as Array<{name:string;icon:string;frequency:string}> ?? []);
-    return JSON.stringify({ habits: habits.map(h => ({ name: h.name, icon: h.icon, frequency: h.frequency })), startDate: content.startDate });
-  }
-  if (type === 'checklist') {
-    const sections = (content.sections as Array<{title:string;items:Array<{label:string;checked:boolean}>}> ?? []);
-    return JSON.stringify({ sections: sections.map(s => ({ title: s.title, items: s.items.map(i => ({ label: i.label, checked: i.checked })) })) });
-  }
-  if (type === 'budget_calculator') {
-    return JSON.stringify({
-      currency: content.currency,
-      income: (content.income as Array<{label:string;amount:number}> ?? []).map(l => ({ label: l.label, amount: l.amount })),
-      expenses: (content.expenses as Array<{label:string;amount:number}> ?? []).map(l => ({ label: l.label, amount: l.amount })),
-    });
-  }
-  if (type === 'savings_tracker') {
-    return JSON.stringify({ goalName: content.goalName, targetAmount: content.targetAmount, currentAmount: content.currentAmount });
-  }
-  if (type === 'landing_page') {
-    return JSON.stringify({ businessName: content.businessName, tagline: content.tagline, description: content.description, featureTitles: (content.features as Array<{title:string}> ?? []).map(f => f.title) });
-  }
-  if (type === 'price_calculator') {
-    return JSON.stringify({ currency: content.currency, taxRate: content.taxRate, lineItems: (content.lineItems as Array<{label:string;quantity:number;unitPrice:number}> ?? []).map(l => ({ label: l.label, quantity: l.quantity, unitPrice: l.unitPrice })) });
-  }
-  if (type === 'event_planner') {
-    return JSON.stringify({ eventName: content.eventName, eventDate: content.eventDate, tasks: (content.tasks as Array<{label:string}> ?? []).map(t => t.label) });
-  }
-  if (type === 'meal_planner') {
-    return JSON.stringify({ weekLabel: content.weekLabel, meals: (content.meals as Array<{day:string;slot:string;name:string}> ?? []).map(m => ({ day: m.day, slot: m.slot, name: m.name })) });
-  }
-  if (type === 'workout_tracker') {
-    if (content.challengeMode || Array.isArray(content.participants)) {
-      return JSON.stringify({
-        planName: content.planName,
-        participants: (content.participants as Array<{name:string;emoji?:string}> ?? []).map(p => ({ name: p.name, emoji: p.emoji ?? '' })),
-        activityTypes: content.activityTypes ?? [],
-        weeklyTarget: content.weeklyTarget,
-        scoringRules: content.scoringRules,
-        logs: (content.logs as Array<{participantId:string;date:string;activityType:string;duration?:string;distance?:string;note?:string}> ?? []).map(l => ({
-          participantId: l.participantId,
-          date: l.date,
-          activityType: l.activityType,
-          duration: l.duration ?? '',
-          distance: l.distance ?? '',
-          note: l.note ?? '',
-        })),
-      });
-    }
-    return JSON.stringify({ planName: content.planName, days: (content.days as Array<{label:string;exercises:Array<{name:string}>}> ?? []).map(d => ({ label: d.label, exercises: d.exercises.map(e => e.name) })) });
-  }
-  if (type === 'task_planner') {
-    return JSON.stringify({ planTitle: content.planTitle, sections: (content.sections as Array<{title:string;tasks:Array<{label:string}>}> ?? []).map(s => ({ title: s.title, tasks: s.tasks.map(t => t.label) })) });
-  }
-  if (type === 'tournament_pool_tracker') {
-    return JSON.stringify({
-      poolName: content.poolName,
-      participants: (content.participants as Array<{name:string;emoji?:string}> ?? []).map(p => ({ name: p.name, emoji: p.emoji ?? '' })),
-      teams: (content.teams as Array<{name:string;pot:number;status:string;assignedTo?:string}> ?? []).map(t => ({ name: t.name, pot: t.pot, status: t.status, assignedTo: t.assignedTo ?? '' })),
-      matches: (content.matches as Array<{teamAId:string;teamBId:string;scoreA?:number;scoreB?:number}> ?? []).map(m => ({ teamAId: m.teamAId, teamBId: m.teamBId, scoreA: m.scoreA ?? '', scoreB: m.scoreB ?? '' })),
-      drawLocked: content.drawLocked,
-      scoringRules: content.scoringRules,
-    });
-  }
-  if (type === 'idea_thinking_board') {
-    return JSON.stringify({
-      title: content.title,
-      ideaSummary: content.ideaSummary,
-      problem: content.problem,
-      solution: content.solution,
-      scores: content.scores,
-      risks: (content.risks as Array<{title:string;severity:string;note:string}> ?? []).map(r => ({ title: r.title, severity: r.severity, note: r.note })),
-      moneyIdeas: (content.moneyIdeas as Array<{model:string;note:string;confidence:number}> ?? []).map(m => ({ model: m.model, note: m.note, confidence: m.confidence })),
-      nextSteps: (content.nextSteps as Array<{label:string;done:boolean}> ?? []).map(s => ({ label: s.label, done: s.done })),
-      notes: content.notes ?? '',
-    });
-  }
-  if (type === 'recipe') {
-    return JSON.stringify({
-      title: content.title,
-      servings: content.servings ?? 0,
-      prepTime: content.prepTime ?? '',
-      cookTime: content.cookTime ?? '',
-      ingredients: (content.ingredients as Array<{name:string;quantity?:string;unit?:string}> ?? []).map(i => ({ name: i.name, quantity: i.quantity ?? '', unit: i.unit ?? '' })),
-      steps: (content.steps as Array<{text:string;time?:string}> ?? []).map(s => ({ text: s.text, time: s.time ?? '' })),
-      notes: content.notes ?? '',
-    });
-  }
-  return JSON.stringify(content);
-}
-
-// ── Diff helpers ──────────────────────────────────────────────────────────────
-function describeChanges(oldContent: Record<string, unknown>, newContent: Record<string, unknown>): string[] {
-  const changes: string[] = [];
-  const type = newContent.type as string;
-
-  if (type === 'habit_tracker') {
-    const oldHabits = (oldContent.habits as Array<{name:string}> ?? []).map(h => h.name);
-    const newHabits = (newContent.habits as Array<{name:string}> ?? []).map(h => h.name);
-    const added = newHabits.filter(n => !oldHabits.includes(n));
-    const removed = oldHabits.filter(n => !newHabits.includes(n));
-    if (added.length) changes.push(`Added habits: ${added.join(', ')}`);
-    if (removed.length) changes.push(`Removed habits: ${removed.join(', ')}`);
-    if (!added.length && !removed.length) changes.push('Updated habit details');
-  } else if (type === 'checklist') {
-    const oldCount = (oldContent.sections as Array<{items:unknown[]}> ?? []).reduce((n, s) => n + s.items.length, 0);
-    const newCount = (newContent.sections as Array<{items:unknown[]}> ?? []).reduce((n, s) => n + s.items.length, 0);
-    if (newCount > oldCount) changes.push(`Added ${newCount - oldCount} item(s)`);
-    else if (newCount < oldCount) changes.push(`Removed ${oldCount - newCount} item(s)`);
-    else changes.push('Updated checklist items');
-  } else if (type === 'budget_calculator') {
-    const oldExpCount = (oldContent.expenses as unknown[] ?? []).length;
-    const newExpCount = (newContent.expenses as unknown[] ?? []).length;
-    if (newExpCount > oldExpCount) changes.push(`Added ${newExpCount - oldExpCount} expense(s)`);
-    else changes.push('Updated budget');
-  } else if (type === 'price_calculator') {
-    const oldCount = (oldContent.lineItems as unknown[] ?? []).length;
-    const newCount = (newContent.lineItems as unknown[] ?? []).length;
-    if (newCount > oldCount) changes.push(`Added ${newCount - oldCount} item(s)`);
-    else changes.push('Updated price list');
-  } else if (type === 'task_planner') {
-    const oldCount = (oldContent.sections as Array<{tasks:unknown[]}> ?? []).reduce((n, s) => n + s.tasks.length, 0);
-    const newCount = (newContent.sections as Array<{tasks:unknown[]}> ?? []).reduce((n, s) => n + s.tasks.length, 0);
-    if (newCount > oldCount) changes.push(`Added ${newCount - oldCount} task(s)`);
-    else changes.push('Updated tasks');
-  } else {
-    changes.push('Updated content');
-  }
-  return changes;
-}
-
-// ── YouTube URL extraction (for recipe video ingestion) ──────────────────────
-function extractYouTubeUrl(text: string): string | null {
-  const m = text.match(
-    /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:shorts\/|watch\?[^\s]*v=|live\/)|youtu\.be\/)[\w-]+[^\s]*/i,
-  );
-  return m ? m[0] : null;
-}
-
-// ── JSON parse with fence stripping ──────────────────────────────────────────
-function parseJson(raw: string): unknown {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-  return JSON.parse(cleaned);
-}
+import {
+  getVisibleSignature,
+  describeChanges,
+  extractYouTubeUrl,
+  parseJson,
+} from './pure.ts';
 
 // ── Pipeline prompts ──────────────────────────────────────────────────────────
 
@@ -577,25 +437,39 @@ function buildBuilderMessage(
  */
 // Scoped element-edit prompt for the Idea Board "tap-to-talk" pattern.
 // Mirrors buildElementEditPrompt in src/services/aiService.ts — keep in sync.
+// Generic across creation types: the idea-board framing is preserved exactly;
+// every other type gets a neutral "one element of the user's tool" framing so
+// renderers can adopt tap-to-talk without further edge changes.
 function buildElementEditPrompt(
   elementKind: string,
   element: unknown,
   instruction: string,
   content: Record<string, unknown>,
   userMemory = '',
+  creationType = 'idea_thinking_board',
 ): string {
-  const isScalar = ['summary', 'problem', 'solution'].includes(elementKind);
-  const isScores = elementKind === 'scores';
+  const isIdeaBoard = creationType === 'idea_thinking_board';
+  const isScalar = isIdeaBoard && ['summary', 'problem', 'solution'].includes(elementKind);
+  const isScores = isIdeaBoard && elementKind === 'scores';
   const shape = isScalar
     ? '{ "text": "the rewritten text" }'
     : isScores
       ? '{ "scores": { "clarity": 1-10, "usefulness": 1-10, "easeToBuild": 1-10, "moneyPotential": 1-10, "riskLevel": 1-10, "confidence": 1-10 } }'
-      : '{ "element": { ...the SAME element with the same id, fields updated... }, "addNextSteps": [{ "label": "..." }] (optional), "note": "one short line" }';
+      : isIdeaBoard
+        ? '{ "element": { ...the SAME element with the same id, fields updated... }, "addNextSteps": [{ "label": "..." }] (optional), "note": "one short line" }'
+        : '{ "element": { ...the SAME element with the same id, fields updated... }, "note": "one short line" }';
+
+  const framing = isIdeaBoard
+    ? 'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.'
+    : `You are Toolie, editing ONE element of the user's ${creationType.replace(/_/g, ' ')} tool. Be specific, honest, and helpful.`;
+  const contextLine = isIdeaBoard
+    ? `The idea, for context: "${content.title ?? ''}" — ${content.ideaSummary ?? ''}`
+    : `The tool, for context: "${(content.title ?? content.poolName ?? content.planName ?? content.eventName ?? content.goalName ?? '') as string}" (${creationType})`;
 
   return [
-    'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.',
+    framing,
     ...(userMemory ? [userMemory] : []),
-    `The idea, for context: "${content.title ?? ''}" — ${content.ideaSummary ?? ''}`,
+    contextLine,
     `Element kind: ${elementKind}`,
     `Current element (JSON): ${JSON.stringify(element)}`,
     `The user wants: "${instruction}"`,
@@ -606,8 +480,10 @@ function buildElementEditPrompt(
     'Rules:',
     '- Change ONLY what the user asked. Keep the same id for the element.',
     '- Plain, friendly language. No jargon like "market validation" or "go-to-market".',
-    '- For money ideas, use specific Rand prices. For risks, be honest, name real alternatives.',
-    '- Optionally add 1-2 follow-up next steps via addNextSteps when it genuinely helps.',
+    ...(isIdeaBoard
+      ? ['- For money ideas, use specific Rand prices. For risks, be honest, name real alternatives.',
+         '- Optionally add 1-2 follow-up next steps via addNextSteps when it genuinely helps.']
+      : ['- Keep the element the same shape (same fields) as the current element.']),
     '- Keep it concise; do not pad.',
   ].join('\n');
 }
@@ -776,6 +652,104 @@ function buildChatPrompt(
       `Cookbook: ${(content.title as string) ?? 'Cookbook'}`,
       `Preferences: ${JSON.stringify(prefs)}`,
       `Recipes (${recipes.length}): ${recipes.map(r => r.title).join(', ') || 'none yet'}`,
+    ].join('\n');
+
+  } else if (creationType === 'checklist') {
+    const sections = (content.sections as Array<{ title: string; items: Array<{ label: string; checked: boolean }> }>) ?? [];
+    const total = sections.reduce((n, s) => n + s.items.length, 0);
+    const done = sections.reduce((n, s) => n + s.items.filter(i => i.checked).length, 0);
+    dataSummary = [
+      `Checklist — ${done} of ${total} items done`,
+      ...sections.map(s => `${s.title}: ${s.items.map(i => `${i.checked ? '[x]' : '[ ]'} ${i.label}`).join(', ')}`),
+    ].join('\n');
+
+  } else if (creationType === 'habit_tracker') {
+    const habits = (content.habits as Array<{ name: string; icon: string; frequency: string; completions: Record<string, boolean> }>) ?? [];
+    dataSummary = [
+      `Habit tracker (started ${content.startDate ?? '?'})`,
+      ...habits.map(h => {
+        const ticks = Object.values(h.completions ?? {}).filter(Boolean).length;
+        return `${h.icon} ${h.name} (${h.frequency}) — ${ticks} completion${ticks === 1 ? '' : 's'} so far`;
+      }),
+    ].join('\n');
+
+  } else if (creationType === 'budget_calculator') {
+    const income = (content.income as Array<{ label: string; amount: number }>) ?? [];
+    const expenses = (content.expenses as Array<{ label: string; amount: number; category?: string }>) ?? [];
+    const tIn = income.reduce((s, l) => s + (l.amount || 0), 0);
+    const tOut = expenses.reduce((s, l) => s + (l.amount || 0), 0);
+    dataSummary = [
+      `Budget (${content.currency ?? ''}) — income ${tIn}, expenses ${tOut}, balance ${tIn - tOut}`,
+      `Income: ${income.map(l => `${l.label} ${l.amount}`).join(', ') || 'none'}`,
+      `Expenses: ${expenses.map(l => `${l.label}${l.category ? ` (${l.category})` : ''} ${l.amount}`).join(', ') || 'none'}`,
+      ...(content.notes ? [`Notes: ${content.notes}`] : []),
+    ].join('\n');
+
+  } else if (creationType === 'savings_tracker') {
+    const contributions = (content.contributions as Array<{ date: string; amount: number }>) ?? [];
+    dataSummary = [
+      `Savings goal: ${content.goalName ?? '?'} — ${content.currentAmount ?? 0} of ${content.targetAmount ?? 0} ${content.currency ?? ''}${content.deadline ? `, deadline ${content.deadline}` : ''}`,
+      `Contributions (${contributions.length}): ${contributions.slice(-5).map(c => `${c.date}: ${c.amount}`).join(', ') || 'none yet'}`,
+    ].join('\n');
+
+  } else if (creationType === 'landing_page') {
+    const features = (content.features as Array<{ title: string; description: string }>) ?? [];
+    dataSummary = [
+      `Landing page for: ${content.businessName ?? '?'} — "${content.tagline ?? ''}"`,
+      `About: ${content.description ?? ''}`,
+      `Features: ${features.map(f => f.title).join(', ') || 'none'}`,
+      `Call to action: ${content.ctaLabel ?? ''}${content.contactEmail ? ` · contact ${content.contactEmail}` : ''}`,
+    ].join('\n');
+
+  } else if (creationType === 'event_planner') {
+    const tasks = (content.tasks as Array<{ label: string; done: boolean; dueDate?: string }>) ?? [];
+    const open = tasks.filter(t => !t.done);
+    dataSummary = [
+      `Event: ${content.eventName ?? '?'}${content.eventDate ? ` on ${content.eventDate}` : ''}${content.guestCount ? `, ${content.guestCount} guests` : ''}`,
+      `Tasks — ${tasks.length - open.length} done, ${open.length} to go`,
+      `Still to do: ${open.map(t => `${t.label}${t.dueDate ? ` (by ${t.dueDate})` : ''}`).join(', ') || 'nothing — all done!'}`,
+      ...(content.notes ? [`Notes: ${content.notes}`] : []),
+    ].join('\n');
+
+  } else if (creationType === 'meal_planner') {
+    const meals = (content.meals as Array<{ day: string; slot: string; name: string }>) ?? [];
+    const grocery = (content.groceryList as string[]) ?? [];
+    dataSummary = [
+      `Meal plan: ${content.weekLabel ?? 'this week'}`,
+      ...meals.map(m => `${m.day} ${m.slot}: ${m.name}`),
+      `Grocery list (${grocery.length}): ${grocery.join(', ') || 'empty'}`,
+    ].join('\n');
+
+  } else if (creationType === 'price_calculator') {
+    const items = (content.lineItems as Array<{ label: string; quantity: number; unitPrice: number }>) ?? [];
+    const subtotal = items.reduce((s, l) => s + (l.quantity || 0) * (l.unitPrice || 0), 0);
+    const taxRate = (content.taxRate as number) ?? 0;
+    dataSummary = [
+      `Price list: ${content.title ?? ''} (${content.currency ?? ''})`,
+      ...items.map(l => `${l.label}: ${l.quantity} × ${l.unitPrice} = ${(l.quantity || 0) * (l.unitPrice || 0)}`),
+      `Subtotal ${subtotal}${taxRate ? `, tax ${taxRate}% → total ${Math.round(subtotal * (1 + taxRate / 100) * 100) / 100}` : ''}`,
+    ].join('\n');
+
+  } else if (creationType === 'task_planner') {
+    const sections = (content.sections as Array<{ title: string; tasks: Array<{ label: string; done: boolean; priority?: string }> }>) ?? [];
+    dataSummary = [
+      `Task plan: ${content.planTitle ?? ''}`,
+      ...sections.map(s => `${s.title}: ${s.tasks.map(t => `${t.done ? '[x]' : '[ ]'} ${t.label}${t.priority ? ` (${t.priority})` : ''}`).join(', ')}`),
+    ].join('\n');
+
+  } else if (creationType === 'idea_thinking_board') {
+    const risks = (content.risks as Array<{ title: string; severity: string }>) ?? [];
+    const money = (content.moneyIdeas as Array<{ model: string; confidence: number }>) ?? [];
+    const steps = (content.nextSteps as Array<{ label: string; done: boolean }>) ?? [];
+    const scores = (content.scores as Record<string, number>) ?? {};
+    dataSummary = [
+      `Idea: ${content.title ?? ''} — ${content.ideaSummary ?? ''}`,
+      `Problem: ${content.problem ?? ''}`,
+      `Solution: ${content.solution ?? ''}`,
+      `Scores: ${Object.entries(scores).map(([k, v]) => `${k} ${v}/10`).join(', ')}`,
+      `Risks: ${risks.map(r => `${r.title} (${r.severity})`).join(', ') || 'none listed'}`,
+      `Money ideas: ${money.map(m => `${m.model} (confidence ${m.confidence}/10)`).join(', ') || 'none listed'}`,
+      `Next steps: ${steps.map(s => `${s.done ? '[x]' : '[ ]'} ${s.label}`).join(', ') || 'none listed'}`,
     ].join('\n');
 
   } else {
@@ -1045,7 +1019,10 @@ const handleRequest = async (req: Request): Promise<Response> => {
     const editQuota = await enforceQuota(supabaseAdmin, identity, 'chat');
     if (!editQuota.allowed) return quotaExceededResponse(editQuota);
 
-    const prompt = buildElementEditPrompt(elementKind, element, instruction, content, userMemory);
+    const prompt = buildElementEditPrompt(
+      elementKind, element, instruction, content, userMemory,
+      (body.creationType as string) ?? 'idea_thinking_board',
+    );
     const model = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
     try {
       const result = await model.generateContent(prompt);

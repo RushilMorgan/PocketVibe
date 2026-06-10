@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { Creation, CreationType } from '../types';
+import type { Creation } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { getStoredAdminToken, deleteOwnedCreation } from '../services/shareService';
 import { mergeThings, thingTags, type CloudTool, type UnifiedThing } from '../lib/mergeThings';
+import { typeEmoji, typeLabel, timeAgo, exactDate } from '../lib/creationTypeMeta';
 
 interface MyThingsPageProps {
   creations: Creation[];
@@ -19,61 +20,6 @@ interface MyThingsPageProps {
   onGoHome: () => void;
   /** Open the Toolie profile page. */
   onGoMyProfile?: () => void;
-}
-
-const TYPE_EMOJI: Record<string, string> = {
-  checklist: '✅',
-  habit_tracker: '🔁',
-  budget_calculator: '💰',
-  savings_tracker: '💸',
-  landing_page: '🌐',
-  event_planner: '🎉',
-  meal_planner: '🍽️',
-  workout_tracker: '💪',
-  price_calculator: '🧾',
-  task_planner: '📌',
-  tournament_pool_tracker: '🏆',
-  idea_thinking_board: '💡',
-  recipe: '🍳',
-  recipe_book: '📖',
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  checklist: 'Checklist',
-  habit_tracker: 'Habit tracker',
-  budget_calculator: 'Budget',
-  savings_tracker: 'Savings goal',
-  landing_page: 'Landing page',
-  event_planner: 'Event planner',
-  meal_planner: 'Meal planner',
-  workout_tracker: 'Workout plan',
-  price_calculator: 'Price calculator',
-  task_planner: 'Task planner',
-  tournament_pool_tracker: 'Tournament pool',
-  idea_thinking_board: 'Idea board',
-  recipe: 'Recipe',
-  recipe_book: 'Cookbook',
-};
-
-function timeAgo(ms: number): string {
-  if (!ms) return '';
-  const seconds = Math.floor((Date.now() - ms) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ms).toLocaleDateString();
-}
-
-/** Exact, human date+time — used to tell apart same-named tools. */
-function exactDate(ms: number): string {
-  if (!ms) return '';
-  return new Date(ms).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  });
 }
 
 export function MyThingsPage({
@@ -305,7 +251,7 @@ export function MyThingsPage({
             className="flex items-start gap-3 flex-1 text-left min-w-0"
           >
             <span className="text-2xl leading-none flex-shrink-0 mt-0.5">
-              {TYPE_EMOJI[creation.creationType as CreationType] ?? '📄'}
+              {typeEmoji(creation.creationType)}
             </span>
             <div className="min-w-0 flex-1">
               {renamingId === creation.id ? (
@@ -345,7 +291,7 @@ export function MyThingsPage({
                 </div>
               )}
               <p className={`text-xs mt-0.5 line-clamp-1 ${isActive ? 'text-white/60' : 'text-gray-400'}`}>
-                {TYPE_LABEL[creation.creationType as CreationType] ?? 'Tool'} · {timeAgo(creation.updatedAt)}
+                {typeLabel(creation.creationType)} · {timeAgo(creation.updatedAt)}
               </p>
             </div>
           </button>
@@ -409,7 +355,7 @@ export function MyThingsPage({
             className="flex items-start gap-3 flex-1 text-left min-w-0"
           >
             <span className="text-2xl leading-none flex-shrink-0 mt-0.5">
-              {TYPE_EMOJI[tool.creation_type] ?? '📄'}
+              {typeEmoji(tool.creation_type)}
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
@@ -419,7 +365,7 @@ export function MyThingsPage({
                 </span>
               </div>
               <p className="text-xs mt-0.5 text-gray-400">
-                {TYPE_LABEL[tool.creation_type] ?? 'Tool'} · {exactDate(updatedMs)}
+                {typeLabel(tool.creation_type)} · {exactDate(updatedMs)}
               </p>
               <p className="text-[11px] mt-0.5 text-gray-300 font-mono">/s/{tool.share_slug}</p>
             </div>

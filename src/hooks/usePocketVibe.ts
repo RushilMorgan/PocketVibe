@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   GenerationMode,
   GenerateRequest,
+  GenerationStageEvent,
   TournamentTeam,
   RecipeContent,
 } from '../types';
@@ -23,6 +24,7 @@ import { tryApplyLocalUpdate } from '../lib/localUpdater';
 import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableRedirectMessage } from '../lib/capabilityRegistry';
 import { normalizeGenerateResponse } from '../lib/normalizeResponse';
 import { containsHtmlLikeText } from '../lib/htmlGuard';
+import { celebrate } from '../lib/celebrate';
 import {
   loadCreations,
   saveCreations,
@@ -53,6 +55,7 @@ const INITIAL_STATE: PocketVibeState = {
   activeCreationId: null,
   isGenerating: false,
   processingStatus: null,
+  stageEvents: [],
   pendingAction: null,
   messages: [],
   accentColor: '#7c3aed',
@@ -68,6 +71,7 @@ type PVAction =
   | { type: 'SET_ACTIVE_CREATION'; payload: string | null }
   | { type: 'SET_GENERATING'; payload: boolean }
   | { type: 'SET_PROCESSING_STATUS'; payload: string | null }
+  | { type: 'ADD_STAGE_EVENT'; payload: GenerationStageEvent }
   | { type: 'SET_PENDING_ACTION'; payload: PendingAction | null }
   | { type: 'ADD_MESSAGE'; payload: ChatMessage }
   | { type: 'CLEAR_MESSAGES' }
@@ -117,10 +121,16 @@ function reducer(state: PocketVibeState, action: PVAction): PocketVibeState {
       return { ...state, activeCreationId: action.payload };
 
     case 'SET_GENERATING':
-      return { ...state, isGenerating: action.payload };
+      // Starting a new run clears the previous run's stage timeline
+      return action.payload
+        ? { ...state, isGenerating: true, stageEvents: [] }
+        : { ...state, isGenerating: false };
 
     case 'SET_PROCESSING_STATUS':
       return { ...state, processingStatus: action.payload };
+
+    case 'ADD_STAGE_EVENT':
+      return { ...state, stageEvents: [...state.stageEvents, action.payload] };
 
     case 'SET_PENDING_ACTION':
       return { ...state, pendingAction: action.payload };
@@ -234,16 +244,28 @@ export function usePocketVibe(userId?: string) {
   }, []);
 
   // ── Persist creations whenever they change ───────────────────────────────────
+  // Skip while state still holds the pristine INITIAL_STATE references: these
+  // effects fire once before HYDRATE's dispatch is processed, and persisting
+  // that empty pre-hydration state would overwrite real saved data (with
+  // StrictMode's double effect pass, the second hydrate then reads the wiped
+  // store and the user's creations are gone for good).
   useEffect(() => {
-    if (state.creations.length > 0 || loadCreations().length > 0) {
-      saveCreations(state.creations);
-    }
+    if (state.creations === INITIAL_STATE.creations) return;
+    saveCreations(state.creations);
   }, [state.creations]);
 
   // ── Persist active creation id whenever it changes ───────────────────────────
+  const activeIdHydratedRef = useRef(false);
   useEffect(() => {
+    // Same pre-hydration guard: the id is null until HYDRATE lands, and saving
+    // that null would erase the stored pointer before it's read.
+    if (!activeIdHydratedRef.current) {
+      activeIdHydratedRef.current = state.creations !== INITIAL_STATE.creations
+        || state.activeCreationId !== null;
+      if (!activeIdHydratedRef.current) return;
+    }
     saveActiveCreationId(state.activeCreationId);
-  }, [state.activeCreationId]);
+  }, [state.activeCreationId, state.creations]);
 
   // ── Cloud backup (signed-in users) ───────────────────────────────────────────
   // On sign-in: pull cloud backups and merge them in (newest updatedAt wins per
@@ -379,8 +401,9 @@ export function usePocketVibe(userId?: string) {
     }
 
     try {
-      let res = await generateCreation(req, (status) => {
+      let res = await generateCreation(req, (status, stageEvent) => {
         dispatch({ type: 'SET_PROCESSING_STATUS', payload: status });
+        if (stageEvent) dispatch({ type: 'ADD_STAGE_EVENT', payload: stageEvent });
       });
 
       // ── Normalize: reject generative_html, strip HTML from text fields ────
@@ -533,6 +556,19 @@ export function usePocketVibe(userId?: string) {
 
       dispatch({ type: 'UPSERT_CREATION', payload: finishedCreation });
       trackCreationCompleted(finishedCreation.creationType, finishedCreation.version);
+
+      // Celebrate the landing: a big moment for the very first tool ever, a
+      // quiet burst for every new one after that.
+      if (req.mode === 'new') {
+        let firstEver = false;
+        try {
+          firstEver = !localStorage.getItem('pv_first_creation_celebrated_v1');
+          if (firstEver) localStorage.setItem('pv_first_creation_celebrated_v1', '1');
+        } catch { /* storage unavailable — small burst is fine */ }
+        celebrate(firstEver
+          ? { intensity: 'big', message: 'You made your first tool! 🎉' }
+          : { intensity: 'small' });
+      }
 
       // For new creations the AI summary is descriptive. For improve/add we
       // compose the message from the verified outcome — not from AI text.

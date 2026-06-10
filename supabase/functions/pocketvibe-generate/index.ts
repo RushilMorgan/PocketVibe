@@ -778,6 +778,104 @@ function buildChatPrompt(
       `Recipes (${recipes.length}): ${recipes.map(r => r.title).join(', ') || 'none yet'}`,
     ].join('\n');
 
+  } else if (creationType === 'checklist') {
+    const sections = (content.sections as Array<{ title: string; items: Array<{ label: string; checked: boolean }> }>) ?? [];
+    const total = sections.reduce((n, s) => n + s.items.length, 0);
+    const done = sections.reduce((n, s) => n + s.items.filter(i => i.checked).length, 0);
+    dataSummary = [
+      `Checklist — ${done} of ${total} items done`,
+      ...sections.map(s => `${s.title}: ${s.items.map(i => `${i.checked ? '[x]' : '[ ]'} ${i.label}`).join(', ')}`),
+    ].join('\n');
+
+  } else if (creationType === 'habit_tracker') {
+    const habits = (content.habits as Array<{ name: string; icon: string; frequency: string; completions: Record<string, boolean> }>) ?? [];
+    dataSummary = [
+      `Habit tracker (started ${content.startDate ?? '?'})`,
+      ...habits.map(h => {
+        const ticks = Object.values(h.completions ?? {}).filter(Boolean).length;
+        return `${h.icon} ${h.name} (${h.frequency}) — ${ticks} completion${ticks === 1 ? '' : 's'} so far`;
+      }),
+    ].join('\n');
+
+  } else if (creationType === 'budget_calculator') {
+    const income = (content.income as Array<{ label: string; amount: number }>) ?? [];
+    const expenses = (content.expenses as Array<{ label: string; amount: number; category?: string }>) ?? [];
+    const tIn = income.reduce((s, l) => s + (l.amount || 0), 0);
+    const tOut = expenses.reduce((s, l) => s + (l.amount || 0), 0);
+    dataSummary = [
+      `Budget (${content.currency ?? ''}) — income ${tIn}, expenses ${tOut}, balance ${tIn - tOut}`,
+      `Income: ${income.map(l => `${l.label} ${l.amount}`).join(', ') || 'none'}`,
+      `Expenses: ${expenses.map(l => `${l.label}${l.category ? ` (${l.category})` : ''} ${l.amount}`).join(', ') || 'none'}`,
+      ...(content.notes ? [`Notes: ${content.notes}`] : []),
+    ].join('\n');
+
+  } else if (creationType === 'savings_tracker') {
+    const contributions = (content.contributions as Array<{ date: string; amount: number }>) ?? [];
+    dataSummary = [
+      `Savings goal: ${content.goalName ?? '?'} — ${content.currentAmount ?? 0} of ${content.targetAmount ?? 0} ${content.currency ?? ''}${content.deadline ? `, deadline ${content.deadline}` : ''}`,
+      `Contributions (${contributions.length}): ${contributions.slice(-5).map(c => `${c.date}: ${c.amount}`).join(', ') || 'none yet'}`,
+    ].join('\n');
+
+  } else if (creationType === 'landing_page') {
+    const features = (content.features as Array<{ title: string; description: string }>) ?? [];
+    dataSummary = [
+      `Landing page for: ${content.businessName ?? '?'} — "${content.tagline ?? ''}"`,
+      `About: ${content.description ?? ''}`,
+      `Features: ${features.map(f => f.title).join(', ') || 'none'}`,
+      `Call to action: ${content.ctaLabel ?? ''}${content.contactEmail ? ` · contact ${content.contactEmail}` : ''}`,
+    ].join('\n');
+
+  } else if (creationType === 'event_planner') {
+    const tasks = (content.tasks as Array<{ label: string; done: boolean; dueDate?: string }>) ?? [];
+    const open = tasks.filter(t => !t.done);
+    dataSummary = [
+      `Event: ${content.eventName ?? '?'}${content.eventDate ? ` on ${content.eventDate}` : ''}${content.guestCount ? `, ${content.guestCount} guests` : ''}`,
+      `Tasks — ${tasks.length - open.length} done, ${open.length} to go`,
+      `Still to do: ${open.map(t => `${t.label}${t.dueDate ? ` (by ${t.dueDate})` : ''}`).join(', ') || 'nothing — all done!'}`,
+      ...(content.notes ? [`Notes: ${content.notes}`] : []),
+    ].join('\n');
+
+  } else if (creationType === 'meal_planner') {
+    const meals = (content.meals as Array<{ day: string; slot: string; name: string }>) ?? [];
+    const grocery = (content.groceryList as string[]) ?? [];
+    dataSummary = [
+      `Meal plan: ${content.weekLabel ?? 'this week'}`,
+      ...meals.map(m => `${m.day} ${m.slot}: ${m.name}`),
+      `Grocery list (${grocery.length}): ${grocery.join(', ') || 'empty'}`,
+    ].join('\n');
+
+  } else if (creationType === 'price_calculator') {
+    const items = (content.lineItems as Array<{ label: string; quantity: number; unitPrice: number }>) ?? [];
+    const subtotal = items.reduce((s, l) => s + (l.quantity || 0) * (l.unitPrice || 0), 0);
+    const taxRate = (content.taxRate as number) ?? 0;
+    dataSummary = [
+      `Price list: ${content.title ?? ''} (${content.currency ?? ''})`,
+      ...items.map(l => `${l.label}: ${l.quantity} × ${l.unitPrice} = ${(l.quantity || 0) * (l.unitPrice || 0)}`),
+      `Subtotal ${subtotal}${taxRate ? `, tax ${taxRate}% → total ${Math.round(subtotal * (1 + taxRate / 100) * 100) / 100}` : ''}`,
+    ].join('\n');
+
+  } else if (creationType === 'task_planner') {
+    const sections = (content.sections as Array<{ title: string; tasks: Array<{ label: string; done: boolean; priority?: string }> }>) ?? [];
+    dataSummary = [
+      `Task plan: ${content.planTitle ?? ''}`,
+      ...sections.map(s => `${s.title}: ${s.tasks.map(t => `${t.done ? '[x]' : '[ ]'} ${t.label}${t.priority ? ` (${t.priority})` : ''}`).join(', ')}`),
+    ].join('\n');
+
+  } else if (creationType === 'idea_thinking_board') {
+    const risks = (content.risks as Array<{ title: string; severity: string }>) ?? [];
+    const money = (content.moneyIdeas as Array<{ model: string; confidence: number }>) ?? [];
+    const steps = (content.nextSteps as Array<{ label: string; done: boolean }>) ?? [];
+    const scores = (content.scores as Record<string, number>) ?? {};
+    dataSummary = [
+      `Idea: ${content.title ?? ''} — ${content.ideaSummary ?? ''}`,
+      `Problem: ${content.problem ?? ''}`,
+      `Solution: ${content.solution ?? ''}`,
+      `Scores: ${Object.entries(scores).map(([k, v]) => `${k} ${v}/10`).join(', ')}`,
+      `Risks: ${risks.map(r => `${r.title} (${r.severity})`).join(', ') || 'none listed'}`,
+      `Money ideas: ${money.map(m => `${m.model} (confidence ${m.confidence}/10)`).join(', ') || 'none listed'}`,
+      `Next steps: ${steps.map(s => `${s.done ? '[x]' : '[ ]'} ${s.label}`).join(', ') || 'none listed'}`,
+    ].join('\n');
+
   } else {
     // Generic — send a condensed JSON snapshot (first 400 chars)
     dataSummary = `Type: ${creationType}\nData: ${JSON.stringify(content).slice(0, 400)}`;

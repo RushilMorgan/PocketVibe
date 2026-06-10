@@ -95,7 +95,24 @@ function validateParticipantPatch(
   return { ok: false, reason: 'Participant updates not supported for this creation type' };
 }
 
-Deno.serve(async (req: Request) => {
+// ── CORS origin allowlist ─────────────────────────────────────────────────────
+// Echo the caller's origin only when it's one of ours (site, Vercel previews,
+// local dev). Anything else gets the primary domain, so foreign websites can't
+// use visitors' browsers to call these functions.
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/(www\.)?heytoolie\.com$/i,
+  /^https:\/\/[\w.-]+\.vercel\.app$/i,
+  /^http:\/\/localhost(:\d+)?$/i,
+];
+
+function resolveAllowedOrigin(req: Request): string {
+  const origin = req.headers.get('origin');
+  return origin && ALLOWED_ORIGIN_PATTERNS.some(re => re.test(origin))
+    ? origin
+    : 'https://heytoolie.com';
+}
+
+const handleRequest = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
   if (req.method !== 'PATCH') return json({ error: 'Method not allowed' }, 405);
 
@@ -192,4 +209,13 @@ Deno.serve(async (req: Request) => {
   });
 
   return json({ version: newVersion, content: newContent });
+};
+
+Deno.serve(async (req: Request) => {
+  const res = await handleRequest(req);
+  const headers = new Headers(res.headers);
+  if (headers.has('Access-Control-Allow-Origin')) {
+    headers.set('Access-Control-Allow-Origin', resolveAllowedOrigin(req));
+  }
+  return new Response(res.body, { status: res.status, headers });
 });

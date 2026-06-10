@@ -386,6 +386,27 @@ export function usePocketVibe(userId?: string) {
         return;
       }
 
+      // Container types (cookbook) hold user data the AI must never replace with
+      // a different tool type. If an improve/add comes back as another type,
+      // keep the original untouched and say so honestly.
+      if (req.mode !== 'new' && existing
+          && existing.creationType === 'recipe_book'
+          && res.creationType !== existing.creationType) {
+        dispatch({
+          type: 'UPSERT_CREATION',
+          payload: { ...existing, status: 'ready', updatedAt: existing.updatedAt },
+        });
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            text: "I couldn't make that change to your cookbook. Your recipes are untouched — try the controls inside the cookbook instead.",
+          },
+        });
+        return;
+      }
+
       // ── Trust: visible-change verification for improve/add ────────────────
       if (req.mode !== 'new' && existing) {
         // Task 5: Honor server-side changeReport — if the server's QA pass confirmed

@@ -1257,7 +1257,8 @@ describe('TEMPLATE_CATEGORIES — Fitness starters', () => {
 
 describe('edge function visible signature — workout challenge', () => {
   it('includes participant names, activityTypes, and log details', () => {
-    const src = readFileSync(join(process.cwd(), 'supabase/functions/pocketvibe-generate/index.ts'), 'utf8');
+    // The visible-signature logic now lives in the extracted pure module.
+    const src = readFileSync(join(process.cwd(), 'supabase/functions/pocketvibe-generate/pure.ts'), 'utf8');
     expect(src).toContain('p.name');
     expect(src).toContain('activityTypes');
     expect(src).toContain('l.activityType');

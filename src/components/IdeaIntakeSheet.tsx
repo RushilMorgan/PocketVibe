@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BottomSheet } from './shared/BottomSheet';
 import { IDEA_CATEGORIES, IDEA_INTENTS } from '../lib/ideaBoardPrompt';
 
 interface IdeaIntakeSheetProps {
@@ -23,8 +24,6 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [idea, setIdea] = useState('');
   const [intentId, setIntentId] = useState<string | null>(null);
-
-  if (!open) return null;
 
   const category = IDEA_CATEGORIES.find(c => c.id === categoryId) ?? null;
   const canProceed = idea.trim().length > 0;
@@ -51,19 +50,7 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
-
-      {/* Sheet */}
-      <div
-        data-testid="idea-intake-sheet"
-        className="relative bg-gray-950 rounded-t-3xl shadow-2xl flex flex-col max-h-[88%] z-10 border-t border-violet-500/20"
-      >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 bg-white/20 rounded-full" />
-        </div>
+    <BottomSheet open={open} onClose={handleClose} testId="idea-intake-sheet" accent="violet">
 
         {step === 'describe' ? (
           <>
@@ -203,8 +190,7 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
             </div>
           </>
         )}
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 

@@ -6,6 +6,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // The default 'forks' pool fails to spawn workers on this Windows machine
+    // ("Timeout waiting for worker to respond"); threads work reliably.
+    pool: 'threads',
     setupFiles: ['./src/__tests__/setup.ts'],
     env: {
       VITE_SUPABASE_URL: 'https://test.supabase.co',

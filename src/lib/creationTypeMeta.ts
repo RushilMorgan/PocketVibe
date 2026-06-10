@@ -69,3 +69,24 @@ export function typeEmoji(type: string): string {
 export function typeLabel(type: string): string {
   return TYPE_LABEL[type as CreationType] ?? 'Tool';
 }
+
+export function timeAgo(ms: number): string {
+  if (!ms) return '';
+  const seconds = Math.floor((Date.now() - ms) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ms).toLocaleDateString();
+}
+
+/** Exact, human date+time — used to tell apart same-named tools. */
+export function exactDate(ms: number): string {
+  if (!ms) return '';
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}

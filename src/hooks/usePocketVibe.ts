@@ -15,6 +15,7 @@ import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigEr
 import { formatQuotaMessage } from '../lib/quotaMessage';
 import { buildIdeaBoardPrompt } from '../lib/ideaBoardPrompt';
 import { buildRecipePrompt } from '../lib/recipePrompt';
+import { TYPE_ACCENT } from '../lib/creationTypeMeta';
 import { getUsage, _resetUsageStore, type UsageKind, type UsageTier } from '../lib/usageStore';
 import { getWorldCupData } from '../services/worldCupService';
 import { WC2026_SCORING_RULES, resolveTeamSource } from '../lib/worldCupTeams';
@@ -545,22 +546,7 @@ export function usePocketVibe(userId?: string) {
         payload: { id: `a-${Date.now()}`, role: 'assistant', text: assistantMessage },
       });
 
-      const accentByType: Record<string, string> = {
-        checklist: '#7c3aed',
-        habit_tracker: '#f97316',
-        budget_calculator: '#16a34a',
-        savings_tracker: '#0ea5e9',
-        landing_page: '#ec4899',
-        event_planner: '#f43f5e',
-        meal_planner: '#14b8a6',
-        workout_tracker: '#ef4444',
-        price_calculator: '#8b5cf6',
-        task_planner: '#6366f1',
-        tournament_pool_tracker: '#f59e0b',
-        recipe: '#e11d48',
-        recipe_book: '#e11d48',
-      };
-      dispatch({ type: 'SET_ACCENT_COLOR', payload: accentByType[res.creationType] ?? '#7c3aed' });
+      dispatch({ type: 'SET_ACCENT_COLOR', payload: TYPE_ACCENT[res.creationType] ?? '#7c3aed' });
     } catch (err) {
       const message = toUserSafeErrorMessage(err);
       const isConfig = err instanceof AIConfigError;

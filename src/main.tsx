@@ -1,11 +1,24 @@
-import { StrictMode } from 'react';
+import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { initAnalytics } from './lib/analytics';
-import App from './App';
-import { SharedToolPage } from './components/SharedToolPage';
+
+// Route-level code splitting: visitors opening a shared link don't download the
+// whole app, and app users don't download the shared-page bundle.
+const App = lazy(() => import('./App'));
+const SharedToolPage = lazy(() =>
+  import('./components/SharedToolPage').then(m => ({ default: m.SharedToolPage })),
+);
 
 initAnalytics();
+
+function BootFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <span className="text-violet-500 text-2xl animate-pulse">✦</span>
+    </div>
+  );
+}
 
 function Router() {
   const pathname = window.location.pathname;
@@ -28,6 +41,8 @@ if (!root) throw new Error('Root element #app not found');
 
 createRoot(root).render(
   <StrictMode>
-    <Router />
+    <Suspense fallback={<BootFallback />}>
+      <Router />
+    </Suspense>
   </StrictMode>,
 );

@@ -1,21 +1,24 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import type { Creation, CreationContent } from '../../types';
-import { ChecklistRenderer } from './ChecklistRenderer';
-import { HabitTrackerRenderer } from './HabitTrackerRenderer';
-import { BudgetCalculatorRenderer } from './BudgetCalculatorRenderer';
-import { SavingsTrackerRenderer } from './SavingsTrackerRenderer';
-import { LandingPageRenderer } from './LandingPageRenderer';
-import { EventPlannerRenderer } from './EventPlannerRenderer';
-import { MealPlannerRenderer } from './MealPlannerRenderer';
-import { WorkoutTrackerRenderer } from './WorkoutTrackerRenderer';
-import { TaskPlannerRenderer } from './TaskPlannerRenderer';
-import { PriceCalculatorRenderer } from './PriceCalculatorRenderer';
-import { TournamentPoolRenderer } from './TournamentPoolRenderer';
-import { IdeaThinkingBoardRenderer } from './IdeaThinkingBoardRenderer';
-import { RecipeRenderer } from './RecipeRenderer';
-import { RecipeBookRenderer } from './RecipeBookRenderer';
 import type { RecipeContent } from '../../types';
 import type { RecipeIntakeInput } from '../../lib/recipePrompt';
+
+// Each renderer is its own chunk: the first paint only pays for the template
+// the user actually opens (the biggest ones are 1000+ lines each).
+const ChecklistRenderer = lazy(() => import('./ChecklistRenderer').then(m => ({ default: m.ChecklistRenderer })));
+const HabitTrackerRenderer = lazy(() => import('./HabitTrackerRenderer').then(m => ({ default: m.HabitTrackerRenderer })));
+const BudgetCalculatorRenderer = lazy(() => import('./BudgetCalculatorRenderer').then(m => ({ default: m.BudgetCalculatorRenderer })));
+const SavingsTrackerRenderer = lazy(() => import('./SavingsTrackerRenderer').then(m => ({ default: m.SavingsTrackerRenderer })));
+const LandingPageRenderer = lazy(() => import('./LandingPageRenderer').then(m => ({ default: m.LandingPageRenderer })));
+const EventPlannerRenderer = lazy(() => import('./EventPlannerRenderer').then(m => ({ default: m.EventPlannerRenderer })));
+const MealPlannerRenderer = lazy(() => import('./MealPlannerRenderer').then(m => ({ default: m.MealPlannerRenderer })));
+const WorkoutTrackerRenderer = lazy(() => import('./WorkoutTrackerRenderer').then(m => ({ default: m.WorkoutTrackerRenderer })));
+const TaskPlannerRenderer = lazy(() => import('./TaskPlannerRenderer').then(m => ({ default: m.TaskPlannerRenderer })));
+const PriceCalculatorRenderer = lazy(() => import('./PriceCalculatorRenderer').then(m => ({ default: m.PriceCalculatorRenderer })));
+const TournamentPoolRenderer = lazy(() => import('./TournamentPoolRenderer').then(m => ({ default: m.TournamentPoolRenderer })));
+const IdeaThinkingBoardRenderer = lazy(() => import('./IdeaThinkingBoardRenderer').then(m => ({ default: m.IdeaThinkingBoardRenderer })));
+const RecipeRenderer = lazy(() => import('./RecipeRenderer').then(m => ({ default: m.RecipeRenderer })));
+const RecipeBookRenderer = lazy(() => import('./RecipeBookRenderer').then(m => ({ default: m.RecipeBookRenderer })));
 
 interface TemplateRendererProps {
   creation: Creation;
@@ -108,7 +111,15 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
   return (
     <div className="relative">
       {devBadge}
-      {renderContent()}
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-16">
+            <span className="text-violet-400 text-xl animate-pulse">✦</span>
+          </div>
+        }
+      >
+        {renderContent()}
+      </Suspense>
     </div>
   );
 }

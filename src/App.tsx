@@ -198,7 +198,7 @@ export default function App() {
       {showSaveNudge && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border-b border-amber-100">
           <span className="text-xs text-amber-800 flex-1">
-            💾 <strong>Save this so you don't lose it</strong> — create a free account.
+            🔒 <strong>Keep your tools safe on any device</strong> — create a free account.
           </span>
           <button
             onClick={() => openAuthModal('save')}
@@ -440,7 +440,7 @@ export default function App() {
                 : "That's all your creations for today"}
             </h3>
             <p className="text-sm text-gray-500 mb-5">
-              Resets {formatResetHint(quotaNotice.resetsAt)}.
+              You can make more {formatResetHint(quotaNotice.resetsAt)}.
               {quotaNotice.tier === 'anonymous' && ' Sign in for a higher daily limit.'}
             </p>
             {quotaNotice.tier === 'anonymous' && auth.isAvailable && !auth.user ? (

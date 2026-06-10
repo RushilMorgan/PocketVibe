@@ -419,7 +419,7 @@ export function CreationComposer({
                   {usageKind === 'chat' ? "That's all your questions for today" : "That's all your creations for today"}
                 </p>
                 <p className="text-xs text-white/50 mt-0.5">
-                  Resets {formatResetHint(usageSnap?.resetsAt ?? '')}.
+                  You can make more {formatResetHint(usageSnap?.resetsAt ?? '')}.
                   {!isSignedIn && onRequestSignIn && ' Sign in for a higher daily limit.'}
                 </p>
                 {!isSignedIn && onRequestSignIn && (

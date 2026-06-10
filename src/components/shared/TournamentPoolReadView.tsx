@@ -400,7 +400,7 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
             onClick={onRemix}
             className="w-full bg-yellow-400 text-slate-900 text-sm font-black py-3.5 active:bg-yellow-300 transition-colors"
           >
-            Make my own version ✨
+            Save my own copy ✨
           </button>
         </div>
       )}

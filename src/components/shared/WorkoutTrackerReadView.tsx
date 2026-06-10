@@ -186,7 +186,7 @@ export function WorkoutTrackerReadView({ content, onRemix }: Props) {
             onClick={onRemix}
             className="w-full bg-emerald-400 text-gray-900 text-sm font-black rounded-xl py-3 active:bg-emerald-300"
           >
-            Make my own version
+            Save my own copy
           </button>
         </div>
       )}

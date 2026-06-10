@@ -235,8 +235,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       <div data-testid="shared-tool-error" className="min-h-screen flex items-center justify-center bg-gray-950">
         <div className="text-center px-6 space-y-3 max-w-xs">
           <p className="text-4xl">😕</p>
-          <h1 className="text-base font-semibold text-white/80">Couldn't load this tool</h1>
-          <p className="text-sm text-white/40">{errorMsg ?? 'This link may have expired or the tool is private.'}</p>
+          <h1 className="text-base font-semibold text-white/80">Couldn't open this link</h1>
+          <p className="text-sm text-white/40">{errorMsg ?? 'The link may have expired — ask whoever sent it to share it again.'}</p>
           <button onClick={load} className="text-sm text-violet-400 font-medium underline">
             Try again
           </button>
@@ -300,13 +300,14 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       {/* Viewer banner */}
       {accessMode === 'viewer' && (
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-400">View only</p>
+          <p className="text-xs text-gray-400">You're viewing someone else's tool</p>
           <button
             data-testid="viewer-remix-btn"
             onClick={handleRemix}
+            title="You get your own editable version — the original stays theirs"
             className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 active:bg-violet-100 flex-shrink-0"
           >
-            Make my own version
+            Save my own copy
           </button>
         </div>
       )}

@@ -141,8 +141,11 @@ export function RecipeReadView({ content, onSave, onMakeMine }: Props) {
           onClick={onMakeMine}
           className="w-full py-3 rounded-2xl bg-violet-50 text-violet-700 text-sm font-bold border border-violet-100 active:bg-violet-100"
         >
-          ✨ Make it mine
+          ✨ Edit my own copy
         </button>
+        <p className="text-center text-[11px] text-gray-400">
+          You get your own version to change — the original stays theirs.
+        </p>
       </div>
     </div>
   );

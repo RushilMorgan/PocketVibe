@@ -159,7 +159,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
             editMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
-          {editMode ? 'Done' : 'Edit recipe'}
+          {editMode ? 'Done' : '✎ Edit by hand'}
         </button>
       </div>
 
@@ -256,7 +256,12 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                     <span className={`text-sm flex-1 min-w-0 ${i.have ? 'line-through text-gray-400' : 'text-gray-800'}`}>{ingredientLabel(i)}</span>
                   </button>
                   {onChat && (
-                    <button onClick={() => openChatWith(`About "${ingredientLabel(i)}": `)} className="text-gray-300 hover:text-violet-500 p-1.5 flex-shrink-0" aria-label="Ask Toolie about this ingredient" title="Ask Toolie">💬</button>
+                    <button
+                      onClick={() => openChatWith(`About "${ingredientLabel(i)}": `)}
+                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-violet-50 hover:border-violet-200 active:bg-violet-100"
+                      aria-label="Ask Toolie about this ingredient"
+                      title="Ask Toolie"
+                    >💬</button>
                   )}
                 </div>
               )}
@@ -272,7 +277,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           </div>
         )}
         {content.ingredients.length === 0 && !editMode && (
-          <p className="px-4 pb-4 text-center text-gray-400 text-sm">No ingredients yet — tap Edit recipe or ask Toolie.</p>
+          <p className="px-4 pb-4 text-center text-gray-400 text-sm">No ingredients yet — ask Toolie below, or edit by hand.</p>
         )}
 
         {/* Shopping list */}
@@ -344,7 +349,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
 
         <div className="px-4 pb-4 pt-1">
           {content.steps.length === 0 && !editMode && (
-            <p className="text-center text-gray-400 text-sm py-4">No steps yet — tap Edit recipe or ask Toolie.</p>
+            <p className="text-center text-gray-400 text-sm py-4">No steps yet — ask Toolie below, or edit by hand.</p>
           )}
 
           {editMode ? (
@@ -410,7 +415,12 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                     {s.time && layout === 'card' && <span className="text-xs text-gray-400">⏱️ {s.time}</span>}
                   </div>
                   {onChat && (
-                    <button onClick={() => openChatWith(`About step ${s.number} ("${s.text.slice(0, 40)}…"): `)} className="text-gray-300 hover:text-violet-500 p-1 flex-shrink-0" aria-label="Ask about this step" title="Ask Toolie">💬</button>
+                    <button
+                      onClick={() => openChatWith(`About step ${s.number} ("${s.text.slice(0, 40)}…"): `)}
+                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-violet-50 hover:border-violet-200 active:bg-violet-100"
+                      aria-label="Ask about this step"
+                      title="Ask Toolie"
+                    >💬</button>
                   )}
                 </li>
               ))}

@@ -1,6 +1,6 @@
 // ── FILE REPLACED — see full implementation below ────────────────────────────
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { GenerateRequest, GenerateResponse, Creation } from '../types';
+import type { GenerateRequest, GenerateResponse, Creation, GenerationStageEvent } from '../types';
 import { validateGenerateResponse, coerceGenerateResponse } from '../lib/validator';
 import { supabase } from '../lib/supabaseClient';
 import { setUsage, setExhausted, type UsageKind, type UsageTier } from '../lib/usageStore';
@@ -91,16 +91,58 @@ async function userTokenHeader(): Promise<Record<string, string>> {
   }
 }
 
-// ── Progress messages ─────────────────────────────────────────────────────────
+// ── Progress narration ────────────────────────────────────────────────────────
+// Stage events arrive from the server as the pipeline actually runs, so the
+// status line narrates real work (and real decisions), not a fake timer.
 
-const PROGRESS_STEPS = [
-  'Figuring out what you need…',
-  'Picking the best format…',
-  'Planning the structure…',
-  'Building your creation…',
-  'Checking the result…',
-  'Polishing the details…',
-];
+export type ProgressFn = (status: string, event?: GenerationStageEvent) => void;
+
+const TYPE_NAMES: Record<string, string> = {
+  checklist: 'checklist',
+  habit_tracker: 'habit tracker',
+  budget_calculator: 'budget calculator',
+  savings_tracker: 'savings tracker',
+  landing_page: 'landing page',
+  event_planner: 'event planner',
+  meal_planner: 'meal planner',
+  workout_tracker: 'workout tracker',
+  price_calculator: 'price calculator',
+  task_planner: 'planner',
+  tournament_pool_tracker: 'tournament pool',
+  idea_thinking_board: 'idea board',
+  recipe: 'recipe',
+  recipe_book: 'recipe book',
+};
+
+export function friendlyTypeName(type: unknown): string {
+  return (typeof type === 'string' && TYPE_NAMES[type]) || 'tool';
+}
+
+/** Human label for a pipeline stage event, in Toolie's voice. */
+export function stageLabel(ev: GenerationStageEvent): string {
+  switch (ev.stage) {
+    case 'understand':
+      return 'Reading your idea…';
+    case 'understand_done':
+      return ev.detail?.isModification
+        ? `Got it — updating your ${friendlyTypeName(ev.detail?.creationType)}`
+        : `Got it — making you a ${friendlyTypeName(ev.detail?.creationType)}`;
+    case 'design':
+      return 'Designing it for easy, everyday use…';
+    case 'design_done':
+      return 'Design ready';
+    case 'build':
+      return ev.detail?.watchingVideo
+        ? 'Watching your video and writing it all down…'
+        : 'Building it now…';
+    case 'check':
+      return 'Double-checking everything works…';
+    case 'repair':
+      return 'Smoothing out a rough edge…';
+    default:
+      return 'Working on it…';
+  }
+}
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
@@ -200,7 +242,7 @@ function buildUserMessage(req: GenerateRequest): string {
 
 async function generateViaGemini(
   req: GenerateRequest,
-  onProgress?: (status: string) => void,
+  onProgress?: ProgressFn,
 ): Promise<GenerateResponse> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
   if (!apiKey) {
@@ -216,12 +258,14 @@ async function generateViaGemini(
     systemInstruction: buildSystemPrompt(today),
   });
 
-  onProgress?.(PROGRESS_STEPS[0]);
+  const step = (ev: GenerationStageEvent) => onProgress?.(stageLabel(ev), ev);
+
+  step({ stage: 'understand' });
   const userMessage = buildUserMessage(req);
-  onProgress?.(PROGRESS_STEPS[1]);
+  step({ stage: 'build' });
 
   const result = await model.generateContent(userMessage);
-  onProgress?.(PROGRESS_STEPS[2]);
+  step({ stage: 'check' });
 
   const raw = result.response.text().trim();
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
@@ -238,7 +282,7 @@ async function generateViaGemini(
 
   if (!validation.valid) {
     // One repair attempt
-    onProgress?.('Trying to fix it…');
+    step({ stage: 'repair' });
     const retryResult = await model.generateContent(
       `${userMessage}\n\nIMPORTANT: Your previous response had these issues: ${validation.errors.join(', ')}. Fix them and return valid JSON only.`,
     );
@@ -257,15 +301,99 @@ async function generateViaGemini(
     }
   }
 
-  onProgress?.(PROGRESS_STEPS[3]);
   return parsed as GenerateResponse;
 }
 
 // ── Supabase Edge Function client ─────────────────────────────────────────────
 
+/** Map an HTTP-ish status to a user-safe message (shared by JSON + stream paths). */
+const STATUS_MESSAGES: Record<number, string> = {
+  404: 'The AI service is not deployed correctly yet.',
+  401: 'The AI service is not authorised correctly.',
+  403: 'The AI service is not authorised correctly.',
+  429: 'Too many requests. Please try again shortly.',
+  500: 'The AI service had a problem. Please try again.',
+  502: 'The AI service had a problem. Please try again.',
+  503: 'The AI service is temporarily unavailable. Please try again.',
+};
+
+/**
+ * Read an NDJSON stage stream from the edge function: forward each real
+ * pipeline stage to onProgress, then validate and return the final creation.
+ */
+async function consumeGenerationStream(
+  stream: ReadableStream<Uint8Array>,
+  onProgress?: ProgressFn,
+): Promise<GenerateResponse> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalData: unknown = null;
+  let streamError: Error | null = null;
+
+  const handleLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let msg: Record<string, unknown>;
+    try {
+      msg = JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      return; // skip malformed lines — the final 'done'/'error' decides the outcome
+    }
+    if (msg.event === 'stage' && typeof msg.stage === 'string') {
+      const ev: GenerationStageEvent = {
+        stage: msg.stage,
+        detail: msg.detail as Record<string, unknown> | undefined,
+      };
+      onProgress?.(stageLabel(ev), ev);
+    } else if (msg.event === 'done') {
+      finalData = msg.data;
+    } else if (msg.event === 'error') {
+      const status = typeof msg.status === 'number' ? msg.status : 500;
+      if (status === 429) {
+        const quotaErr = quotaErrorFromBody(msg);
+        if (quotaErr) {
+          streamError = quotaErr;
+          return;
+        }
+      }
+      console.error('[HeyToolie] Edge function stream error:', status, JSON.stringify(msg).slice(0, 500));
+      streamError = new AIGenerationError(
+        STATUS_MESSAGES[status] ?? 'The AI service returned an error. Please try again.',
+      );
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newline = buffer.indexOf('\n');
+    while (newline >= 0) {
+      handleLine(buffer.slice(0, newline));
+      buffer = buffer.slice(newline + 1);
+      newline = buffer.indexOf('\n');
+    }
+  }
+  handleLine(buffer);
+
+  if (streamError) throw streamError;
+  if (!finalData || typeof finalData !== 'object') {
+    throw new AIGenerationError('The AI service returned an unexpected response. Please try again.');
+  }
+
+  recordUsage((finalData as Record<string, unknown>).usage);
+  coerceGenerateResponse(finalData as Record<string, unknown>);
+  const validation = validateGenerateResponse(finalData);
+  if (!validation.valid) {
+    throw new AIGenerationError('The server returned an unexpected response. Please try again.');
+  }
+  return finalData as GenerateResponse;
+}
+
 async function generateViaEdgeFunction(
   req: GenerateRequest,
-  onProgress?: (status: string) => void,
+  onProgress?: ProgressFn,
 ): Promise<GenerateResponse> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -274,7 +402,7 @@ async function generateViaEdgeFunction(
     throw new AIConfigError('Supabase not configured.');
   }
 
-  onProgress?.(PROGRESS_STEPS[0]);
+  onProgress?.(stageLabel({ stage: 'understand' }), { stage: 'understand' });
 
   const response = await fetch(`${supabaseUrl}/functions/v1/pocketvibe-generate`, {
     method: 'POST',
@@ -284,10 +412,9 @@ async function generateViaEdgeFunction(
       apikey: supabaseAnonKey,
       ...(await userTokenHeader()),
     },
-    body: JSON.stringify(req),
+    // stream: true opts into live NDJSON stage events (older deployments ignore it)
+    body: JSON.stringify({ ...req, stream: true }),
   });
-
-  onProgress?.(PROGRESS_STEPS[3]);
 
   if (!response.ok) {
     // Read the body for developer debugging — but never expose it to users
@@ -306,16 +433,6 @@ async function generateViaEdgeFunction(
       }
     }
 
-    const STATUS_MESSAGES: Record<number, string> = {
-      404: 'The AI service is not deployed correctly yet.',
-      401: 'The AI service is not authorised correctly.',
-      403: 'The AI service is not authorised correctly.',
-      429: 'Too many requests. Please try again shortly.',
-      500: 'The AI service had a problem. Please try again.',
-      502: 'The AI service had a problem. Please try again.',
-      503: 'The AI service is temporarily unavailable. Please try again.',
-    };
-
     const contentType = response.headers.get('content-type') ?? '';
     const isJson = contentType.includes('application/json');
     const userMessage =
@@ -325,7 +442,14 @@ async function generateViaEdgeFunction(
     throw new AIGenerationError(userMessage);
   }
 
-  onProgress?.(PROGRESS_STEPS[4]);
+  // Live stage stream — narrate real pipeline progress as it happens
+  const responseType = response.headers.get('content-type') ?? '';
+  if (responseType.includes('application/x-ndjson') && response.body) {
+    return consumeGenerationStream(response.body, onProgress);
+  }
+
+  // Legacy single-JSON response (deployed function without streaming yet)
+  onProgress?.(stageLabel({ stage: 'check' }), { stage: 'check' });
   const data: unknown = await response.json();
 
   // Record remaining-usage figure before validating the rest of the payload.
@@ -337,7 +461,6 @@ async function generateViaEdgeFunction(
     throw new AIGenerationError('The server returned an unexpected response. Please try again.');
   }
 
-  onProgress?.(PROGRESS_STEPS[5]);
   return data as GenerateResponse;
 }
 
@@ -345,7 +468,7 @@ async function generateViaEdgeFunction(
 
 export async function generateCreation(
   req: GenerateRequest,
-  onProgress?: (status: string) => void,
+  onProgress?: ProgressFn,
 ): Promise<GenerateResponse> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const placeholder = 'https://your-project-ref.supabase.co';

@@ -1081,164 +1081,225 @@ const handleRequest = async (req: Request): Promise<Response> => {
 
   const genAI = new GoogleGenerativeAI(geminiKey);
 
-  // ── Step 1+2: Intent Analysis + Template Selector ─────────────────────────
-  // Uses a lightweight prompt to extract type and requirements before building.
-  const intentModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  let intent: Record<string, unknown> = {
-    creationType: currentCreation?.creationType ?? 'checklist',
-    keyRequirements: [userRequest],
-    tone: 'practical',
-    isModification: mode !== 'new',
-  };
-  try {
-    const intentResult = await intentModel.generateContent(buildIntentPrompt(body, today));
-    const intentRaw = intentResult.response.text();
-    const intentParsed = parseJson(intentRaw) as Record<string, unknown>;
-    // Validate the type is supported
-    if (intentParsed.creationType && SUPPORTED_TYPES.includes(intentParsed.creationType as SupportedType)) {
-      intent = intentParsed;
-    }
-  } catch {
-    // Intent step failed — fall through with defaults; builder will handle it
-  }
+  // ── Generation pipeline ─────────────────────────────────────────────────────
+  // The whole flow lives in one closure so it can either run silently (legacy
+  // single-JSON response) or narrate real stage events over an NDJSON stream
+  // when the client opts in with body.stream === true.
+  const runPipeline = async (
+    emit: (e: Record<string, unknown>) => void,
+  ): Promise<{ status: number; body: Record<string, unknown> }> => {
+    const fail = (msg: string) => ({ status: 422, body: { error: msg } });
 
-  // ── Forced type: guided entry points lock the output type ─────────────────
-  // (e.g. the Idea Board intake). We keep the classifier's requirements/tone but
-  // override the type so the result is never a generic fallback.
-  const forcedType = body.forcedType as string | undefined;
-  if (forcedType && SUPPORTED_TYPES.includes(forcedType as SupportedType)) {
-    intent.creationType = forcedType;
-  }
-
-  // ── Step 3: UI/UX Designer Agent ─────────────────────────────────────────
-  // Designs the mobile UX before content is built so the Builder knows exactly
-  // what actions, fields, and controls are needed for a trustworthy experience.
-  const uxModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  let uxPlan: Record<string, unknown> = {};
-  try {
-    const uxResult = await uxModel.generateContent(buildUxDesignerPrompt(intent, body, today));
-    const uxRaw = uxResult.response.text();
-    const uxParsed = parseJson(uxRaw) as Record<string, unknown>;
-    // Only use the plan if it has at least one actionable field
-    if (uxParsed.primaryAction || uxParsed.requiredFields) {
-      uxPlan = uxParsed;
-    }
-  } catch {
-    // UX step failed — builder continues with defaults; no user impact
-  }
-
-  // ── Step 4+5: Content Spec + Builder ──────────────────────────────────────
-  // Main content generation with intent + UX plan injected into the user message.
-  const builderModel = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    systemInstruction: buildSystemPrompt(today, userMemory),
-  });
-
-  const builderMessage = buildBuilderMessage(body, intent, uxPlan);
-
-  // For recipe extraction, pass the cooking video to Gemini as a multimodal part
-  // so it can actually "watch" it. Guarded to YouTube hosts; on any video error
-  // the existing try/catch repair chain falls back to text-only (never 500s).
-  const recipeVideoUrl = intent.creationType === 'recipe' && userRequest ? extractYouTubeUrl(userRequest) : null;
-  const callBuilder = (message: string) =>
-    builderModel.generateContent(
-      recipeVideoUrl
-        ? [{ text: message }, { fileData: { fileUri: recipeVideoUrl, mimeType: 'video/*' } }]
-        : message,
-    );
-
-  let parsed: Record<string, unknown>;
-
-  try {
-    const result = await callBuilder(builderMessage);
-    const raw = result.response.text();
-    parsed = parseJson(raw) as Record<string, unknown>;
-  } catch {
-    // ── Step 6 (early repair): parse failure on first attempt ───────────────
+    // ── Step 1+2: Intent Analysis + Template Selector ───────────────────────
+    // Uses a lightweight prompt to extract type and requirements before building.
+    emit({ event: 'stage', stage: 'understand' });
+    const intentModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    let intent: Record<string, unknown> = {
+      creationType: currentCreation?.creationType ?? 'checklist',
+      keyRequirements: [userRequest],
+      tone: 'practical',
+      isModification: mode !== 'new',
+    };
     try {
-      const retry = await callBuilder(
-        `${builderMessage}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no explanation.`,
-      );
-      parsed = parseJson(retry.response.text()) as Record<string, unknown>;
-    } catch {
-      return new Response(JSON.stringify({ error: 'Could not generate a valid response. Please try again.' }), {
-        status: 422, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-  }
-
-  // ── Step 5: Normalize + server-side validation ───────────────────────────
-  // Normalize first so missing numeric sub-fields get defaults before validation
-  // and before the content is stored in the DB.
-  normalizeContentFields(parsed);
-  const serverValidation = validateServerResponse(parsed);
-  if (!serverValidation.valid) {
-    try {
-      const repairResult = await callBuilder(
-        `${builderMessage}\n\n[VALIDATION FAILED: ${serverValidation.errors.join('; ')}. Fix all issues and return valid JSON only.]`,
-      );
-      const repairParsed = parseJson(repairResult.response.text()) as Record<string, unknown>;
-      normalizeContentFields(repairParsed); // normalize the repair too
-      if (validateServerResponse(repairParsed).valid) {
-        parsed = repairParsed;
-      } else {
-        return new Response(JSON.stringify({ error: 'Could not generate a valid response. Please try again.' }), {
-          status: 422, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        });
+      const intentResult = await intentModel.generateContent(buildIntentPrompt(body, today));
+      const intentRaw = intentResult.response.text();
+      const intentParsed = parseJson(intentRaw) as Record<string, unknown>;
+      // Validate the type is supported
+      if (intentParsed.creationType && SUPPORTED_TYPES.includes(intentParsed.creationType as SupportedType)) {
+        intent = intentParsed;
       }
     } catch {
-      return new Response(JSON.stringify({ error: 'Could not generate a valid response. Please try again.' }), {
-        status: 422, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
+      // Intent step failed — fall through with defaults; builder will handle it
     }
-  }
 
-  // ── Step 6: QA — visible change check for improve/add ────────────────────
-  const newContent = parsed.content as Record<string, unknown> | undefined;
-  let changeReport: { changed: boolean; changes: string[]; unsupported: string[] } | undefined;
+    // ── Forced type: guided entry points lock the output type ───────────────
+    // (e.g. the Idea Board intake). We keep the classifier's requirements/tone but
+    // override the type so the result is never a generic fallback.
+    const forcedType = body.forcedType as string | undefined;
+    if (forcedType && SUPPORTED_TYPES.includes(forcedType as SupportedType)) {
+      intent.creationType = forcedType;
+    }
+    emit({
+      event: 'stage',
+      stage: 'understand_done',
+      detail: { creationType: intent.creationType, isModification: mode !== 'new' },
+    });
 
-  if ((mode === 'improve' || mode === 'add') && oldSig && newContent) {
-    const newSig = getVisibleSignature(newContent);
-    const changed = newSig !== oldSig;
+    // ── Step 3: UI/UX Designer Agent ─────────────────────────────────────────
+    // Designs the mobile UX before content is built so the Builder knows exactly
+    // what actions, fields, and controls are needed for a trustworthy experience.
+    emit({ event: 'stage', stage: 'design' });
+    const uxModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    let uxPlan: Record<string, unknown> = {};
+    try {
+      const uxResult = await uxModel.generateContent(buildUxDesignerPrompt(intent, body, today));
+      const uxRaw = uxResult.response.text();
+      const uxParsed = parseJson(uxRaw) as Record<string, unknown>;
+      // Only use the plan if it has at least one actionable field
+      if (uxParsed.primaryAction || uxParsed.requiredFields) {
+        uxPlan = uxParsed;
+      }
+    } catch {
+      // UX step failed — builder continues with defaults; no user impact
+    }
+    emit({
+      event: 'stage',
+      stage: 'design_done',
+      detail: { primaryAction: typeof uxPlan.primaryAction === 'string' ? uxPlan.primaryAction : null },
+    });
 
-    if (!changed) {
-      // ── Step 6: Repair — explicit no-op warning ───────────────────────────
+    // ── Step 4+5: Content Spec + Builder ──────────────────────────────────────
+    // Main content generation with intent + UX plan injected into the user message.
+    const builderModel = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      systemInstruction: buildSystemPrompt(today, userMemory),
+    });
+
+    const builderMessage = buildBuilderMessage(body, intent, uxPlan);
+
+    // For recipe extraction, pass the cooking video to Gemini as a multimodal part
+    // so it can actually "watch" it. Guarded to YouTube hosts; on any video error
+    // the existing try/catch repair chain falls back to text-only (never 500s).
+    const recipeVideoUrl = intent.creationType === 'recipe' && userRequest ? extractYouTubeUrl(userRequest) : null;
+    emit({ event: 'stage', stage: 'build', detail: { watchingVideo: Boolean(recipeVideoUrl) } });
+    const callBuilder = (message: string) =>
+      builderModel.generateContent(
+        recipeVideoUrl
+          ? [{ text: message }, { fileData: { fileUri: recipeVideoUrl, mimeType: 'video/*' } }]
+          : message,
+      );
+
+    let parsed: Record<string, unknown>;
+
+    try {
+      const result = await callBuilder(builderMessage);
+      const raw = result.response.text();
+      parsed = parseJson(raw) as Record<string, unknown>;
+    } catch {
+      // ── Step 6 (early repair): parse failure on first attempt ───────────────
+      emit({ event: 'stage', stage: 'repair' });
       try {
-        const repairMsg = `${builderMessage}\n\n[QA FAILURE: Your previous response returned identical visible content. The user's request was not satisfied. You MUST return content that visibly differs from the current version. Make a real change based on: "${userRequest}"]`;
-        const repairResult = await callBuilder(repairMsg);
+        const retry = await callBuilder(
+          `${builderMessage}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no explanation.`,
+        );
+        parsed = parseJson(retry.response.text()) as Record<string, unknown>;
+      } catch {
+        return fail('Could not generate a valid response. Please try again.');
+      }
+    }
+
+    // ── Step 5: Normalize + server-side validation ───────────────────────────
+    // Normalize first so missing numeric sub-fields get defaults before validation
+    // and before the content is stored in the DB.
+    emit({ event: 'stage', stage: 'check' });
+    normalizeContentFields(parsed);
+    const serverValidation = validateServerResponse(parsed);
+    if (!serverValidation.valid) {
+      emit({ event: 'stage', stage: 'repair' });
+      try {
+        const repairResult = await callBuilder(
+          `${builderMessage}\n\n[VALIDATION FAILED: ${serverValidation.errors.join('; ')}. Fix all issues and return valid JSON only.]`,
+        );
         const repairParsed = parseJson(repairResult.response.text()) as Record<string, unknown>;
-        const repairContent = repairParsed.content as Record<string, unknown> | undefined;
-        if (repairContent && getVisibleSignature(repairContent) !== oldSig) {
-          Object.assign(parsed, repairParsed);
-          const repairedContent = parsed.content as Record<string, unknown>;
-          changeReport = {
-            changed: true,
-            changes: describeChanges(oldContent!, repairedContent),
-            unsupported: [],
-          };
+        normalizeContentFields(repairParsed); // normalize the repair too
+        if (validateServerResponse(repairParsed).valid) {
+          parsed = repairParsed;
         } else {
-          changeReport = { changed: false, changes: [], unsupported: ['No visible change could be made'] };
+          return fail('Could not generate a valid response. Please try again.');
         }
       } catch {
-        changeReport = { changed: false, changes: [], unsupported: ['Repair attempt failed'] };
+        return fail('Could not generate a valid response. Please try again.');
       }
-    } else {
-      changeReport = {
-        changed: true,
-        changes: describeChanges(oldContent!, newContent),
-        unsupported: [],
-      };
     }
+
+    // ── Step 6: QA — visible change check for improve/add ────────────────────
+    const newContent = parsed.content as Record<string, unknown> | undefined;
+    let changeReport: { changed: boolean; changes: string[]; unsupported: string[] } | undefined;
+
+    if ((mode === 'improve' || mode === 'add') && oldSig && newContent) {
+      const newSig = getVisibleSignature(newContent);
+      const changed = newSig !== oldSig;
+
+      if (!changed) {
+        // ── Step 6: Repair — explicit no-op warning ───────────────────────────
+        emit({ event: 'stage', stage: 'repair' });
+        try {
+          const repairMsg = `${builderMessage}\n\n[QA FAILURE: Your previous response returned identical visible content. The user's request was not satisfied. You MUST return content that visibly differs from the current version. Make a real change based on: "${userRequest}"]`;
+          const repairResult = await callBuilder(repairMsg);
+          const repairParsed = parseJson(repairResult.response.text()) as Record<string, unknown>;
+          const repairContent = repairParsed.content as Record<string, unknown> | undefined;
+          if (repairContent && getVisibleSignature(repairContent) !== oldSig) {
+            Object.assign(parsed, repairParsed);
+            const repairedContent = parsed.content as Record<string, unknown>;
+            changeReport = {
+              changed: true,
+              changes: describeChanges(oldContent!, repairedContent),
+              unsupported: [],
+            };
+          } else {
+            changeReport = { changed: false, changes: [], unsupported: ['No visible change could be made'] };
+          }
+        } catch {
+          changeReport = { changed: false, changes: [], unsupported: ['Repair attempt failed'] };
+        }
+      } else {
+        changeReport = {
+          changed: true,
+          changes: describeChanges(oldContent!, newContent),
+          unsupported: [],
+        };
+      }
+    }
+
+    // ── Step 7: Final response assembly ──────────────────────────────────────
+    const responseBody = changeReport
+      ? { ...parsed, changeReport, usage: usagePayload(genQuota) }
+      : { ...parsed, usage: usagePayload(genQuota) };
+
+    return { status: 200, body: responseBody };
+  };
+
+  // ── Response: legacy single JSON, or live NDJSON stage stream ──────────────
+  if (body.stream !== true) {
+    const result = await runPipeline(() => {});
+    return new Response(JSON.stringify(result.body), {
+      status: result.status,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
   }
 
-  // ── Step 7: Final response assembly ──────────────────────────────────────
-  const responseBody = changeReport
-    ? { ...parsed, changeReport, usage: usagePayload(genQuota) }
-    : { ...parsed, usage: usagePayload(genQuota) };
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const emit = (e: Record<string, unknown>) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(e) + '\n'));
+        } catch {
+          // Client disconnected mid-stream — keep the pipeline running silently
+        }
+      };
+      runPipeline(emit)
+        .then(({ status, body: out }) => {
+          if (status === 200) emit({ event: 'done', data: out });
+          else emit({ event: 'error', status, ...out });
+        })
+        .catch((err) => {
+          console.error('[generate] pipeline error:', err);
+          emit({ event: 'error', status: 500, error: 'The AI service had a problem. Please try again.' });
+        })
+        .finally(() => {
+          try { controller.close(); } catch { /* already closed */ }
+        });
+    },
+  });
 
-  return new Response(JSON.stringify(responseBody), {
+  return new Response(stream, {
     status: 200,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    headers: {
+      ...CORS_HEADERS,
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    },
   });
 };
 

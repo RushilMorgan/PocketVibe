@@ -739,6 +739,16 @@ export interface GenerateRequest {
   forcedType?: CreationType;
 }
 
+/**
+ * A real pipeline stage event streamed from the server while Toolie works
+ * (understand → design → build → check). `detail` carries what was actually
+ * decided (e.g. the chosen creationType) so the UI can narrate it.
+ */
+export interface GenerationStageEvent {
+  stage: string;
+  detail?: Record<string, unknown>;
+}
+
 // Trust metadata returned by the server (or computed by the client) for improve/add flows
 export interface ChangeReport {
   changed: boolean;
@@ -788,6 +798,8 @@ export interface PocketVibeState {
   activeCreationId: string | null;
   isGenerating: boolean;
   processingStatus: string | null;
+  /** Real stage events for the current generation — drives the live progress timeline. */
+  stageEvents: GenerationStageEvent[];
   pendingAction: PendingAction | null;
   messages: ChatMessage[];
   accentColor: string;

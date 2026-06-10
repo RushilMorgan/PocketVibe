@@ -124,7 +124,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
           onClick={editMode ? exitEditMode : () => setEditMode(true)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
             editMode
-              ? 'bg-orange-500 text-white active:bg-orange-600'
+              ? 'tpl-accent-bg text-white'
               : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
           aria-label={editMode ? 'Finish editing habits' : 'Edit habits'}
@@ -171,7 +171,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
                     <div className="flex gap-2">
                       <button
                         onClick={commitEdit}
-                        className="flex-1 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg active:bg-orange-600"
+                        className="flex-1 py-2 tpl-accent-bg text-white text-sm font-semibold rounded-lg active:opacity-70 transition-opacity"
                       >
                         Save
                       </button>
@@ -189,12 +189,12 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800 truncate">{habit.name}</p>
                       {streak > 0 && (
-                        <p className="text-xs text-orange-500 font-semibold">{streak}🔥 streak</p>
+                        <p className="text-xs tpl-accent-text font-semibold">{streak}🔥 streak</p>
                       )}
                     </div>
                     <button
                       onClick={() => startEdit(habit)}
-                      className="px-3 py-1.5 text-xs font-semibold text-orange-600 bg-orange-50 rounded-lg active:bg-orange-100 flex-shrink-0"
+                      className="px-3 py-1.5 text-xs font-semibold tpl-accent-text tpl-accent-soft rounded-lg active:opacity-70 transition-opacity flex-shrink-0"
                       aria-label={`Edit ${habit.name}`}
                     >
                       Edit
@@ -217,7 +217,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
                   <span className="text-lg leading-none flex-shrink-0">{habit.icon}</span>
                   <span className="text-sm font-semibold text-gray-800 truncate">{habit.name}</span>
                   {streak > 0 && (
-                    <span className="ml-auto text-xs text-orange-500 font-semibold flex-shrink-0">
+                    <span className="ml-auto text-xs tpl-accent-text font-semibold flex-shrink-0">
                       {streak}🔥
                     </span>
                   )}
@@ -233,9 +233,9 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
                         onClick={() => toggle(habit.id, date)}
                         className={`flex-1 flex flex-col items-center py-2 rounded-xl transition-all active:scale-95 ${
                           done
-                            ? 'bg-orange-500'
+                            ? 'tpl-accent-bg'
                             : isToday
-                            ? 'bg-orange-50 ring-2 ring-orange-300'
+                            ? 'tpl-accent-soft ring-2 ring-orange-300'
                             : 'bg-gray-50 active:bg-gray-100'
                         }`}
                         aria-label={`${habit.name} — ${dayLabel} ${dateLabel}${done ? ', done' : ''}`}
@@ -244,7 +244,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
                       >
                         <span
                           className={`text-xs font-medium leading-tight ${
-                            done ? 'text-white' : isToday ? 'text-orange-600' : 'text-gray-400'
+                            done ? 'text-white' : isToday ? 'tpl-accent-text' : 'text-gray-400'
                           }`}
                         >
                           {dayLabel}
@@ -254,7 +254,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
                             done
                               ? 'text-white'
                               : isToday
-                              ? 'text-orange-700 font-extrabold'
+                              ? 'tpl-accent-text font-extrabold'
                               : 'text-gray-600'
                           }`}
                           data-testid={`day-label-${dayLabel}`}
@@ -293,7 +293,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
           {editMode ? (
             <button
               onClick={addHabit}
-              className="text-orange-500 font-semibold underline"
+              className="tpl-accent-text font-semibold underline"
             >
               Add your first habit
             </button>
@@ -307,7 +307,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
       {editMode && content.habits.length > 0 && (
         <button
           onClick={addHabit}
-          className="w-full py-3 rounded-2xl bg-orange-50 text-orange-600 text-sm font-semibold border border-orange-100 active:bg-orange-100 flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-2xl tpl-accent-soft tpl-accent-text text-sm font-semibold border tpl-accent-border active:opacity-70 transition-opacity flex items-center justify-center gap-2"
           data-testid="add-habit-btn"
         >
           <span className="text-base">+</span>

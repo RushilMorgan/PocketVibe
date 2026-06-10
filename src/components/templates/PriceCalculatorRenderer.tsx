@@ -54,7 +54,7 @@ export function PriceCalculatorRenderer({ content, onChange }: PriceCalculatorRe
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
             editMode
-              ? 'bg-violet-600 text-white'
+              ? 'tpl-accent-bg text-white'
               : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
@@ -184,7 +184,7 @@ export function PriceCalculatorRenderer({ content, onChange }: PriceCalculatorRe
             <button
               data-testid="add-item-btn"
               onClick={addItem}
-              className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-xl py-2.5 active:bg-violet-50 transition-colors"
+              className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-xl py-2.5 active:opacity-70 transition-opacity"
             >
               + Add item
             </button>
@@ -205,9 +205,9 @@ export function PriceCalculatorRenderer({ content, onChange }: PriceCalculatorRe
               <span className="text-sm font-semibold text-gray-800">{formatAmount(content.currency, taxAmount)}</span>
             </div>
           )}
-          <div className="flex justify-between px-4 py-3 bg-violet-50">
-            <span className="text-sm font-bold text-violet-700">Total</span>
-            <span className="text-sm font-bold text-violet-700">{formatAmount(content.currency, total)}</span>
+          <div className="flex justify-between px-4 py-3 tpl-accent-soft">
+            <span className="text-sm font-bold tpl-accent-text">Total</span>
+            <span className="text-sm font-bold tpl-accent-text">{formatAmount(content.currency, total)}</span>
           </div>
         </div>
       </div>

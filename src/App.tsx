@@ -4,6 +4,10 @@ import PVHeader from './components/PVHeader';
 import { HomeScreen } from './components/HomeScreen';
 import { MyThingsPage } from './components/MyThingsPage';
 import { CreationComposer } from './components/CreationComposer';
+import { GenerationTheater } from './components/GenerationTheater';
+import { CreationHero } from './components/CreationHero';
+import { CelebrationLayer } from './components/CelebrationLayer';
+import { templateCssVars } from './lib/templateIdentity';
 import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
 import { AuthModal } from './components/AuthModal';
@@ -101,7 +105,7 @@ export default function App() {
   const [ideaIntakeOpen, setIdeaIntakeOpen] = useState(false);
   const [recipeIntakeOpen, setRecipeIntakeOpen] = useState(false);
 
-  const { view, creations, activeCreationId, isGenerating, processingStatus, pendingAction, messages, accentColor } = state;
+  const { view, creations, activeCreationId, isGenerating, processingStatus, stageEvents, pendingAction, messages, accentColor } = state;
 
   /**
    * Sign out: clear the Supabase session, strip owned creations from the local
@@ -170,6 +174,9 @@ export default function App() {
 
   return (
     <AppShell>
+      {/* Confetti overlay — fired via celebrate(), never intercepts taps */}
+      <CelebrationLayer />
+
       {/* Header */}
       <PVHeader
         view={view}
@@ -261,19 +268,20 @@ export default function App() {
 
             {/* Share button moved to PVHeader — no longer needs a strip here */}
 
-            {/* Generating overlay */}
+            {/* Generating overlay — live narration of the real pipeline */}
             {isGenerating && (
-              <div className="flex-shrink-0 mx-4 mt-3 px-4 py-3 rounded-xl bg-violet-50 flex items-center gap-2">
-                <span className="text-base animate-pulse">✨</span>
-                <span className="text-sm text-violet-700 font-medium">
-                  {processingStatus ?? 'Making something for you…'}
-                </span>
-              </div>
+              <GenerationTheater stageEvents={stageEvents} status={processingStatus} />
             )}
 
-            {/* Canvas */}
+            {/* Canvas — keyed per version so each fresh build rises into view.
+                The template identity vars scope the tpl-* palette utilities. */}
             {activeCreation && activeCreation.status !== 'generating' ? (
-              <div className="flex-1 overflow-y-auto pb-24">
+              <div
+                key={`${activeCreation.id}-v${activeCreation.version}`}
+                className="flex-1 overflow-y-auto pb-24 animate-creation-rise"
+                style={templateCssVars(activeCreation.creationType)}
+              >
+                <CreationHero creation={activeCreation} />
                 <TemplateRenderer
                   creation={activeCreation}
                   onContentChange={updateCreationContent}

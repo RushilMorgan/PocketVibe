@@ -96,7 +96,7 @@ export function TaskPlannerRenderer({ content, onChange }: TaskPlannerRendererPr
           data-testid="edit-tasks-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-            editMode ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode ? 'tpl-accent-bg text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
           {editMode ? 'Done' : 'Edit tasks'}
@@ -145,8 +145,9 @@ export function TaskPlannerRenderer({ content, onChange }: TaskPlannerRendererPr
                           data-testid={`toggle-task-${task.id}`}
                           onClick={() => toggleTask(section.id, task.id)}
                           className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                            task.done ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'
+                            task.done ? 'tpl-accent-bg' : 'border-gray-300'
                           }`}
+                          style={task.done ? { borderColor: 'var(--tpl-accent, #7c3aed)' } : undefined}
                         >
                           {task.done && (
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -197,8 +198,9 @@ export function TaskPlannerRenderer({ content, onChange }: TaskPlannerRendererPr
                       className="w-full flex items-center gap-3 text-left active:bg-gray-50"
                     >
                       <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                        task.done ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'
-                      }`}>
+                        task.done ? 'tpl-accent-bg' : 'border-gray-300'
+                      }`}
+                      style={task.done ? { borderColor: 'var(--tpl-accent, #7c3aed)' } : undefined}>
                         {task.done && (
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
@@ -227,7 +229,7 @@ export function TaskPlannerRenderer({ content, onChange }: TaskPlannerRendererPr
                 <button
                   data-testid="add-task-btn"
                   onClick={() => addTask(section.id)}
-                  className="w-full text-sm text-indigo-600 font-semibold border-2 border-dashed border-indigo-200 rounded-xl py-2 active:bg-indigo-50 transition-colors"
+                  className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-xl py-2 active:opacity-70 transition-opacity"
                 >
                   + Add task
                 </button>
@@ -240,7 +242,7 @@ export function TaskPlannerRenderer({ content, onChange }: TaskPlannerRendererPr
       {editMode && (
         <button
           onClick={addSection}
-          className="w-full text-sm text-indigo-600 font-semibold border-2 border-dashed border-indigo-200 rounded-2xl py-3 active:bg-indigo-50 transition-colors"
+          className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-2xl py-3 active:opacity-70 transition-opacity"
         >
           + Add section
         </button>

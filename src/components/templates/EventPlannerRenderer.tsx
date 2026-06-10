@@ -38,7 +38,7 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
   return (
     <div className="flex flex-col gap-4 p-4">
       {/* Header card */}
-      <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-5 text-white">
+      <div className="tpl-grad rounded-2xl p-5 text-white">
         {editMode ? (
           <div className="space-y-2">
             <input
@@ -86,7 +86,7 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
           data-testid="edit-event-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-            editMode ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode ? 'tpl-accent-bg text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
           {editMode ? 'Done' : 'Edit event'}
@@ -103,7 +103,7 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
         {/* Progress bar */}
         <div className="mx-4 mb-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-rose-500 to-pink-500"
+            className="h-full rounded-full transition-all duration-500 tpl-grad-bar"
             style={{ width: total > 0 ? `${Math.round((done / total) * 100)}%` : '0%' }}
           />
         </div>
@@ -117,8 +117,9 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
                     data-testid={`toggle-task-${task.id}`}
                     onClick={() => toggleTask(task.id)}
                     className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                      task.done ? 'bg-rose-500 border-rose-500' : 'border-gray-300'
+                      task.done ? 'tpl-accent-bg' : 'border-gray-300'
                     }`}
+                    style={task.done ? { borderColor: 'var(--tpl-accent, #7c3aed)' } : undefined}
                   >
                     {task.done && (
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -156,8 +157,9 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
                   className="w-full flex items-center gap-3 text-left active:bg-gray-50"
                 >
                   <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                    task.done ? 'bg-rose-500 border-rose-500' : 'border-gray-300'
-                  }`}>
+                    task.done ? 'tpl-accent-bg' : 'border-gray-300'
+                  }`}
+                  style={task.done ? { borderColor: 'var(--tpl-accent, #7c3aed)' } : undefined}>
                     {task.done && (
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
@@ -183,7 +185,7 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
             <button
               data-testid="add-task-btn"
               onClick={addTask}
-              className="w-full text-sm text-rose-500 font-semibold border-2 border-dashed border-rose-200 rounded-xl py-2.5 active:bg-rose-50 transition-colors"
+              className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-xl py-2.5 active:opacity-70 transition-opacity"
             >
               + Add task
             </button>

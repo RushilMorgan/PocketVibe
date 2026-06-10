@@ -9,6 +9,7 @@ import type {
 import { SmartGuidance } from '../SmartGuidance';
 import { computePoolGuidance } from '../../lib/guidance';
 import { getThemeAccent } from '../../lib/themes';
+import { celebrate } from '../../lib/celebrate';
 import {
   shuffle,
   runFairSeededDraw,
@@ -478,6 +479,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       buildDrawCompleteResult(result.teams, result.potBreakdown, result.fairnessWarning, result.participantSummaries),
     );
     setSheetView('drawComplete');
+    celebrate({ intensity: 'big' });
   }
 
   function undoDraw() {

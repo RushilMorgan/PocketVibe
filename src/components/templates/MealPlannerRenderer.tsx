@@ -59,7 +59,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
           data-testid="edit-meals-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-            editMode ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode ? 'tpl-accent-bg text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
           {editMode ? 'Done' : 'Edit meals'}
@@ -88,7 +88,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
                             <button
                               data-testid="add-meal-btn"
                               onClick={() => addMeal(day, slot)}
-                              className="text-xs text-teal-500 font-medium"
+                              className="text-xs tpl-accent-text font-medium"
                             >
                               + Add meal
                             </button>
@@ -124,7 +124,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
                               <button
                                 data-testid="add-meal-btn"
                                 onClick={() => addMeal(day, slot)}
-                                className="text-xs text-teal-500 font-medium"
+                                className="text-xs tpl-accent-text font-medium"
                               >
                                 + Add another
                               </button>
@@ -170,7 +170,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
                 </div>
               ) : (
                 <div key={idx} className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full tpl-accent-bg flex-shrink-0" />
                   <span className="text-sm text-gray-700">{item}</span>
                 </div>
               )
@@ -178,7 +178,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
             {editMode && (
               <button
                 onClick={addGroceryItem}
-                className="w-full text-sm text-teal-500 font-semibold border-2 border-dashed border-teal-200 rounded-xl py-2 mt-1 active:bg-teal-50 transition-colors"
+                className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-xl py-2 mt-1 active:opacity-70 transition-opacity"
               >
                 + Add item
               </button>

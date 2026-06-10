@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ChecklistContent, ChecklistItem, ChecklistSection } from '../../types';
+import { celebrate } from '../../lib/celebrate';
 
 interface ChecklistRendererProps {
   content: ChecklistContent;
@@ -10,15 +11,27 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
   const [editMode, setEditMode] = useState(false);
 
   function toggleItem(sectionId: string, itemId: string) {
-    onChange({
-      ...content,
-      sections: content.sections.map(s =>
-        s.id !== sectionId ? s : {
-          ...s,
-          items: s.items.map(i => i.id !== itemId ? i : { ...i, checked: !i.checked }),
-        },
-      ),
-    });
+    const updatedSections = content.sections.map(s =>
+      s.id !== sectionId ? s : {
+        ...s,
+        items: s.items.map(i => i.id !== itemId ? i : { ...i, checked: !i.checked }),
+      },
+    );
+    onChange({ ...content, sections: updatedSections });
+
+    // Celebrate completions (only when ticking, never when unticking):
+    // finishing a section earns a quiet burst; finishing the whole list, confetti.
+    const item = content.sections.find(s => s.id === sectionId)?.items.find(i => i.id === itemId);
+    if (item && !item.checked) {
+      const section = updatedSections.find(s => s.id === sectionId);
+      const sectionDone = !!section && section.items.length > 0 && section.items.every(i => i.checked);
+      if (sectionDone) {
+        const allDone = updatedSections.every(s => s.items.every(i => i.checked));
+        celebrate(allDone
+          ? { intensity: 'big', message: 'All done! 🎉' }
+          : { intensity: 'small' });
+      }
+    }
   }
 
   function updateItemLabel(sectionId: string, itemId: string, label: string) {
@@ -78,7 +91,7 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
           data-testid="edit-checklist-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-            editMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode ? 'tpl-accent-bg text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
           {editMode ? 'Done' : 'Edit list'}
@@ -124,8 +137,8 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
             {!editMode && (
               <div className="mx-4 mb-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #7c3aed, #a855f7)' }}
+                  className="h-full rounded-full transition-all duration-500 tpl-grad-bar"
+                  style={{ width: `${pct}%` }}
                 />
               </div>
             )}
@@ -158,11 +171,14 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
                       onClick={() => toggleItem(section.id, item.id)}
                       className="w-full flex items-center gap-3 active:bg-gray-50 text-left"
                     >
-                      <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                        item.checked ? 'bg-violet-600 border-violet-600' : 'border-gray-300'
-                      }`}>
+                      <span
+                        className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
+                          item.checked ? 'tpl-accent-bg' : 'border-gray-300'
+                        }`}
+                        style={item.checked ? { borderColor: 'var(--tpl-accent, #7c3aed)' } : undefined}
+                      >
                         {item.checked && (
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <svg className="animate-check-pop" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         )}
@@ -181,7 +197,7 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
                 <button
                   data-testid="add-item-btn"
                   onClick={() => addItem(section.id)}
-                  className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-xl py-2 active:bg-violet-50 transition-colors"
+                  className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-xl py-2 active:opacity-70 transition-opacity"
                 >
                   + Add item
                 </button>
@@ -195,7 +211,7 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
         <button
           data-testid="add-section-btn"
           onClick={addSection}
-          className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-2xl py-3 active:bg-violet-50 transition-colors"
+          className="w-full text-sm tpl-accent-text font-semibold border-2 border-dashed tpl-accent-border rounded-2xl py-3 active:opacity-70 transition-opacity"
         >
           + Add section
         </button>

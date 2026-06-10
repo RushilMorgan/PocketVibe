@@ -85,7 +85,7 @@ export function BudgetCalculatorRenderer({ content, onChange }: BudgetCalculator
           onClick={() => setEditMode(!editMode)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
             editMode
-              ? 'bg-green-600 text-white active:bg-green-700'
+              ? 'tpl-accent-bg text-white'
               : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
           aria-label={editMode ? 'Finish editing budget' : 'Edit budget'}
@@ -105,14 +105,14 @@ export function BudgetCalculatorRenderer({ content, onChange }: BudgetCalculator
           <div className="text-xs text-red-500 font-medium mb-1">Expenses</div>
           <div className="text-sm font-bold text-red-600">{fmt(content.currency, totalExpenses)}</div>
         </div>
-        <div className={`rounded-2xl p-3 text-center ${net >= 0 ? 'bg-violet-50' : 'bg-orange-50'}`}>
+        <div className={`rounded-2xl p-3 text-center ${net >= 0 ? 'tpl-accent-soft' : 'bg-orange-50'}`}>
           <div
-            className={`text-xs font-medium mb-1 ${net >= 0 ? 'text-violet-600' : 'text-orange-500'}`}
+            className={`text-xs font-medium mb-1 ${net >= 0 ? 'tpl-accent-text' : 'text-orange-500'}`}
           >
             Remaining
           </div>
           <div
-            className={`text-sm font-bold ${net >= 0 ? 'text-violet-700' : 'text-orange-600'}`}
+            className={`text-sm font-bold ${net >= 0 ? 'tpl-accent-text' : 'text-orange-600'}`}
           >
             {fmt(content.currency, net)}
           </div>

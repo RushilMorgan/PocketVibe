@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import type { SavingsTrackerContent, SavingsContribution } from '../../types';
+import { celebrate } from '../../lib/celebrate';
 
 interface SavingsTrackerRendererProps {
   content: SavingsTrackerContent;
@@ -77,6 +78,13 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
     });
     setContribution('');
     setLabel('');
+
+    // Crossing the goal line is the whole point of this tool — make it count.
+    const wasComplete = content.currentAmount >= content.targetAmount;
+    const nowComplete = content.currentAmount + amount >= content.targetAmount;
+    if (!wasComplete && nowComplete && content.targetAmount > 0) {
+      celebrate({ intensity: 'big', message: 'Goal reached! 🎉' });
+    }
   }
 
   const remaining = Math.max(0, content.targetAmount - content.currentAmount);
@@ -158,7 +166,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
               data-testid="done-editing-btn"
               onClick={saveEdit}
               disabled={!editGoalName.trim() || parseFloat(editTargetAmount) <= 0}
-              className="flex-1 py-2.5 rounded-xl bg-sky-500 text-white text-sm font-semibold disabled:opacity-40 active:bg-sky-600 transition-colors"
+              className="flex-1 py-2.5 rounded-xl tpl-accent-bg text-white text-sm font-semibold disabled:opacity-40 active:opacity-70 transition-opacity"
             >
               Save
             </button>
@@ -179,7 +187,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
             <button
               data-testid="edit-savings-btn"
               onClick={openEdit}
-              className="text-xs text-sky-600 font-medium px-2 py-1 rounded-lg hover:bg-sky-50 transition-colors"
+              className="text-xs tpl-accent-text font-medium px-2 py-1 rounded-lg active:opacity-70 transition-opacity"
             >
               Edit savings goal
             </button>
@@ -189,14 +197,14 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
         {/* Progress bar */}
         <div className="h-3 bg-gray-100 rounded-full overflow-hidden mb-3">
           <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)' }}
+            className="h-full rounded-full transition-all duration-700 tpl-grad-bar"
+            style={{ width: `${pct}%` }}
           />
         </div>
 
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-2xl font-bold text-sky-600">{fmt(content.currency, content.currentAmount)}</div>
+            <div className="text-2xl font-bold tpl-accent-text">{fmt(content.currency, content.currentAmount)}</div>
             <div className="text-xs text-gray-400">of {fmt(content.currency, content.targetAmount)} goal</div>
           </div>
           <div className="text-right">
@@ -239,7 +247,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
           <button
             onClick={addContribution}
             disabled={!contribution || parseFloat(contribution) <= 0}
-            className="w-full py-2.5 rounded-xl bg-sky-500 text-white text-sm font-semibold disabled:opacity-40 active:bg-sky-600 transition-colors"
+            className="w-full py-2.5 rounded-xl tpl-accent-bg text-white text-sm font-semibold disabled:opacity-40 active:opacity-70 transition-opacity"
           >
             + Add {contribution ? fmt(content.currency, parseFloat(contribution) || 0) : 'amount'}
           </button>

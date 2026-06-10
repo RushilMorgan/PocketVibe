@@ -577,25 +577,39 @@ function buildBuilderMessage(
  */
 // Scoped element-edit prompt for the Idea Board "tap-to-talk" pattern.
 // Mirrors buildElementEditPrompt in src/services/aiService.ts — keep in sync.
+// Generic across creation types: the idea-board framing is preserved exactly;
+// every other type gets a neutral "one element of the user's tool" framing so
+// renderers can adopt tap-to-talk without further edge changes.
 function buildElementEditPrompt(
   elementKind: string,
   element: unknown,
   instruction: string,
   content: Record<string, unknown>,
   userMemory = '',
+  creationType = 'idea_thinking_board',
 ): string {
-  const isScalar = ['summary', 'problem', 'solution'].includes(elementKind);
-  const isScores = elementKind === 'scores';
+  const isIdeaBoard = creationType === 'idea_thinking_board';
+  const isScalar = isIdeaBoard && ['summary', 'problem', 'solution'].includes(elementKind);
+  const isScores = isIdeaBoard && elementKind === 'scores';
   const shape = isScalar
     ? '{ "text": "the rewritten text" }'
     : isScores
       ? '{ "scores": { "clarity": 1-10, "usefulness": 1-10, "easeToBuild": 1-10, "moneyPotential": 1-10, "riskLevel": 1-10, "confidence": 1-10 } }'
-      : '{ "element": { ...the SAME element with the same id, fields updated... }, "addNextSteps": [{ "label": "..." }] (optional), "note": "one short line" }';
+      : isIdeaBoard
+        ? '{ "element": { ...the SAME element with the same id, fields updated... }, "addNextSteps": [{ "label": "..." }] (optional), "note": "one short line" }'
+        : '{ "element": { ...the SAME element with the same id, fields updated... }, "note": "one short line" }';
+
+  const framing = isIdeaBoard
+    ? 'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.'
+    : `You are Toolie, editing ONE element of the user's ${creationType.replace(/_/g, ' ')} tool. Be specific, honest, and helpful.`;
+  const contextLine = isIdeaBoard
+    ? `The idea, for context: "${content.title ?? ''}" — ${content.ideaSummary ?? ''}`
+    : `The tool, for context: "${(content.title ?? content.poolName ?? content.planName ?? content.eventName ?? content.goalName ?? '') as string}" (${creationType})`;
 
   return [
-    'You are Toolie, editing ONE element of a personal idea board. Be specific, honest, and helpful.',
+    framing,
     ...(userMemory ? [userMemory] : []),
-    `The idea, for context: "${content.title ?? ''}" — ${content.ideaSummary ?? ''}`,
+    contextLine,
     `Element kind: ${elementKind}`,
     `Current element (JSON): ${JSON.stringify(element)}`,
     `The user wants: "${instruction}"`,
@@ -606,8 +620,10 @@ function buildElementEditPrompt(
     'Rules:',
     '- Change ONLY what the user asked. Keep the same id for the element.',
     '- Plain, friendly language. No jargon like "market validation" or "go-to-market".',
-    '- For money ideas, use specific Rand prices. For risks, be honest, name real alternatives.',
-    '- Optionally add 1-2 follow-up next steps via addNextSteps when it genuinely helps.',
+    ...(isIdeaBoard
+      ? ['- For money ideas, use specific Rand prices. For risks, be honest, name real alternatives.',
+         '- Optionally add 1-2 follow-up next steps via addNextSteps when it genuinely helps.']
+      : ['- Keep the element the same shape (same fields) as the current element.']),
     '- Keep it concise; do not pad.',
   ].join('\n');
 }
@@ -1143,7 +1159,10 @@ const handleRequest = async (req: Request): Promise<Response> => {
     const editQuota = await enforceQuota(supabaseAdmin, identity, 'chat');
     if (!editQuota.allowed) return quotaExceededResponse(editQuota);
 
-    const prompt = buildElementEditPrompt(elementKind, element, instruction, content, userMemory);
+    const prompt = buildElementEditPrompt(
+      elementKind, element, instruction, content, userMemory,
+      (body.creationType as string) ?? 'idea_thinking_board',
+    );
     const model = new GoogleGenerativeAI(geminiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
     try {
       const result = await model.generateContent(prompt);

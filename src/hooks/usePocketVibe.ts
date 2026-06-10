@@ -32,6 +32,12 @@ import {
   deleteCreationById,
 } from '../lib/creationStore';
 import {
+  pushCreationsToCloud,
+  pullCreationsFromCloud,
+  deleteCloudCreation,
+  mergeCloudIntoLocal,
+} from '../lib/creationSync';
+import {
   trackCreationStarted,
   trackCreationCompleted,
   trackCreationImproved,
@@ -238,6 +244,40 @@ export function usePocketVibe(userId?: string) {
   useEffect(() => {
     saveActiveCreationId(state.activeCreationId);
   }, [state.activeCreationId]);
+
+  // ── Cloud backup (signed-in users) ───────────────────────────────────────────
+  // On sign-in: pull cloud backups and merge them in (newest updatedAt wins per
+  // creation) without touching the current view, then push the merged set.
+  const syncedUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userId) { syncedUserRef.current = null; return; }
+    if (syncedUserRef.current === userId) return;
+    syncedUserRef.current = userId;
+    let cancelled = false;
+    (async () => {
+      const cloud = await pullCreationsFromCloud(userId);
+      if (cancelled) return;
+      const local = stateRef.current.creations;
+      const merged = mergeCloudIntoLocal(local, cloud);
+      const localById = new Map(local.map(c => [c.id, c]));
+      for (const c of merged) {
+        // mergeCloudIntoLocal keeps the local object when local wins, so a
+        // different reference means the cloud copy is newer (or new).
+        if (localById.get(c.id) !== c) dispatch({ type: 'UPSERT_CREATION', payload: c });
+      }
+      void pushCreationsToCloud(userId, merged);
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  // While signed in, back up local changes shortly after they settle.
+  useEffect(() => {
+    if (!userId || state.creations.length === 0) return;
+    const t = setTimeout(() => {
+      void pushCreationsToCloud(userId, stateRef.current.creations);
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [state.creations, userId]);
 
   // ── Derived helpers ──────────────────────────────────────────────────────────
 
@@ -864,6 +904,8 @@ export function usePocketVibe(userId?: string) {
     const toDelete = stateRef.current.creations.find(c => c.id === id);
     if (toDelete) trackCreationDeleted(toDelete.creationType);
     dispatch({ type: 'DELETE_CREATION', payload: id });
+    // Keep the cloud backup in step so deleted tools don't come back on sign-in.
+    if (userIdRef.current) void deleteCloudCreation(userIdRef.current, id);
   }, []);
 
   const renameCreation = useCallback((id: string, title: string) => {

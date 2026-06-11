@@ -108,6 +108,10 @@ export function buildIdeaBoardPrompt(categoryLabel: string, idea: string, intent
         `honest risks and hard truths (name real competitors or things people already do for free),`,
         `realistic ways it could make money with specific prices, an honest idea-health score,`,
         `a visual mind map of the idea, and concrete next steps I can test this week before building.`,
+        // The risk/opportunity titles double as a SWOT grid — keep them crisp
+        `Write each risk and opportunity title as a crisp, specific one-liner (they're shown on a SWOT-style grid).`,
+        // Lean-validation ordering: cheapest reality check first
+        `Order the next steps as a validation ladder: talking to real potential users first, then the smallest cheapest test, then the first build step — never start with building.`,
         `Be specific and insightful about THIS idea — make it feel genuinely useful, not generic.`,
       ].join(' ');
   }

@@ -7,6 +7,7 @@ import { CreationComposer } from './components/CreationComposer';
 import { GenerationTheater } from './components/GenerationTheater';
 import { CreationHero } from './components/CreationHero';
 import { CelebrationLayer } from './components/CelebrationLayer';
+import { CreationSummaryBanner } from './components/CreationSummaryBanner';
 import { templateCssVars } from './lib/templateIdentity';
 import { TemplateRenderer } from './components/templates/TemplateRenderer';
 import { SharePanel } from './components/SharePanel';
@@ -258,12 +259,11 @@ export default function App() {
             )}
 
             {/* Summary banner — only for new creations (version 1).
-                For improve/add flows the verified outcome is in the messages thread. */}
+                For improve/add flows the verified outcome is in the messages thread.
+                Clamped to one line on arrival — screen space goes to the tool itself. */}
             {activeCreation?.status === 'ready' && activeCreation.summary &&
               messages.length > 0 && activeCreation.version === 1 && (
-              <div className="mx-4 mt-3 px-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-600 leading-relaxed flex-shrink-0">
-                {activeCreation.summary}
-              </div>
+              <CreationSummaryBanner key={activeCreation.id} text={activeCreation.summary} />
             )}
 
             {/* Share button moved to PVHeader — no longer needs a strip here */}

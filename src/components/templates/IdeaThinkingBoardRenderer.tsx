@@ -15,6 +15,7 @@ import { getElementActions } from '../../lib/ideaElementActions';
 import { COLLECTION_KINDS, type IdeaElementKind } from '../../lib/ideaElements';
 import { trackElementEdit } from '../../lib/analytics';
 import { formatQuotaMessage } from '../../lib/quotaMessage';
+import { IdeaSnapshot } from './IdeaSnapshot';
 
 interface Props {
   content: IdeaThinkingBoardContent;
@@ -661,8 +662,15 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
   function renderOverview() {
     return (
       <div className="flex flex-col gap-4">
+        {/* At a glance — ICE verdict + SWOT, computed live from the board */}
+        {!editMode && (
+          <div className={revealed ? 'animate-fade-in' : 'opacity-0'} style={{ animationDelay: '0ms' }}>
+            <IdeaSnapshot content={content} />
+          </div>
+        )}
+
         {/* Hero card */}
-        <div className={`bg-white rounded-2xl border border-gray-100 overflow-hidden ${revealed ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '0ms' }}>
+        <div className={`bg-white rounded-2xl border border-gray-100 overflow-hidden ${revealed ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '60ms' }}>
           <div className="px-4 pt-4 pb-3" style={{ background: 'linear-gradient(135deg, #7c3aed15, #a855f715)' }}>
             {editMode ? (
               <input

@@ -1,6 +1,8 @@
 import { Fragment } from 'react';
 import type { GenerationStageEvent } from '../types';
 import { stageLabel } from '../services/aiService';
+import { buildStageTimeline } from '../lib/stageTimeline';
+import { ThinkingDots } from './shared/ThinkingDots';
 
 interface GenerationTheaterProps {
   stageEvents: GenerationStageEvent[];
@@ -8,59 +10,12 @@ interface GenerationTheaterProps {
   status: string | null;
 }
 
-interface TimelineItem {
-  key: string;
-  label: string;
-  done: boolean;
-}
-
-/**
- * Collapse raw stage events into a display timeline: a stage and its `_done`
- * twin share one line whose label upgrades to the decision ("Got it — making
- * you a budget calculator") once the work lands.
- */
-function buildTimeline(events: GenerationStageEvent[]): TimelineItem[] {
-  const items: TimelineItem[] = [];
-  for (const ev of events) {
-    const base = ev.stage.replace(/_done$/, '');
-    const isDone = ev.stage.endsWith('_done');
-    const existing = items.find(i => i.key === base);
-    if (existing) {
-      // Keep the descriptive in-progress label for generic *_done events,
-      // but adopt decision labels (understand_done names the creation type).
-      if (isDone && base === 'understand') existing.label = stageLabel(ev);
-      existing.done = existing.done || isDone;
-    } else {
-      items.push({ key: base, label: stageLabel(ev), done: isDone });
-    }
-  }
-  // Every stage before the latest one is finished by definition
-  items.forEach((item, i) => {
-    if (i < items.length - 1) item.done = true;
-  });
-  return items;
-}
-
-function ThinkingDots() {
-  return (
-    <span className="inline-flex gap-0.5 ml-0.5" aria-hidden="true">
-      {[0, 1, 2].map(i => (
-        <span
-          key={i}
-          className="w-1 h-1 rounded-full bg-white/80 animate-dot-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
-    </span>
-  );
-}
-
 /**
  * Live narration of the real generation pipeline — each line is a stage the
  * server actually ran, with the decisions it made along the way.
  */
 export function GenerationTheater({ stageEvents, status }: GenerationTheaterProps) {
-  const timeline = buildTimeline(stageEvents);
+  const timeline = buildStageTimeline(stageEvents, stageLabel);
   const hasTimeline = timeline.length > 0;
 
   return (

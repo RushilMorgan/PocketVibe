@@ -3,6 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import type { RecipeContent, RecipeBookContent, GenerationStageEvent } from '../types';
 import { buildStageTimeline } from '../lib/stageTimeline';
 import { recipeStageLabel } from '../lib/recipeStages';
+import { getYouTubeVideoId, youtubeThumbnailUrl } from '../lib/youtubeThumb';
+import { dishEmoji } from '../lib/recipeIcons';
 import { CELEBRATE_EVENT, type CelebrationDetail } from '../lib/celebrate';
 import { RecipeExtractionTheater } from '../components/templates/RecipeExtractionTheater';
 import { RecipeBookRenderer } from '../components/templates/RecipeBookRenderer';
@@ -86,6 +88,37 @@ describe('RecipeExtractionTheater', () => {
   });
 });
 
+describe('youtubeThumb', () => {
+  it('extracts the video id from common link shapes', () => {
+    expect(getYouTubeVideoId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(getYouTubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(getYouTubeVideoId('https://www.youtube.com/watch?app=desktop&v=dQw4w9WgXcQ&t=10')).toBe('dQw4w9WgXcQ');
+    expect(getYouTubeVideoId('https://youtube.com/shorts/abc123XYZ_-')).toBe('abc123XYZ_-');
+    expect(getYouTubeVideoId('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+  });
+
+  it('returns null for non-YouTube links', () => {
+    expect(getYouTubeVideoId('https://www.instagram.com/reel/xyz/')).toBeNull();
+    expect(youtubeThumbnailUrl('not a url')).toBeNull();
+  });
+
+  it('builds the thumbnail url from a link', () => {
+    expect(youtubeThumbnailUrl('https://youtu.be/dQw4w9WgXcQ'))
+      .toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+  });
+});
+
+describe('dishEmoji', () => {
+  it('prefers whole-dish names over ingredient words', () => {
+    expect(dishEmoji('Chicken Burger')).toBe('🍔');
+    expect(dishEmoji('Creamy Tomato Soup')).toBe('🍲');
+  });
+  it('falls back to ingredient matches, then the pot', () => {
+    expect(dishEmoji('High-Protein Cottage Cheese Bake')).toBe('🧀');
+    expect(dishEmoji('Mystery Dish')).toBe('🥘');
+  });
+});
+
 describe('RecipeBookRenderer extraction loading + celebration', () => {
   it('shows the theater while extracting and narrates forwarded stage events', async () => {
     let resolveExtract!: (r: RecipeContent) => void;
@@ -110,6 +143,35 @@ describe('RecipeBookRenderer extraction loading + celebration', () => {
     resolveExtract(makeRecipe());
     await waitFor(() => expect(screen.queryByTestId('recipe-extraction-theater')).not.toBeInTheDocument());
     expect(screen.getByTestId('cookbook-add-recipe-btn')).toBeInTheDocument();
+  });
+
+  it('attaches the source link and derived video thumbnail to the added recipe', async () => {
+    const onChange = vi.fn();
+    const onExtractRecipe = vi.fn().mockResolvedValue(makeRecipe());
+    render(<RecipeBookRenderer content={makeBook()} onChange={onChange} onExtractRecipe={onExtractRecipe} />);
+    fireEvent.change(screen.getByTestId('cookbook-url-input'), { target: { value: 'https://youtu.be/dQw4w9WgXcQ' } });
+    fireEvent.click(screen.getByTestId('cookbook-add-recipe-btn'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipes: [expect.objectContaining({
+          sourceUrl: 'https://youtu.be/dQw4w9WgXcQ',
+          thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        })],
+      }),
+    ));
+  });
+
+  it('shows the video thumbnail in the list row, dish emoji tile otherwise', () => {
+    const book = makeBook({
+      recipes: [
+        makeRecipe({ title: 'Video Pasta', thumbnailUrl: 'https://img.youtube.com/vi/abc123xyz00/hqdefault.jpg' }),
+        makeRecipe({ title: 'Manual Burger' }),
+      ],
+    });
+    const { container } = render(<RecipeBookRenderer content={book} onChange={vi.fn()} />);
+    const img = container.querySelector('img');
+    expect(img).toHaveAttribute('src', 'https://img.youtube.com/vi/abc123xyz00/hqdefault.jpg');
+    expect(screen.getByText('🍔')).toBeInTheDocument();
   });
 
   it('fires a big celebration for the first recipe in the cookbook', async () => {

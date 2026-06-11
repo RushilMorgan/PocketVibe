@@ -182,6 +182,13 @@ describe('RecipeBookRenderer', () => {
     expect(screen.queryByTestId('cookbook-add-recipe-btn')).not.toBeInTheDocument();
   });
 
+  it('explains the units preference in plain language', () => {
+    const { rerender } = render(<RecipeBookRenderer content={makeBook()} onChange={vi.fn()} />);
+    expect(screen.getByText(/Metric — g & ml/)).toBeInTheDocument();
+    rerender(<RecipeBookRenderer content={makeBook({ preferences: { dietary: 'none', units: 'imperial' } })} onChange={vi.fn()} />);
+    expect(screen.getByText(/Imperial — cups & oz/)).toBeInTheDocument();
+  });
+
   it('updates preferences', () => {
     const onChange = vi.fn();
     render(<RecipeBookRenderer content={makeBook()} onChange={onChange} onExtractRecipe={vi.fn()} />);

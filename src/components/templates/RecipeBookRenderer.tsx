@@ -12,6 +12,7 @@ import { RecipeExtractionTheater } from './RecipeExtractionTheater';
 import { celebrate } from '../../lib/celebrate';
 import { youtubeThumbnailUrl } from '../../lib/youtubeThumb';
 import { dishEmoji } from '../../lib/recipeIcons';
+import { VideoThumb } from '../shared/VideoThumb';
 
 interface RecipeBookRendererProps {
   content: RecipeBookContent;
@@ -70,13 +71,15 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
         setError("Couldn't read that one — try another link or paste the recipe text.");
         return;
       }
-      // Attach the source link + derived video thumbnail ourselves — the AI
-      // echoing sourceUrl back is best-effort, the pasted link is ground truth.
-      const sourceUrl = recipe.sourceUrl?.trim() || url.trim() || undefined;
+      // Attach the source link + derived video thumbnail ourselves. The pasted
+      // link is ground truth — the AI's echoed sourceUrl often mangles the
+      // video id, which points the thumbnail at a video that doesn't exist.
+      const pastedUrl = url.trim();
+      const sourceUrl = pastedUrl || recipe.sourceUrl?.trim() || undefined;
       const enriched: RecipeContent = {
         ...recipe,
         sourceUrl,
-        thumbnailUrl: recipe.thumbnailUrl || (sourceUrl ? youtubeThumbnailUrl(sourceUrl) ?? undefined : undefined),
+        thumbnailUrl: (sourceUrl ? youtubeThumbnailUrl(sourceUrl) : null) ?? undefined,
       };
       const firstRecipe = content.recipes.length === 0;
       update({ recipes: [enriched, ...content.recipes] });
@@ -262,22 +265,18 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
 
 /** Video thumbnail when the recipe came from a link; dish emoji tile otherwise. */
 function RecipeThumb({ recipe }: { recipe: RecipeContent }) {
-  const [broken, setBroken] = useState(false);
-  if (recipe.thumbnailUrl && !broken) {
-    return (
-      <img
-        src={recipe.thumbnailUrl}
-        alt=""
-        loading="lazy"
-        onError={() => setBroken(true)}
-        className="w-14 h-14 rounded-xl object-cover bg-rose-50 flex-shrink-0"
-      />
-    );
-  }
-  return (
+  const fallback = (
     <span className="w-14 h-14 rounded-xl bg-rose-50 flex items-center justify-center text-2xl flex-shrink-0" aria-hidden="true">
       {dishEmoji(recipe.title)}
     </span>
+  );
+  if (!recipe.thumbnailUrl) return fallback;
+  return (
+    <VideoThumb
+      src={recipe.thumbnailUrl}
+      className="w-14 h-14 rounded-xl object-cover bg-rose-50 flex-shrink-0"
+      fallback={fallback}
+    />
   );
 }
 

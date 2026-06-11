@@ -8,6 +8,7 @@
  */
 import React, { useState } from 'react';
 import type { RecipeContent, RecipeIngredient } from '../../types';
+import { VideoThumb } from './VideoThumb';
 
 interface Props {
   content: RecipeContent;
@@ -51,7 +52,7 @@ export function RecipeReadView({ content, onSave, onMakeMine }: Props) {
     <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto w-full">
       {/* Header */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        {content.thumbnailUrl && <img src={content.thumbnailUrl} alt="" className="w-full h-44 object-cover" />}
+        {content.thumbnailUrl && <VideoThumb src={content.thumbnailUrl} className="w-full h-44 object-cover" />}
         <div className="p-4">
           <h1 className="text-xl font-black text-gray-900 leading-tight">{content.title}</h1>
           {(content.attribution?.length ?? 0) > 0 && (

@@ -61,9 +61,34 @@ const STEP_ICONS: Array<[RegExp, string]> = [
   [/\b(wash|rinse|clean|drain)\b/i, '🚰'],
 ];
 
+// Whole-dish matches checked before ingredient words, so "Chicken Burger"
+// reads as a burger rather than chicken.
+const DISH_ICONS: Array<[RegExp, string]> = [
+  [/\b(pizza)\b/i, '🍕'],
+  [/\b(burger)\b/i, '🍔'],
+  [/\b(taco|burrito|quesadilla|fajita)\b/i, '🌮'],
+  [/\b(soup|stew|broth|ramen)\b/i, '🍲'],
+  [/\b(salad|bowl)\b/i, '🥗'],
+  [/\b(cake|cheesecake|cupcake|brownie|muffin)\b/i, '🍰'],
+  [/\b(cookie|biscuit)\b/i, '🍪'],
+  [/\b(pancake|waffle|crepe|flapjack)\b/i, '🥞'],
+  [/\b(curry)\b/i, '🍛'],
+  [/\b(sushi|poke)\b/i, '🍣'],
+  [/\b(pie|tart|quiche)\b/i, '🥧'],
+  [/\b(sandwich|toastie|wrap|sub)\b/i, '🥪'],
+  [/\b(smoothie|shake|juice)\b/i, '🥤'],
+  [/\b(stir.?fry|wok)\b/i, '🥡'],
+];
+
 export function ingredientEmoji(name: string): string {
   for (const [re, emoji] of INGREDIENT_ICONS) if (re.test(name)) return emoji;
   return '🥘';
+}
+
+/** Best emoji for a whole recipe title — dish names first, then ingredients. */
+export function dishEmoji(title: string): string {
+  for (const [re, emoji] of DISH_ICONS) if (re.test(title)) return emoji;
+  return ingredientEmoji(title);
 }
 
 export function stepEmoji(text: string): string {

@@ -10,6 +10,8 @@ import type { RecipeIntakeInput } from '../../lib/recipePrompt';
 import { RecipeRenderer } from './RecipeRenderer';
 import { RecipeExtractionTheater } from './RecipeExtractionTheater';
 import { celebrate } from '../../lib/celebrate';
+import { youtubeThumbnailUrl } from '../../lib/youtubeThumb';
+import { dishEmoji } from '../../lib/recipeIcons';
 
 interface RecipeBookRendererProps {
   content: RecipeBookContent;
@@ -21,7 +23,6 @@ interface RecipeBookRendererProps {
 }
 
 const DIETARY = ['none', 'vegetarian', 'vegan', 'gluten-free', 'dairy-free'] as const;
-const TYPE_EMOJI = '🍴';
 
 function recipeMeta(r: RecipeContent): string {
   return [
@@ -69,8 +70,16 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
         setError("Couldn't read that one — try another link or paste the recipe text.");
         return;
       }
+      // Attach the source link + derived video thumbnail ourselves — the AI
+      // echoing sourceUrl back is best-effort, the pasted link is ground truth.
+      const sourceUrl = recipe.sourceUrl?.trim() || url.trim() || undefined;
+      const enriched: RecipeContent = {
+        ...recipe,
+        sourceUrl,
+        thumbnailUrl: recipe.thumbnailUrl || (sourceUrl ? youtubeThumbnailUrl(sourceUrl) ?? undefined : undefined),
+      };
       const firstRecipe = content.recipes.length === 0;
-      update({ recipes: [recipe, ...content.recipes] });
+      update({ recipes: [enriched, ...content.recipes] });
       celebrate(firstRecipe
         ? { intensity: 'big', message: 'First recipe in your cookbook! 🍳' }
         : { intensity: 'small' });
@@ -222,7 +231,7 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
               <div key={id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="flex items-center gap-3 p-4">
                   <button onClick={() => setExpandedId(expanded ? null : id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                    <span className="text-2xl flex-shrink-0">{TYPE_EMOJI}</span>
+                    <RecipeThumb recipe={r} />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-gray-900 truncate">{r.title}</p>
                       <p className="text-xs text-gray-400 mt-0.5 truncate">{recipeMeta(r)}</p>
@@ -248,6 +257,27 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
         </div>
       )}
     </div>
+  );
+}
+
+/** Video thumbnail when the recipe came from a link; dish emoji tile otherwise. */
+function RecipeThumb({ recipe }: { recipe: RecipeContent }) {
+  const [broken, setBroken] = useState(false);
+  if (recipe.thumbnailUrl && !broken) {
+    return (
+      <img
+        src={recipe.thumbnailUrl}
+        alt=""
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className="w-14 h-14 rounded-xl object-cover bg-rose-50 flex-shrink-0"
+      />
+    );
+  }
+  return (
+    <span className="w-14 h-14 rounded-xl bg-rose-50 flex items-center justify-center text-2xl flex-shrink-0" aria-hidden="true">
+      {dishEmoji(recipe.title)}
+    </span>
   );
 }
 

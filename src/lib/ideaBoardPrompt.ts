@@ -44,6 +44,22 @@ export const IDEA_INTENTS: IdeaIntent[] = [
   { id: 'decide',    label: 'Make a decision',          emoji: '🎯', description: 'Think through a choice' },
 ];
 
+// ── AI-written framework requests ───────────────────────────────────────────
+// Exact JSON shapes spelled out so the model can fill them even on a deployed
+// edge function whose system prompt predates these fields (extra content
+// fields pass server validation untouched).
+
+const MATRIX_REQUEST =
+  `Also include "decisionMatrix" in the content JSON: ` +
+  `{"options":[{"id":"opt1","label":"Option name","emoji":"🎓"}] (2-4 options I'm choosing between), ` +
+  `"criteria":[{"id":"c1","label":"What matters","weight":4}] (3-5 criteria, weight 1-5 = how much it matters), ` +
+  `"scores":{"opt1":{"c1":7}}} — every option scored 1-10 on every criterion, honestly, not diplomatically.`;
+
+const FIVE_WHYS_REQUEST =
+  `Also include "fiveWhys" in the content JSON: an array of 3-5 entries like {"id":"w1","text":"..."} ` +
+  `drilling from the surface problem down to the root cause — each one plain sentence answering "why?" ` +
+  `about the previous, with the final entry being the root cause.`;
+
 /**
  * Build a generation prompt that matches the user's actual intent — not
  * everything is a business idea. The intent drives the entire framing so
@@ -75,6 +91,7 @@ export function buildIdeaBoardPrompt(categoryLabel: string, idea: string, intent
         `what each one is good at and where it falls short, when you'd choose one over the other,`,
         `real-world use cases for each, common mistakes or misconceptions about each,`,
         `a visual mind map showing how they relate, and a clear "when to use which" recommendation.`,
+        MATRIX_REQUEST,
         `Be specific and concrete — no generic pros/cons lists. Make it genuinely useful for someone deciding.`,
       ].join(' ');
 
@@ -97,6 +114,7 @@ export function buildIdeaBoardPrompt(categoryLabel: string, idea: string, intent
         `what I'd be gaining and giving up with each path, the risks and unknowns I should face honestly,`,
         `what logic says vs what gut says, who this decision affects and how,`,
         `a visual mind map of the decision space, and concrete next steps to help me commit.`,
+        MATRIX_REQUEST,
         `Be honest and personal — help me think, not sell me on a direction.`,
       ].join(' ');
 
@@ -110,6 +128,7 @@ export function buildIdeaBoardPrompt(categoryLabel: string, idea: string, intent
         `a visual mind map of the idea, and concrete next steps I can test this week before building.`,
         // The risk/opportunity titles double as a SWOT grid — keep them crisp
         `Write each risk and opportunity title as a crisp, specific one-liner (they're shown on a SWOT-style grid).`,
+        FIVE_WHYS_REQUEST,
         // Lean-validation ordering: cheapest reality check first
         `Order the next steps as a validation ladder: talking to real potential users first, then the smallest cheapest test, then the first build step — never start with building.`,
         `Be specific and insightful about THIS idea — make it feel genuinely useful, not generic.`,

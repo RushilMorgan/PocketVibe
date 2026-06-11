@@ -1,4 +1,5 @@
 import type { GenerateResponse, CreationType, ValidationResult } from '../types';
+import { normalizeFiveWhys, sanitizeMatrix } from './decisionMatrix';
 
 const SUPPORTED_TYPES = new Set<CreationType>([
   'checklist',
@@ -257,6 +258,11 @@ export function coerceGenerateResponse(raw: Record<string, unknown>): void {
     if (typeof content.problem !== 'string')     content.problem = '';
     if (typeof content.solution !== 'string')    content.solution = '';
     if (typeof content.notes !== 'string')       content.notes = '';
+    // Optional AI-written frameworks: keep only when well-formed
+    const whys = normalizeFiveWhys(content.fiveWhys);
+    if (whys) content.fiveWhys = whys; else delete content.fiveWhys;
+    const matrix = sanitizeMatrix(content.decisionMatrix);
+    if (matrix) content.decisionMatrix = matrix; else delete content.decisionMatrix;
   }
   if (type === 'recipe') {
     if (!Array.isArray(content.ingredients)) content.ingredients = [];

@@ -552,6 +552,30 @@ export interface IdeaMapBranch {
   items: string[];
 }
 
+export interface IdeaWhyStep {
+  id: string;
+  text: string;
+}
+
+export interface IdeaMatrixOption {
+  id: string;
+  label: string;
+  emoji?: string;
+}
+
+export interface IdeaMatrixCriterion {
+  id: string;
+  label: string;
+  weight: number; // 1–5: how much this criterion matters
+}
+
+export interface IdeaDecisionMatrix {
+  options: IdeaMatrixOption[];
+  criteria: IdeaMatrixCriterion[];
+  /** scores[optionId][criterionId] = 1–10 (honest, not diplomatic). */
+  scores: Record<string, Record<string, number>>;
+}
+
 export interface IdeaThinkingBoardContent {
   type: 'idea_thinking_board';
   title: string;
@@ -571,6 +595,10 @@ export interface IdeaThinkingBoardContent {
   };
   notes: string;
   theme?: string;
+  /** Five Whys chain — surface problem drilled to root cause (validate boards). */
+  fiveWhys?: IdeaWhyStep[];
+  /** Weighted criteria × options matrix (decision/comparison boards). */
+  decisionMatrix?: IdeaDecisionMatrix;
 }
 
 // ── Recipe ──────────────────────────────────────────────────────────────────

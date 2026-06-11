@@ -16,6 +16,8 @@ import { COLLECTION_KINDS, type IdeaElementKind } from '../../lib/ideaElements';
 import { trackElementEdit } from '../../lib/analytics';
 import { formatQuotaMessage } from '../../lib/quotaMessage';
 import { IdeaSnapshot } from './IdeaSnapshot';
+import { IdeaFiveWhys } from './IdeaFiveWhys';
+import { IdeaDecisionMatrixCard } from './IdeaDecisionMatrixCard';
 
 interface Props {
   content: IdeaThinkingBoardContent;
@@ -669,6 +671,13 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
           </div>
         )}
 
+        {/* Weighted decision matrix — present on decision/comparison boards */}
+        {!editMode && content.decisionMatrix && (
+          <div className={revealed ? 'animate-fade-in' : 'opacity-0'} style={{ animationDelay: '40ms' }}>
+            <IdeaDecisionMatrixCard matrix={content.decisionMatrix} />
+          </div>
+        )}
+
         {/* Hero card */}
         <div className={`bg-white rounded-2xl border border-gray-100 overflow-hidden ${revealed ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '60ms' }}>
           <div className="px-4 pt-4 pb-3" style={{ background: 'linear-gradient(135deg, #7c3aed15, #a855f715)' }}>
@@ -736,6 +745,13 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Five Whys root-cause chain — present on validate boards */}
+        {!editMode && content.fiveWhys && content.fiveWhys.length >= 2 && (
+          <div className={revealed ? 'animate-fade-in' : 'opacity-0'} style={{ animationDelay: '70ms' }}>
+            <IdeaFiveWhys steps={content.fiveWhys} />
+          </div>
+        )}
 
         {/* Idea health score */}
         <div

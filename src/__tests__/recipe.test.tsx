@@ -173,8 +173,8 @@ describe('RecipeBookRenderer', () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ recipes: expect.arrayContaining([expect.objectContaining({ title: 'Pulled Recipe' })]) }),
     ));
-    // extraction was called with the cookbook's dietary preference
-    expect(onExtractRecipe).toHaveBeenCalledWith(expect.objectContaining({ dietary: 'vegetarian' }));
+    // extraction was called with the cookbook's dietary preference (+ live stage callback)
+    expect(onExtractRecipe).toHaveBeenCalledWith(expect.objectContaining({ dietary: 'vegetarian' }), expect.any(Function));
   });
 
   it('hides the add-recipe box for viewers (no onExtractRecipe)', () => {

@@ -4,15 +4,18 @@ import type {
   RecipeContent,
   RecipeBookPreferences,
   RecipeUnits,
+  GenerationStageEvent,
 } from '../../types';
 import type { RecipeIntakeInput } from '../../lib/recipePrompt';
 import { RecipeRenderer } from './RecipeRenderer';
+import { RecipeExtractionTheater } from './RecipeExtractionTheater';
+import { celebrate } from '../../lib/celebrate';
 
 interface RecipeBookRendererProps {
   content: RecipeBookContent;
   onChange: (updated: RecipeBookContent) => void;
   /** Pulls a recipe from a link/text (respecting preferences). Absent for viewers. */
-  onExtractRecipe?: (input: RecipeIntakeInput) => Promise<RecipeContent | null>;
+  onExtractRecipe?: (input: RecipeIntakeInput, onStage?: (ev: GenerationStageEvent) => void) => Promise<RecipeContent | null>;
   /** Chat about one recipe (AI has that recipe's context). Absent for viewers. */
   onRecipeChat?: (recipe: RecipeContent, message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
 }
@@ -35,6 +38,7 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
   const [showManual, setShowManual] = useState(false);
   const [manualText, setManualText] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [stageEvents, setStageEvents] = useState<GenerationStageEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -49,19 +53,27 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
     if (!onExtractRecipe || extracting) return;
     if (!url.trim() && !manualText.trim()) return;
     setExtracting(true);
+    setStageEvents([]);
     setError(null);
     try {
-      const recipe = await onExtractRecipe({
-        youtubeUrl: url.trim(),
-        manualText: manualText.trim(),
-        servings: prefs.servings,
-        dietary: prefs.dietary,
-      });
+      const recipe = await onExtractRecipe(
+        {
+          youtubeUrl: url.trim(),
+          manualText: manualText.trim(),
+          servings: prefs.servings,
+          dietary: prefs.dietary,
+        },
+        ev => setStageEvents(prev => [...prev, ev]),
+      );
       if (!recipe) {
         setError("Couldn't read that one — try another link or paste the recipe text.");
         return;
       }
+      const firstRecipe = content.recipes.length === 0;
       update({ recipes: [recipe, ...content.recipes] });
+      celebrate(firstRecipe
+        ? { intensity: 'big', message: 'First recipe in your cookbook! 🍳' }
+        : { intensity: 'small' });
       setUrl('');
       setManualText('');
       setShowManual(false);
@@ -174,14 +186,20 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
               className="mt-2 w-full text-sm border border-rose-200 rounded-xl px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-rose-400" />
           )}
           {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
-          <button
-            data-testid="cookbook-add-recipe-btn"
-            onClick={addRecipe}
-            disabled={!canAdd || extracting}
-            className="mt-3 w-full py-2.5 rounded-xl bg-rose-500 text-white text-sm font-black active:bg-rose-600 disabled:opacity-40 flex items-center justify-center gap-2"
-          >
-            {extracting ? <><span className="animate-pulse">🍳</span> Reading the recipe…</> : '✨ Add to cookbook'}
-          </button>
+          {extracting ? (
+            <div className="mt-3">
+              <RecipeExtractionTheater stageEvents={stageEvents} hasVideo={url.trim().length > 0} />
+            </div>
+          ) : (
+            <button
+              data-testid="cookbook-add-recipe-btn"
+              onClick={addRecipe}
+              disabled={!canAdd}
+              className="mt-3 w-full py-2.5 rounded-xl bg-rose-500 text-white text-sm font-black active:bg-rose-600 disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              ✨ Add to cookbook
+            </button>
+          )}
         </div>
       )}
 

@@ -614,10 +614,12 @@ export function usePocketVibe(userId?: string) {
 
   // Extract a single recipe from a link/text (respecting cookbook preferences),
   // returned for the cookbook renderer to append. Reuses the deployed `recipe`
-  // generation; quota-guarded; returns null on failure.
-  const extractRecipe = useCallback(async (input: {
-    youtubeUrl: string; manualText: string; servings?: number; dietary?: string;
-  }): Promise<RecipeContent | null> => {
+  // generation; quota-guarded; returns null on failure. Real pipeline stage
+  // events are forwarded to onStage so the cookbook can narrate the work live.
+  const extractRecipe = useCallback(async (
+    input: { youtubeUrl: string; manualText: string; servings?: number; dietary?: string },
+    onStage?: (ev: GenerationStageEvent) => void,
+  ): Promise<RecipeContent | null> => {
     if (isBlockedByQuota('generation')) return null;
     const locale = {
       date: new Date().toISOString().slice(0, 10),
@@ -625,7 +627,9 @@ export function usePocketVibe(userId?: string) {
     };
     const req: GenerateRequest = { userRequest: buildRecipePrompt(input), mode: 'new', locale, forcedType: 'recipe' };
     try {
-      const res = await generateCreation(req);
+      const res = await generateCreation(req, (_status, stageEvent) => {
+        if (stageEvent) onStage?.(stageEvent);
+      });
       const safe = normalizeGenerateResponse(res, req) ?? res;
       if (safe.creationType !== 'recipe' || safe.content.type !== 'recipe') return null;
       return safe.content as RecipeContent;

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import type { Creation, CreationContent } from '../../types';
+import type { Creation, CreationContent, GenerationStageEvent } from '../../types';
 import type { RecipeContent } from '../../types';
 import type { RecipeIntakeInput } from '../../lib/recipePrompt';
 
@@ -27,7 +27,7 @@ interface TemplateRendererProps {
   pendingLocalAction?: string | null;
   onLocalActionConsumed?: () => void;
   /** Pulls a recipe from a link/text for the cookbook. Absent on shared pages. */
-  onExtractRecipe?: (input: RecipeIntakeInput) => Promise<RecipeContent | null>;
+  onExtractRecipe?: (input: RecipeIntakeInput, onStage?: (ev: GenerationStageEvent) => void) => Promise<RecipeContent | null>;
   /** Chat about one recipe (AI has that recipe's context). Absent on shared pages. */
   onRecipeChat?: (recipe: RecipeContent, message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
 }

@@ -7,8 +7,6 @@
     <!-- iOS / Android home screen + PWA: the new logo PNG -->
     <link rel="apple-touch-icon" sizes="180x180" href="/icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
-    <!-- iOS home screen icon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon.png" />
     <!-- PWA manifest -->
     <link rel="manifest" href="/manifest.json" />
 
@@ -16,13 +14,15 @@
     <meta name="theme-color" content="#111827" />
     <title>Hey Toolie — Make something useful</title>
     <meta name="description" content="Tell Toolie what you need. It builds the tool, you use it — share it and keep going together." />
+    <link rel="canonical" href="https://heytoolie.com/" />
 
     <!-- Open Graph / social previews -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://heytoolie.com/" />
     <meta property="og:title" content="Hey Toolie — Make something useful" />
     <meta property="og:description" content="Tell Toolie what you need. It builds the tool, you use it — share it and keep going together." />
     <meta property="og:site_name" content="Hey Toolie" />
-    <meta property="og:image" content="/logo.png" />
+    <meta property="og:image" content="https://heytoolie.com/logo.png" />
     <meta property="og:image:width" content="1024" />
     <meta property="og:image:height" content="1024" />
 
@@ -30,7 +30,25 @@
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Hey Toolie — Make something useful" />
     <meta name="twitter:description" content="Tell Toolie what you need. It builds the tool, you use it — share it and keep going together." />
-    <meta name="twitter:image" content="/logo.png" />
+    <meta name="twitter:image" content="https://heytoolie.com/logo.png" />
+
+    <!-- Structured data for search results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Hey Toolie",
+      "url": "https://heytoolie.com/",
+      "description": "Tell Toolie what you need — a budget, a cookbook, a family World Cup pool, an idea board. It builds the tool in seconds; you use it and share it.",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,6 +56,10 @@
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <h1>Hey Toolie — Make something useful</h1>
+      <p>Tell Toolie what you need — a budget, a cookbook, a family World Cup pool, an idea board — and it builds the tool for you in seconds. Hey Toolie needs JavaScript enabled to run.</p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

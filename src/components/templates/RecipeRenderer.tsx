@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import type {
   RecipeContent,
   RecipeIngredient,
-  RecipeStep,
   RecipeShoppingItem,
-  RecipeLayoutMode,
 } from '../../types';
-import { ingredientEmoji, stepEmoji } from '../../lib/recipeIcons';
+import { ingredientEmoji } from '../../lib/recipeIcons';
+import { uid } from '../../lib/uid';
 import { VideoThumb } from '../shared/VideoThumb';
+import { RecipeSteps } from './RecipeSteps';
 
 interface ChatMsg { role: 'user' | 'assistant'; text: string; }
 
@@ -18,11 +18,6 @@ interface RecipeRendererProps {
   onChat?: (message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
 }
 
-let _uid = 0;
-function uid(prefix: string): string {
-  return `${prefix}-${Date.now()}-${++_uid}`;
-}
-
 function ingredientLabel(i: RecipeIngredient): string {
   return [i.quantity, i.unit, i.name].filter(Boolean).join(' ').trim() || i.name;
 }
@@ -31,7 +26,6 @@ const QUICK_PROMPTS = ['Make it dairy-free', 'Scale to 4 people', 'Simplify the 
 
 export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProps) {
   const [editMode, setEditMode] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
 
@@ -64,7 +58,6 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
     }
   }
 
-  const layout: RecipeLayoutMode = content.layoutMode ?? 'card';
   const update = (patch: Partial<RecipeContent>) => onChange({ ...content, ...patch });
 
   // ── Ingredients ──────────────────────────────────────────────────────────
@@ -80,21 +73,6 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
   function addIngredient() {
     const item: RecipeIngredient = { id: uid('ing'), name: '', quantity: '', unit: '', have: false };
     update({ ingredients: [...content.ingredients, item] });
-  }
-
-  // ── Steps (keep number 1..n) ─────────────────────────────────────────────
-  function renumber(steps: RecipeStep[]): RecipeStep[] {
-    return steps.map((s, idx) => ({ ...s, number: idx + 1 }));
-  }
-  function updateStep(id: string, field: 'text' | 'time', value: string) {
-    update({ steps: content.steps.map(s => s.id === id ? { ...s, [field]: value } : s) });
-  }
-  function deleteStep(id: string) {
-    update({ steps: renumber(content.steps.filter(s => s.id !== id)) });
-  }
-  function addStep() {
-    const step: RecipeStep = { id: uid('st'), number: content.steps.length + 1, text: '' };
-    update({ steps: [...content.steps, step] });
   }
 
   // ── Shopping list (derived: ingredients not had + manual extras) ──────────
@@ -146,8 +124,6 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
   function removeTag(t: string) {
     update({ tags: (content.tags ?? []).filter(x => x !== t) });
   }
-
-  const safeStepIndex = Math.min(stepIndex, Math.max(0, content.steps.length - 1));
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -327,108 +303,13 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
         </div>
       </div>
 
-      {/* ── Steps ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800 text-sm">Steps</h3>
-          {/* Layout switcher */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
-            {(['card', 'list', 'step'] as RecipeLayoutMode[]).map(mode => (
-              <button
-                key={mode}
-                data-testid={`recipe-layout-${mode}`}
-                onClick={() => { update({ layoutMode: mode }); setStepIndex(0); }}
-                className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize transition-colors ${
-                  layout === mode ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="px-4 pb-4 pt-1">
-          {content.steps.length === 0 && !editMode && (
-            <p className="text-center text-gray-400 text-sm py-4">No steps yet — ask Toolie below, or edit by hand.</p>
-          )}
-
-          {editMode ? (
-            <div className="flex flex-col gap-2">
-              {content.steps.map(s => (
-                <div key={s.id} className="flex items-start gap-2">
-                  <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-1">{s.number}</span>
-                  <div className="flex-1">
-                    <textarea value={s.text} placeholder="Describe this step…" onChange={e => updateStep(s.id, 'text', e.target.value)} rows={2}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none" />
-                    <input value={s.time ?? ''} placeholder="time (optional, e.g. 5 min)" onChange={e => updateStep(s.id, 'time', e.target.value)}
-                      className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
-                  </div>
-                  <button onClick={() => deleteStep(s.id)} className="text-red-400 hover:text-red-600 p-1 mt-1" aria-label="Delete step">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                  </button>
-                </div>
-              ))}
-              <button data-testid="add-step-btn" onClick={addStep}
-                className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-xl py-2 active:bg-violet-50">
-                + Add step
-              </button>
-            </div>
-          ) : layout === 'step' && content.steps.length > 0 ? (
-            <div className="flex flex-col items-center text-center gap-3 py-4">
-              <span className="text-5xl leading-none">{content.steps[safeStepIndex]?.emoji || stepEmoji(content.steps[safeStepIndex]?.text ?? '')}</span>
-              {/* Progress dots */}
-              <div className="flex items-center gap-1">
-                {content.steps.map((_, idx) => (
-                  <span key={idx} className={`w-1.5 h-1.5 rounded-full ${idx === safeStepIndex ? 'bg-violet-600' : 'bg-gray-200'}`} />
-                ))}
-              </div>
-              <span className="text-xs font-bold text-violet-500 uppercase tracking-wide">
-                Step {safeStepIndex + 1} of {content.steps.length}
-              </span>
-              <p className="text-base text-gray-800 leading-relaxed min-h-[4rem]">{content.steps[safeStepIndex]?.text}</p>
-              {content.steps[safeStepIndex]?.time && (
-                <span className="text-xs text-gray-400">⏱️ {content.steps[safeStepIndex].time}</span>
-              )}
-              {onChat && content.steps[safeStepIndex] && (
-                <button onClick={() => openChatWith(`About step ${safeStepIndex + 1} ("${content.steps[safeStepIndex].text.slice(0, 40)}…"): `)}
-                  className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full active:bg-violet-100">
-                  💬 Ask about this step
-                </button>
-              )}
-              <div className="flex items-center gap-3 mt-1">
-                <button disabled={safeStepIndex === 0} onClick={() => setStepIndex(i => Math.max(0, i - 1))}
-                  className="px-4 py-2 rounded-xl bg-gray-100 text-sm font-semibold text-gray-700 disabled:opacity-40 active:bg-gray-200">Prev</button>
-                <button disabled={safeStepIndex >= content.steps.length - 1} onClick={() => setStepIndex(i => Math.min(content.steps.length - 1, i + 1))}
-                  className="px-4 py-2 rounded-xl bg-violet-600 text-sm font-semibold text-white disabled:opacity-40 active:bg-violet-700">Next</button>
-              </div>
-            </div>
-          ) : (
-            <ol className={layout === 'list' ? 'flex flex-col gap-1.5' : 'flex flex-col gap-3'}>
-              {content.steps.map(s => (
-                <li key={s.id} className="flex items-start gap-3">
-                  <span className="relative w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-base leading-none">{s.emoji || stepEmoji(s.text)}</span>
-                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">{s.number}</span>
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-gray-800 ${layout === 'list' ? 'text-sm' : 'text-sm leading-relaxed'}`}>{s.text}</p>
-                    {s.time && layout === 'card' && <span className="text-xs text-gray-400">⏱️ {s.time}</span>}
-                  </div>
-                  {onChat && (
-                    <button
-                      onClick={() => openChatWith(`About step ${s.number} ("${s.text.slice(0, 40)}…"): `)}
-                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-violet-50 hover:border-violet-200 active:bg-violet-100"
-                      aria-label="Ask about this step"
-                      title="Ask Toolie"
-                    >💬</button>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      </div>
+      {/* ── Steps (card/list/step layouts + per-step cooking timers) ────────── */}
+      <RecipeSteps
+        content={content}
+        editMode={editMode}
+        onUpdate={update}
+        onAskAboutStep={onChat ? openChatWith : undefined}
+      />
 
       {/* ── Notes ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4">

@@ -102,7 +102,7 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
             data-testid="cookbook-title-input"
             value={content.title}
             onChange={e => update({ title: e.target.value })}
-            className="flex-1 text-lg font-black text-gray-900 bg-transparent focus:outline-none focus:bg-gray-50 rounded px-1 -mx-1"
+            className="flex-1 min-w-0 text-lg font-black text-gray-900 bg-transparent focus:outline-none focus:bg-gray-50 rounded px-1 -mx-1"
           />
           <button
             data-testid="cookbook-prefs-toggle"
@@ -116,9 +116,9 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
         {/* Preference summary chips */}
         {!showPrefs && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {prefs.dietary && prefs.dietary !== 'none' && <Chip>{prefs.dietary}</Chip>}
+            {prefs.dietary && prefs.dietary !== 'none' && <Chip className="capitalize">{prefs.dietary}</Chip>}
             {prefs.servings != null && <Chip>Serves {prefs.servings}</Chip>}
-            <Chip>{prefs.units === 'imperial' ? 'cups/oz' : 'g/ml'}</Chip>
+            <Chip>⚖️ {prefs.units === 'imperial' ? 'Imperial — cups & oz' : 'Metric — g & ml'}</Chip>
             {prefs.likes && <Chip>♥ {prefs.likes}</Chip>}
             {prefs.avoids && <Chip>⊘ {prefs.avoids}</Chip>}
           </div>
@@ -251,9 +251,9 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
   );
 }
 
-function Chip({ children }: { children: React.ReactNode }) {
+function Chip({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className="inline-flex items-center text-xs font-medium text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full capitalize">
+    <span className={`inline-flex items-center text-xs font-medium text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full ${className}`}>
       {children}
     </span>
   );

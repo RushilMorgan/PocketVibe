@@ -7,6 +7,7 @@ import type {
   RecipeLayoutMode,
 } from '../../types';
 import { ingredientEmoji, stepEmoji } from '../../lib/recipeIcons';
+import { VideoThumb } from '../shared/VideoThumb';
 
 interface ChatMsg { role: 'user' | 'assistant'; text: string; }
 
@@ -166,7 +167,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         {content.thumbnailUrl && (
-          <img src={content.thumbnailUrl} alt="" className="w-full h-40 object-cover" />
+          <VideoThumb src={content.thumbnailUrl} className="w-full h-40 object-cover" />
         )}
         <div className="p-4">
           {editMode ? (

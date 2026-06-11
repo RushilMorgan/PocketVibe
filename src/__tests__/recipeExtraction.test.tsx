@@ -161,6 +161,36 @@ describe('RecipeBookRenderer extraction loading + celebration', () => {
     ));
   });
 
+  it('prefers the pasted link over an AI-echoed sourceUrl (ground truth)', async () => {
+    const onChange = vi.fn();
+    // The AI "helpfully" echoes a mangled video id — must not win
+    const onExtractRecipe = vi.fn().mockResolvedValue(makeRecipe({ sourceUrl: 'https://youtu.be/WRONG_ID_99' }));
+    render(<RecipeBookRenderer content={makeBook()} onChange={onChange} onExtractRecipe={onExtractRecipe} />);
+    fireEvent.change(screen.getByTestId('cookbook-url-input'), { target: { value: 'https://youtu.be/dQw4w9WgXcQ' } });
+    fireEvent.click(screen.getByTestId('cookbook-add-recipe-btn'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipes: [expect.objectContaining({
+          sourceUrl: 'https://youtu.be/dQw4w9WgXcQ',
+          thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        })],
+      }),
+    ));
+  });
+
+  it('swaps in the dish emoji when YouTube serves its grey placeholder thumbnail', () => {
+    const book = makeBook({
+      recipes: [makeRecipe({ title: 'Doner Kebab Burger', thumbnailUrl: 'https://img.youtube.com/vi/gone0000000/hqdefault.jpg' })],
+    });
+    const { container } = render(<RecipeBookRenderer content={book} onChange={vi.fn()} />);
+    const img = container.querySelector('img')!;
+    // YouTube's "video unavailable" placeholder loads fine but is only 120px wide
+    Object.defineProperty(img, 'naturalWidth', { value: 120 });
+    fireEvent.load(img);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText('🍔')).toBeInTheDocument();
+  });
+
   it('shows the video thumbnail in the list row, dish emoji tile otherwise', () => {
     const book = makeBook({
       recipes: [

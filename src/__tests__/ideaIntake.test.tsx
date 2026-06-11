@@ -96,11 +96,14 @@ describe('IdeaIntakeSheet — 2-step flow', () => {
     }
   });
 
-  it('step 2: Build button is disabled until an intent is chosen', () => {
+  it('step 2: arrives with a suggested intent pre-selected, ready to build', () => {
     render(<IdeaIntakeSheet open onClose={vi.fn()} onSubmit={vi.fn()} />);
     fireEvent.change(screen.getByTestId('idea-description-input'), { target: { value: 'some idea' } });
     fireEvent.click(screen.getByTestId('idea-next-btn'));
-    expect(screen.getByTestId('build-idea-board-btn')).toBeDisabled();
+    // "some idea" reads as validate — suggested, pre-selected, build enabled
+    expect(screen.getByTestId('idea-intent-validate')).toHaveTextContent('Suggested');
+    expect(screen.getByTestId('build-idea-board-btn')).not.toBeDisabled();
+    // The user can still override the suggestion
     fireEvent.click(screen.getByTestId('idea-intent-learn'));
     expect(screen.getByTestId('build-idea-board-btn')).not.toBeDisabled();
   });

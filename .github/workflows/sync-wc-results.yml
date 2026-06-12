@@ -2,8 +2,9 @@ name: Sync World Cup Results
 
 on:
   schedule:
-    # Every 6 hours — offset by 15 min so it doesn't clash on the hour
-    - cron: '15 */6 * * *'
+    # Every 30 minutes during the tournament (June 11 – July 19 2026) so
+    # family pools update close to live. Dial back to '15 */6 * * *' after.
+    - cron: '7,37 * * * *'
   # Allow manual trigger from GitHub Actions tab
   workflow_dispatch:
     inputs:
@@ -51,3 +52,15 @@ jobs:
           echo "Matches updated : $UPDATED"
           echo "Matches inserted: $INSERTED"
           echo "Rejected        : $REJECTED"
+
+          REASONS=$(echo "$HTTP_BODY" | python3 -c "import sys,json; print('; '.join(r.get('reason','?') for r in json.load(sys.stdin).get('rejected',[])))" 2>/dev/null || echo "")
+
+          # A 200 with status:"failed" means every result was rejected — that is
+          # a failure, not a success (a green check here hid the empty-teams bug).
+          if [ "$STATUS" = "failed" ]; then
+            echo "::error::Sync ran but wrote nothing (status=failed). Rejected: $REASONS"
+            exit 1
+          fi
+          if [ "$REJECTED" != "0" ] && [ "$REJECTED" != "?" ]; then
+            echo "::warning::$REJECTED result(s) rejected: $REASONS"
+          fi

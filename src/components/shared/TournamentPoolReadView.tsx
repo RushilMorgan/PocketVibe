@@ -23,6 +23,7 @@ import {
 } from '../../lib/tournamentScoring';
 import type { ParticipantScore } from '../../lib/tournamentScoring';
 import { getWorldCupData } from '../../services/worldCupService';
+import { enrichPoolTeams, liveResultsEnabled } from '../../lib/poolLiveSync';
 
 interface Props {
   content: TournamentPoolTrackerContent;
@@ -60,7 +61,8 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
   const [wcLoaded, setWcLoaded] = useState(false);
 
   const autoSettings = content.autoSettings;
-  const autoEnabled  = autoSettings?.autoResultsEnabled ?? false;
+  // World Cup pools default to live results (older pools have no autoSettings)
+  const autoEnabled  = liveResultsEnabled(content);
 
   // Load canonical WC data when auto-results is enabled
   useEffect(() => {
@@ -76,19 +78,23 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
     return () => { cancelled = true; };
   }, [autoEnabled]);
 
+  // Pools created from the fallback team list carry no providerTeamId —
+  // match them to canonical teams by name so live results map onto them.
+  const poolTeams = wcLoaded ? enrichPoolTeams(content.teams, wcTeams) : content.teams;
+
   // Build leaderboard
   const leaderboard: ParticipantScore[] = (() => {
     if (autoEnabled && wcLoaded) {
       const effectiveMatches = buildEffectiveMatches(
-        content.teams,
+        poolTeams,
         content.matches,
         wcMatches,
         autoSettings?.allowManualOverrides ?? true,
       );
-      const teamStages = buildEffectiveTeamStages(content.teams, wcTeams);
+      const teamStages = buildEffectiveTeamStages(poolTeams, wcTeams);
       return calcTournamentScores(
         content.participants,
-        content.teams,
+        poolTeams,
         effectiveMatches,
         teamStages,
         content.scoringRules,
@@ -105,7 +111,7 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
   const recentResults = autoEnabled && wcLoaded
     ? wcMatches
         .filter(m => m.status === 'finished' &&
-          content.teams.some(t => t.providerTeamId === m.homeTeamId || t.providerTeamId === m.awayTeamId))
+          poolTeams.some(t => t.providerTeamId === m.homeTeamId || t.providerTeamId === m.awayTeamId))
         .slice(-5)
         .reverse()
         .map(m => ({

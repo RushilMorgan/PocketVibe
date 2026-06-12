@@ -26,6 +26,7 @@ import { isEditRequestOnNonEditableType, isRendererAlreadyEditable, getEditableR
 import { normalizeGenerateResponse } from '../lib/normalizeResponse';
 import { containsHtmlLikeText } from '../lib/htmlGuard';
 import { celebrate } from '../lib/celebrate';
+import { pushSharedContent } from '../lib/sharePush';
 import {
   loadCreations,
   saveCreations,
@@ -167,6 +168,28 @@ export function usePocketVibe(userId?: string) {
     }, 2500);
     return () => clearTimeout(t);
   }, [state.creations, userId]);
+
+  // ── Auto-publish edits to shared creations ───────────────────────────────
+  // Owner edits in the main app (e.g. entering a pool result) must reach the
+  // shared_creations row, or /s/ viewers keep polling stale content forever.
+  // Signatures are seeded on first sight so a fresh page load never pushes
+  // potentially-stale localStorage over a newer shared row — only edits made
+  // in this session publish.
+  const sharedSigRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    const shared = state.creations.filter(c => c.shareSlug && c.status === 'ready');
+    if (shared.length === 0) return;
+    const t = setTimeout(() => {
+      for (const c of shared) {
+        const sig = JSON.stringify(c.content);
+        const prev = sharedSigRef.current.get(c.shareSlug!);
+        sharedSigRef.current.set(c.shareSlug!, sig);
+        if (prev === undefined || prev === sig) continue;
+        void pushSharedContent(c);
+      }
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [state.creations]);
 
   // ── Derived helpers ──────────────────────────────────────────────────────────
 
@@ -889,6 +912,13 @@ export function usePocketVibe(userId?: string) {
         drawLocked: false,
         scoringRules: WC2026_SCORING_RULES,
         teamsSource,
+        // Live results on by default — the leaderboard follows real matches
+        autoSettings: {
+          autoResultsEnabled: true,
+          resultProvider: 'manual',
+          allowManualOverrides: true,
+          requireAdminApprovalForSuggestedChanges: false,
+        },
       },
     };
 

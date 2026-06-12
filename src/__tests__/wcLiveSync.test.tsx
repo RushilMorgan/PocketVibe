@@ -132,6 +132,29 @@ describe('useLiveTournamentScores', () => {
     expect(mom.wins).toBe(1);
   });
 
+  it('does not double-count a hand-entered score once the canonical result arrives', async () => {
+    const mexicoId = syntheticTeamId('Mexico');
+    const saId = syntheticTeamId('South Africa');
+    getWorldCupDataMock.mockResolvedValue({
+      teams: [
+        wcTeam({ providerTeamId: mexicoId, name: 'Mexico' }),
+        wcTeam({ providerTeamId: saId, name: 'South Africa' }),
+      ],
+      matches: [{
+        providerMatchId: 1, homeTeamId: mexicoId, awayTeamId: saId,
+        scoreHome: 2, scoreAway: 0, status: 'finished', isManualOverride: false,
+      }] as WorldCupMatch[],
+    });
+    // Owner hand-entered the same result before the sync caught up
+    const pool = makePool({
+      matches: [{ id: 'm1', teamAId: 't1', teamBId: 't2', scoreA: 2, scoreB: 0 }],
+    });
+    const { result } = renderHook(() => useLiveTournamentScores(pool));
+    await waitFor(() => expect(result.current).not.toBeNull());
+    const mom = result.current!.find(r => r.participant.id === 'p1')!;
+    expect(mom.wins).toBe(1); // one fixture, not two
+  });
+
   it('returns null (pool-only fallback) when live results are disabled', () => {
     const { result } = renderHook(() => useLiveTournamentScores(
       makePool({ autoSettings: { autoResultsEnabled: false, resultProvider: 'manual', allowManualOverrides: true, requireAdminApprovalForSuggestedChanges: false } }),

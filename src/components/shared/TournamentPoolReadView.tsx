@@ -64,18 +64,23 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
   // World Cup pools default to live results (older pools have no autoSettings)
   const autoEnabled  = liveResultsEnabled(content);
 
-  // Load canonical WC data when auto-results is enabled
+  // Load canonical WC data when auto-results is enabled — and keep reloading
+  // every minute so a page left open during a match evening updates itself.
   useEffect(() => {
     if (!autoEnabled) return;
     let cancelled = false;
-    getWorldCupData().then(data => {
-      if (!cancelled) {
-        setWcTeams(data.teams);
-        setWcMatches(data.matches);
-        setWcLoaded(true);
-      }
-    });
-    return () => { cancelled = true; };
+    const load = () => {
+      getWorldCupData().then(data => {
+        if (!cancelled) {
+          setWcTeams(data.teams);
+          setWcMatches(data.matches);
+          setWcLoaded(true);
+        }
+      });
+    };
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [autoEnabled]);
 
   // Pools created from the fallback team list carry no providerTeamId —

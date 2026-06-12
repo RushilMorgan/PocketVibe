@@ -136,11 +136,12 @@ export function buildEffectiveMatches(
     }
   }
 
-  // Map: providerMatchId → pool manual match (only when allowManualOverrides)
+  // Map: providerMatchId → pool manual match (only when allowManualOverrides).
+  // Score-less overrides are ignored — they must not erase canonical scores.
   const manualByProvider = new Map<number, TournamentMatch>();
   if (allowManualOverrides) {
     for (const m of poolMatches) {
-      if (m.isManualOverride && m.providerMatchId != null) {
+      if (m.isManualOverride && m.providerMatchId != null && m.scoreA !== undefined && m.scoreB !== undefined) {
         manualByProvider.set(m.providerMatchId, m);
       }
     }
@@ -182,20 +183,25 @@ export function buildEffectiveMatches(
       const resolvedA = teamAId ?? `__ext_${wcm.homeTeamId}`;
       const resolvedB = teamBId ?? `__ext_${wcm.awayTeamId}`;
 
-      // A hand-entered pool match for the SAME fixture (no providerMatchId to
-      // link it): consume it so it never double-counts. With manual overrides
-      // allowed the admin's score wins; otherwise canonical data wins.
-      const pairMatch = poolMatches.find(
+      // Hand-entered pool matches for the SAME fixture (no providerMatchId to
+      // link them): consume ALL of them — retries/duplicates must never
+      // double-count. The latest one carrying BOTH scores may override the
+      // canonical result (when overrides are allowed); a score-less or
+      // half-filled manual entry never eclipses real canonical data.
+      const pairMatches = poolMatches.filter(
         m => m.providerMatchId == null && !consumedPoolMatches.has(m) && samePairing(m, resolvedA, resolvedB),
       );
-      if (pairMatch) consumedPoolMatches.add(pairMatch);
+      for (const pm of pairMatches) consumedPoolMatches.add(pm);
+      const manual = allowManualOverrides
+        ? [...pairMatches].reverse().find(pm => pm.scoreA !== undefined && pm.scoreB !== undefined)
+        : undefined;
 
-      if (pairMatch && allowManualOverrides) {
+      if (manual) {
         result.push({
-          teamAId: pairMatch.teamAId,
-          teamBId: pairMatch.teamBId,
-          scoreA:  pairMatch.scoreA,
-          scoreB:  pairMatch.scoreB,
+          teamAId: manual.teamAId,
+          teamBId: manual.teamBId,
+          scoreA:  manual.scoreA,
+          scoreB:  manual.scoreB,
           isManualOverride: true,
         });
       } else {

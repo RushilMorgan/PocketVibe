@@ -155,6 +155,34 @@ describe('useLiveTournamentScores', () => {
     expect(mom.wins).toBe(1); // one fixture, not two
   });
 
+  it('a score-less or half-filled manual entry never eclipses the canonical result', async () => {
+    const mexicoId = syntheticTeamId('Mexico');
+    const saId = syntheticTeamId('South Africa');
+    getWorldCupDataMock.mockResolvedValue({
+      teams: [
+        wcTeam({ providerTeamId: mexicoId, name: 'Mexico' }),
+        wcTeam({ providerTeamId: saId, name: 'South Africa' }),
+      ],
+      matches: [{
+        providerMatchId: 1, homeTeamId: mexicoId, awayTeamId: saId,
+        scoreHome: 2, scoreAway: 0, status: 'finished', isManualOverride: false,
+      }] as WorldCupMatch[],
+    });
+    // The owner's entry lost its scores (and they retried, leaving a duplicate)
+    const pool = makePool({
+      matches: [
+        { id: 'm1', teamAId: 't1', teamBId: 't2' },                       // score-less
+        { id: 'm2', teamAId: 't2', teamBId: 't1', scoreA: 0 },            // half-filled, swapped
+      ],
+    });
+    const { result } = renderHook(() => useLiveTournamentScores(pool));
+    await waitFor(() => expect(result.current).not.toBeNull());
+    const mom = result.current!.find(r => r.participant.id === 'p1')!; // owns Mexico
+    // Canonical 2–0 scores once; the broken manual entries are consumed silently
+    expect(mom.wins).toBe(1);
+    expect(mom.points).toBeGreaterThan(0);
+  });
+
   it('returns null (pool-only fallback) when live results are disabled', () => {
     const { result } = renderHook(() => useLiveTournamentScores(
       makePool({ autoSettings: { autoResultsEnabled: false, resultProvider: 'manual', allowManualOverrides: true, requireAdminApprovalForSuggestedChanges: false } }),

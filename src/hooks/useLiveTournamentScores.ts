@@ -23,10 +23,15 @@ export function useLiveTournamentScores(
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    getWorldCupData()
-      .then(data => { if (!cancelled) setWc(data); })
-      .catch(() => { /* offline / not configured — pool-only scores still work */ });
-    return () => { cancelled = true; };
+    const load = () => {
+      getWorldCupData()
+        .then(data => { if (!cancelled) setWc(data); })
+        .catch(() => { /* offline / not configured — pool-only scores still work */ });
+    };
+    load();
+    // Keep open pages current during match evenings — no refresh needed
+    const interval = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [enabled]);
 
   return useMemo(() => {

@@ -299,6 +299,8 @@ const handleRequest = async (req: Request): Promise<Response> => {
   let matchesUpdated   = 0;
   let matchesInserted  = 0;
   let teamsSeeded      = 0;
+  let anonReadableTeams: number | null = null;
+  let anonReadableMatches: number | null = null;
   let stagesUpdated    = 0;
   let rejected: Array<{ raw: unknown; reason: string }> = [];
   let errorMessage: string | null = null;
@@ -508,6 +510,26 @@ const handleRequest = async (req: Request): Promise<Response> => {
     console.error('[sync-wc] Log write failed:', logErr?.message);
   }
 
+  // ── Anon-read diagnostic ────────────────────────────────────────────────
+  // The app reads these tables with the public anon key; if the RLS read
+  // policies are missing, browsers silently see zero rows while the service
+  // role sees everything. Surface the anon view in every sync run.
+  try {
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (anonKey) {
+      const anon = createClient(Deno.env.get('SUPABASE_URL')!, anonKey);
+      const t = await anon.from('world_cup_teams').select('id', { count: 'exact', head: true });
+      const m = await anon.from('world_cup_matches').select('id', { count: 'exact', head: true });
+      anonReadableTeams = t.count ?? 0;
+      anonReadableMatches = m.count ?? 0;
+      if (anonReadableTeams === 0) {
+        console.log('[sync-wc] WARNING: anonymous clients can read 0 teams — RLS read policies are likely missing (see schema-world-cup.sql).');
+      }
+    }
+  } catch (e) {
+    console.log(`[sync-wc] anon-read diagnostic failed: ${e}`);
+  }
+
   console.log(`[sync-wc] Done in ${durationMs}ms — updated:${matchesUpdated} inserted:${matchesInserted} stages:${stagesUpdated} rejected:${rejected.length}`);
 
   return new Response(JSON.stringify({
@@ -515,6 +537,8 @@ const handleRequest = async (req: Request): Promise<Response> => {
     matchesUpdated,
     matchesInserted,
     teamsSeeded,
+    anonReadableTeams,
+    anonReadableMatches,
     stagesUpdated,
     durationMs,
     rejected: rejected.map(r => ({ reason: r.reason, match: r.raw })),

@@ -148,6 +148,13 @@ export function buildEffectiveMatches(
 
   const result: EffectiveMatch[] = [];
   const coveredProviderIds = new Set<number>();
+  // Pool matches consumed by a canonical pairing — an admin who hand-entered
+  // "Mexico 2–0 South Africa" before the sync caught up must not have it
+  // counted AGAIN once the canonical row for the same fixture arrives.
+  const consumedPoolMatches = new Set<TournamentMatch>();
+
+  const samePairing = (m: TournamentMatch, a: string, b: string): boolean =>
+    (m.teamAId === a && m.teamBId === b) || (m.teamAId === b && m.teamBId === a);
 
   // Process each canonical match
   for (const wcm of wcMatches) {
@@ -174,19 +181,39 @@ export function buildEffectiveMatches(
       // Unowned opponents use a sentinel ID (no participant owns it, so scoring is correct).
       const resolvedA = teamAId ?? `__ext_${wcm.homeTeamId}`;
       const resolvedB = teamBId ?? `__ext_${wcm.awayTeamId}`;
-      result.push({
-        teamAId: resolvedA,
-        teamBId: resolvedB,
-        scoreA: wcm.scoreHome,
-        scoreB: wcm.scoreAway,
-        isManualOverride: false,
-      });
+
+      // A hand-entered pool match for the SAME fixture (no providerMatchId to
+      // link it): consume it so it never double-counts. With manual overrides
+      // allowed the admin's score wins; otherwise canonical data wins.
+      const pairMatch = poolMatches.find(
+        m => m.providerMatchId == null && !consumedPoolMatches.has(m) && samePairing(m, resolvedA, resolvedB),
+      );
+      if (pairMatch) consumedPoolMatches.add(pairMatch);
+
+      if (pairMatch && allowManualOverrides) {
+        result.push({
+          teamAId: pairMatch.teamAId,
+          teamBId: pairMatch.teamBId,
+          scoreA:  pairMatch.scoreA,
+          scoreB:  pairMatch.scoreB,
+          isManualOverride: true,
+        });
+      } else {
+        result.push({
+          teamAId: resolvedA,
+          teamBId: resolvedB,
+          scoreA: wcm.scoreHome,
+          scoreB: wcm.scoreAway,
+          isManualOverride: false,
+        });
+      }
     }
   }
 
   // Include pool matches that don't correspond to any canonical match
   for (const m of poolMatches) {
     if (m.providerMatchId != null && coveredProviderIds.has(m.providerMatchId)) continue;
+    if (consumedPoolMatches.has(m)) continue;
     result.push({
       teamAId: m.teamAId,
       teamBId: m.teamBId,

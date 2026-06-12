@@ -10,6 +10,7 @@ import { SmartGuidance } from '../SmartGuidance';
 import { computePoolGuidance } from '../../lib/guidance';
 import { getThemeAccent } from '../../lib/themes';
 import { celebrate } from '../../lib/celebrate';
+import { useLiveTournamentScores } from '../../hooks/useLiveTournamentScores';
 import {
   shuffle,
   runFairSeededDraw,
@@ -265,7 +266,18 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
   const [scoringDirty, setScoringDirty] = useState(false);
 
   // ── Derived ──────────────────────────────────────────────────────────────
-  const leaderboard = useMemo(() => calcScores(content), [content]);
+  // Live canonical results (World Cup pools) — falls back to pool-only scores
+  const liveLeaderboard = useLiveTournamentScores(content);
+  const localLeaderboard = useMemo(() => calcScores(content), [content]);
+  const leaderboard: ParticipantScore[] = useMemo(
+    () => liveLeaderboard
+      ? liveLeaderboard.map(row => ({
+          ...row,
+          activeTeams: row.teams.filter(t => t.status !== 'eliminated').length,
+        }))
+      : localLeaderboard,
+    [liveLeaderboard, localLeaderboard],
+  );
   const unassignedTeams = content.teams.filter(t => !t.assignedTo);
   const allTeamsAssigned =
     content.teams.length > 0 &&

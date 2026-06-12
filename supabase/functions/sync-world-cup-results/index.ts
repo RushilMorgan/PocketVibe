@@ -31,6 +31,8 @@ const CORS_HEADERS = {
 const WC_START = '2026-06-11';
 const WC_END   = '2026-07-19';
 
+import { WC2026_SEED_TEAMS, syntheticTeamId } from './seedTeams.ts';
+
 // ── Team name normalisation ───────────────────────────────────────────────────
 // Gemini and web sources use many spellings. All values are canonical lowercase
 // names matching what's stored in world_cup_teams.name.
@@ -296,6 +298,7 @@ const handleRequest = async (req: Request): Promise<Response> => {
   const startMs = Date.now();
   let matchesUpdated   = 0;
   let matchesInserted  = 0;
+  let teamsSeeded      = 0;
   let stagesUpdated    = 0;
   let rejected: Array<{ raw: unknown; reason: string }> = [];
   let errorMessage: string | null = null;
@@ -345,6 +348,31 @@ const handleRequest = async (req: Request): Promise<Response> => {
       const teamByName = new Map<string, any>();
       for (const t of (dbTeams ?? [])) {
         teamByName.set(normalise(t.name), t);
+      }
+
+      // ── 3b. Self-seed missing canonical teams ─────────────────────────────
+      // schema-world-cup.sql ships the table empty and nothing else seeds it,
+      // so without this every result is rejected as "Unknown team".
+      const missingSeed = WC2026_SEED_TEAMS.filter(t => !teamByName.has(normalise(t.name)));
+      if (missingSeed.length > 0) {
+        const usedIds = new Set((dbTeams ?? []).map((t: any) => t.provider_team_id));
+        const rows = missingSeed.map(t => {
+          let id = syntheticTeamId(t.name);
+          while (usedIds.has(id)) id++;
+          usedIds.add(id);
+          return { provider_team_id: id, name: t.name, stage: 'active', pot: t.pot, fifa_rank: t.fifaRank };
+        });
+        const { data: seededRows, error: seedErr } = await supabase
+          .from('world_cup_teams')
+          .insert(rows)
+          .select('id, name, provider_team_id, stage');
+        if (seedErr) {
+          console.log(`[sync-wc] Team self-seed failed: ${seedErr.message}`);
+        } else {
+          for (const t of (seededRows ?? [])) teamByName.set(normalise(t.name), t);
+          teamsSeeded = (seededRows ?? []).length;
+          console.log(`[sync-wc] Self-seeded ${teamsSeeded} canonical teams into world_cup_teams.`);
+        }
       }
 
       // ── 4. Load manual-override IDs (never touch these) ───────────────────
@@ -486,6 +514,7 @@ const handleRequest = async (req: Request): Promise<Response> => {
     status: syncStatus,
     matchesUpdated,
     matchesInserted,
+    teamsSeeded,
     stagesUpdated,
     durationMs,
     rejected: rejected.map(r => ({ reason: r.reason, match: r.raw })),

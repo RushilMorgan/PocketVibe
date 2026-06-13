@@ -16,6 +16,7 @@ import type {
   WorldCupMatch,
   WorldCupTeam,
 } from '../types';
+import { dedupeWorldCupMatches } from './poolLiveSync';
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
@@ -128,6 +129,10 @@ export function buildEffectiveMatches(
   wcMatches: WorldCupMatch[],
   allowManualOverrides: boolean,
 ): EffectiveMatch[] {
+  // Collapse any duplicate canonical rows up front (same fixture synced twice
+  // under different ids) so a result is never counted more than once.
+  wcMatches = dedupeWorldCupMatches(wcMatches);
+
   // Map: providerTeamId → pool team ID
   const providerToPool = new Map<number, string>();
   for (const team of poolTeams) {

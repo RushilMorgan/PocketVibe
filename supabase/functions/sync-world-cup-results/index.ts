@@ -109,8 +109,12 @@ function stageRank(stage: string): number {
 // API-Football uses large positive integers; we use negatives for Gemini rows.
 // Deterministic hash → idempotent (re-running doesn't create duplicates).
 
-function syntheticMatchId(homeTeamId: number, awayTeamId: number, date: string): number {
-  const key = `${homeTeamId}-${awayTeamId}-${date}`;
+function syntheticMatchId(homeTeamId: number, awayTeamId: number, stage: string): number {
+  // Identity is team-pair + stage, NOT date: a fixture's reported date drifts
+  // between syncs, and keying on it spawned duplicate rows. Sorting the pair
+  // makes a swapped home/away report resolve to the same id.
+  const [a, b] = [homeTeamId, awayTeamId].sort((x, y) => x - y);
+  const key = `${a}-${b}-${stage}`;
   let h = 2166136261;
   for (let i = 0; i < key.length; i++) {
     h ^= key.charCodeAt(i);
@@ -396,8 +400,9 @@ const handleRequest = async (req: Request): Promise<Response> => {
           continue;
         }
 
-        // Find existing match row — try both home/away orientations in case
-        // Gemini swapped them (it sometimes does for away games)
+        // Find an existing row by team-pair + stage, IGNORING date (a drifting
+        // report date must update the same row, never spawn a duplicate). Try
+        // both orientations; order so the freshest row wins if dupes linger.
         let matchRow: any = null;
         for (const [hId, aId] of [
           [homeTeam.provider_team_id, awayTeam.provider_team_id],
@@ -408,10 +413,10 @@ const handleRequest = async (req: Request): Promise<Response> => {
             .select('*')
             .eq('home_team_id', hId)
             .eq('away_team_id', aId)
-            .gte('match_date', `${m.match_date}T00:00:00Z`)
-            .lte('match_date', `${m.match_date}T23:59:59Z`)
-            .maybeSingle();
-          if (data) { matchRow = data; break; }
+            .eq('stage', m.stage)
+            .order('updated_at', { ascending: false })
+            .limit(1);
+          if (data && data.length > 0) { matchRow = data[0]; break; }
         }
 
         if (matchRow) {
@@ -426,8 +431,8 @@ const handleRequest = async (req: Request): Promise<Response> => {
           if (error) { rejected.push({ raw: m, reason: `Update failed: ${error.message}` }); continue; }
           matchesUpdated++;
         } else {
-          // No existing row — create one with a synthetic ID
-          const synthId = syntheticMatchId(homeTeam.provider_team_id, awayTeam.provider_team_id, m.match_date);
+          // No existing row — create one with a stable synthetic ID
+          const synthId = syntheticMatchId(homeTeam.provider_team_id, awayTeam.provider_team_id, m.stage);
           if (overrideIds.has(synthId)) continue;
 
           const { error } = await supabase.from('world_cup_matches').upsert({

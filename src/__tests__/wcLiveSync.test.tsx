@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { TournamentPoolTrackerContent, TournamentTeam, WorldCupTeam, WorldCupMatch, Creation } from '../types';
-import { normaliseTeamName, enrichPoolTeams, isWorldCupPool, liveResultsEnabled } from '../lib/poolLiveSync';
+import { normaliseTeamName, enrichPoolTeams, isWorldCupPool, liveResultsEnabled, dedupeWorldCupMatches } from '../lib/poolLiveSync';
 import { WC2026_SEED_TEAMS, syntheticTeamId } from '../../supabase/functions/sync-world-cup-results/seedTeams';
 
 // ── poolLiveSync ──────────────────────────────────────────────────────────────
@@ -53,6 +53,50 @@ describe('normaliseTeamName / enrichPoolTeams', () => {
     expect(out[1].providerTeamId).toBe(22); // 'USA' ↔ 'United States' via alias
     // already enriched → same array back
     expect(enrichPoolTeams(out, wc)).toBe(out);
+  });
+});
+
+describe('dedupeWorldCupMatches', () => {
+  const usa = 9_000_100, par = 9_000_200, kor = 9_000_300, cze = 9_000_400;
+  const row = (o: Partial<WorldCupMatch>): WorldCupMatch => ({
+    providerMatchId: -1, homeTeamId: usa, awayTeamId: par,
+    scoreHome: 4, scoreAway: 1, status: 'finished', stage: 'group',
+    isManualOverride: false, ...o,
+  });
+
+  it('collapses the same group fixture synced under two ids into one row', () => {
+    const out = dedupeWorldCupMatches([
+      row({ providerMatchId: -1001, matchDate: '2026-06-12' }),
+      row({ providerMatchId: -2002, matchDate: '2026-06-13' }), // date drift dupe
+      row({ homeTeamId: kor, awayTeamId: cze, scoreHome: 2, scoreAway: 1, providerMatchId: -3003 }),
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.filter(m => m.homeTeamId === usa)).toHaveLength(1);
+  });
+
+  it('is orientation-independent (swapped home/away is the same fixture)', () => {
+    const out = dedupeWorldCupMatches([
+      row({ providerMatchId: -1 }),
+      row({ homeTeamId: par, awayTeamId: usa, scoreHome: 1, scoreAway: 4, providerMatchId: -2 }),
+    ]);
+    expect(out).toHaveLength(1);
+  });
+
+  it('keeps the finished/scored row over a scheduled placeholder', () => {
+    const out = dedupeWorldCupMatches([
+      row({ providerMatchId: -1, status: 'scheduled', scoreHome: undefined, scoreAway: undefined }),
+      row({ providerMatchId: -2, status: 'finished' }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].status).toBe('finished');
+  });
+
+  it('keeps a genuine knockout rematch separate from the group meeting', () => {
+    const out = dedupeWorldCupMatches([
+      row({ stage: 'group', providerMatchId: -1 }),
+      row({ stage: 'round_of_16', providerMatchId: -2 }),
+    ]);
+    expect(out).toHaveLength(2);
   });
 });
 
@@ -181,6 +225,26 @@ describe('useLiveTournamentScores', () => {
     // Canonical 2–0 scores once; the broken manual entries are consumed silently
     expect(mom.wins).toBe(1);
     expect(mom.points).toBeGreaterThan(0);
+  });
+
+  it('scores a duplicated canonical result only once', async () => {
+    const mexicoId = syntheticTeamId('Mexico');
+    const saId = syntheticTeamId('South Africa');
+    const dup = (providerMatchId: number): WorldCupMatch => ({
+      providerMatchId, homeTeamId: mexicoId, awayTeamId: saId,
+      scoreHome: 2, scoreAway: 0, status: 'finished', stage: 'group', isManualOverride: false,
+    });
+    getWorldCupDataMock.mockResolvedValue({
+      teams: [
+        wcTeam({ providerTeamId: mexicoId, name: 'Mexico' }),
+        wcTeam({ providerTeamId: saId, name: 'South Africa' }),
+      ],
+      matches: [dup(-1001), dup(-2002)], // same fixture, two ids
+    });
+    const { result } = renderHook(() => useLiveTournamentScores(makePool()));
+    await waitFor(() => expect(result.current).not.toBeNull());
+    const mom = result.current!.find(r => r.participant.id === 'p1')!; // owns Mexico
+    expect(mom.wins).toBe(1); // not 2
   });
 
   it('returns null (pool-only fallback) when live results are disabled', () => {

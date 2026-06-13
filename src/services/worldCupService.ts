@@ -4,6 +4,7 @@
  * Both tables have public read RLS policies (see schema-world-cup.sql).
  */
 import type { WorldCupTeam, WorldCupMatch } from '../types';
+import { dedupeWorldCupMatches } from '../lib/poolLiveSync';
 
 // ── Env helpers (lazy so tests can stub env before side-effects) ──────────────
 
@@ -113,7 +114,8 @@ export async function getWorldCupData(): Promise<WorldCupData> {
     const matchRows: WcMatchRow[]  = matchesRes.ok  ? await matchesRes.json() : [];
     return {
       teams:   teamsRows.map(toTeam),
-      matches: matchRows.map(toMatch),
+      // Collapse any duplicate canonical rows so a fixture is shown/scored once
+      matches: dedupeWorldCupMatches(matchRows.map(toMatch)),
     };
   } catch {
     return { teams: [], matches: [] };
@@ -132,7 +134,7 @@ export async function getLiveWorldCupMatches(): Promise<WorldCupMatch[]> {
       { headers },
     );
     const rows: WcMatchRow[] = res.ok ? await res.json() : [];
-    return rows.map(toMatch);
+    return dedupeWorldCupMatches(rows.map(toMatch));
   } catch {
     return [];
   }

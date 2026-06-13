@@ -1,4 +1,4 @@
-import type { TournamentTeam, TournamentPoolTrackerContent, WorldCupTeam } from '../types';
+import type { TournamentTeam, TournamentPoolTrackerContent, WorldCupTeam, WorldCupMatch } from '../types';
 
 /**
  * Glue between a tournament pool and the canonical world_cup_* data.
@@ -38,6 +38,37 @@ const NAME_ALIASES: Record<string, string> = {
 export function normaliseTeamName(name: string): string {
   const lower = (name ?? '').trim().toLowerCase();
   return NAME_ALIASES[lower] ?? lower;
+}
+
+/** How "complete" a canonical match row is, for keeping the best of a set. */
+function matchCompleteness(m: WorldCupMatch): number {
+  const hasScores = m.scoreHome != null && m.scoreAway != null ? 1 : 0;
+  const statusRank = m.status === 'finished' ? 2 : m.status === 'live' ? 1 : 0;
+  return hasScores * 100 + statusRank * 10;
+}
+
+/**
+ * Collapse duplicate canonical match rows. The sync once keyed a match by
+ * team-pair + DATE, so the same fixture reported on a drifting date produced
+ * two rows — which then showed twice and scored twice. Dedup by unordered
+ * team-pair + stage (a group pair plays once; a knockout rematch differs by
+ * stage), keeping the most complete row. Safe to run on already-clean data.
+ */
+export function dedupeWorldCupMatches(matches: WorldCupMatch[]): WorldCupMatch[] {
+  const best = new Map<string, WorldCupMatch>();
+  for (const m of matches) {
+    const pair = [m.homeTeamId, m.awayTeamId].sort((a, b) => a - b).join('-');
+    const key = `${pair}|${m.stage ?? ''}`;
+    const cur = best.get(key);
+    if (
+      !cur ||
+      matchCompleteness(m) > matchCompleteness(cur) ||
+      (matchCompleteness(m) === matchCompleteness(cur) && m.providerMatchId > cur.providerMatchId)
+    ) {
+      best.set(key, m);
+    }
+  }
+  return [...best.values()];
 }
 
 /**

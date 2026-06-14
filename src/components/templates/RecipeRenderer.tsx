@@ -16,6 +16,8 @@ interface RecipeRendererProps {
   onChange: (updated: RecipeContent) => void;
   /** Tap-to-talk: ask Toolie about this recipe (it has full recipe context). */
   onChat?: (message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
+  /** Velix light/frosted card surface (standalone tool pages); default = app look. */
+  frosted?: boolean;
 }
 
 function ingredientLabel(i: RecipeIngredient): string {
@@ -24,7 +26,9 @@ function ingredientLabel(i: RecipeIngredient): string {
 
 const QUICK_PROMPTS = ['Make it dairy-free', 'Scale to 4 people', 'Simplify the steps', 'Suggest a side dish'];
 
-export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProps) {
+export function RecipeRenderer({ content, onChange, onChat, frosted = false }: RecipeRendererProps) {
+  const card = frosted ? 'tp-card overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden';
+  const cardPad = frosted ? 'tp-card p-4' : 'bg-white rounded-2xl border border-gray-100 p-4';
   const [editMode, setEditMode] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
@@ -141,7 +145,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
       </div>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className={card}>
         {content.thumbnailUrl && (
           <VideoThumb src={content.thumbnailUrl} className="w-full h-40 object-cover" />
         )}
@@ -201,7 +205,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
       </div>
 
       {/* ── Ingredients + shopping list ─────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className={card}>
         <div className="px-4 pt-4 pb-2 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800 text-sm">Ingredients</h3>
           <span className="text-xs text-gray-400">Tick what you have</span>
@@ -309,10 +313,11 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
         editMode={editMode}
         onUpdate={update}
         onAskAboutStep={onChat ? openChatWith : undefined}
+        frosted={frosted}
       />
 
       {/* ── Notes ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+      <div className={cardPad}>
         <h3 className="font-semibold text-gray-800 text-sm mb-2">My notes</h3>
         <textarea
           data-testid="recipe-notes"

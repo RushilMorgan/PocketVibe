@@ -182,3 +182,26 @@ body {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
+
+/* ── Velix-style standalone tool pages ───────────────────────────────────── */
+/* Light, frosted, premium look for /tools/:key pages. Scoped to .tp-surface so
+   it never leaks into the app's dark Toolie chrome. The per-type accent comes
+   in via inline styles (templateIdentity). Avoids backdrop-filter on purpose
+   (heavy + breaks headless capture) — high-opacity white reads near-identical. */
+.tp-surface {
+  font-family: 'Plus Jakarta Sans', 'Nunito', system-ui, sans-serif;
+  background:
+    radial-gradient(120% 70% at 12% 0%, #e9f4ee 0%, rgba(233, 244, 238, 0) 42%),
+    radial-gradient(120% 60% at 100% 100%, #f6e7ee 0%, rgba(246, 231, 238, 0) 46%),
+    linear-gradient(168deg, #f3f5f1 0%, #eceee9 55%, #f4eef1 100%);
+}
+.tp-ink   { color: #16150f; }
+.tp-ink-2 { color: #5f635c; }
+.tp-ink-3 { color: #9a9d96; }
+.tp-glass { background: rgba(255, 255, 255, 0.86); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 16px rgba(22, 21, 15, 0.06); }
+.tp-card  { background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(22, 21, 15, 0.08); box-shadow: 0 10px 34px rgba(22, 21, 15, 0.07); }
+.tp-btn-dark { background: #16150f; color: #fff; box-shadow: 0 8px 20px rgba(22, 21, 15, 0.22); }
+.tp-btn-dark:active { background: #000; }
+.tp-input { background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(22, 21, 15, 0.08); color: #16150f; }
+.tp-input::placeholder { color: #9a9d96; }
+.tp-divider { background: rgba(22, 21, 15, 0.08); }

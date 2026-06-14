@@ -13,6 +13,8 @@ interface RecipeStepsProps {
   onUpdate: (patch: Partial<RecipeContent>) => void;
   /** Tap-to-talk: prefill a question about a step. Absent when chat is off. */
   onAskAboutStep?: (prefill: string) => void;
+  /** Velix light/frosted card surface (standalone tool pages); default = app look. */
+  frosted?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface RecipeStepsProps {
  * gets a tappable timer; when it runs out, the nudge fits the view — card and
  * list point at the next step below, the focus step view offers to advance.
  */
-export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: RecipeStepsProps) {
+export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep, frosted = false }: RecipeStepsProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const layout: RecipeLayoutMode = content.layoutMode ?? 'card';
   const steps = content.steps;
@@ -73,7 +75,7 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
   const currentIsLast = safeStepIndex >= steps.length - 1;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div className={frosted ? 'tp-card overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden'}>
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <h3 className="font-semibold text-gray-800 text-sm">Steps</h3>
         {/* Layout switcher */}

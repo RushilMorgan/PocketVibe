@@ -24,6 +24,7 @@ import {
 import type { ParticipantScore } from '../../lib/tournamentScoring';
 import { getWorldCupData } from '../../services/worldCupService';
 import { enrichPoolTeams, liveResultsEnabled } from '../../lib/poolLiveSync';
+import { findResultOverride, resolveCanonicalScore } from '../../lib/resultOverrides';
 
 interface Props {
   content: TournamentPoolTrackerContent;
@@ -112,21 +113,25 @@ export function TournamentPoolReadView({ content, accessMode, participantRef, sh
   const me           = participantRef ? content.participants.find(p => p.id === participantRef) : undefined;
   const hasLiveMatch = autoEnabled && wcMatches.some(m => m.status === 'live');
 
-  // Recent results
+  // Recent results — apply any admin correction (right score + orientation)
   const recentResults = autoEnabled && wcLoaded
     ? wcMatches
         .filter(m => m.status === 'finished' &&
           poolTeams.some(t => t.providerTeamId === m.homeTeamId || t.providerTeamId === m.awayTeamId))
         .slice(-5)
         .reverse()
-        .map(m => ({
-          id: String(m.providerMatchId),
-          labelA: canonicalTeamLabel(m.homeTeamId),
-          labelB: canonicalTeamLabel(m.awayTeamId),
-          scoreA: m.scoreHome,
-          scoreB: m.scoreAway,
-          isManual: m.isManualOverride,
-        }))
+        .map(m => {
+          const override = findResultOverride(content.matches, m, poolTeams);
+          const s = resolveCanonicalScore(m, override, poolTeams);
+          return {
+            id: String(m.providerMatchId),
+            labelA: canonicalTeamLabel(m.homeTeamId),
+            labelB: canonicalTeamLabel(m.awayTeamId),
+            scoreA: s.homeScore,
+            scoreB: s.awayScore,
+            isManual: s.isManual,
+          };
+        })
     : content.matches
         .filter(m => m.scoreA !== undefined)
         .slice(-5)

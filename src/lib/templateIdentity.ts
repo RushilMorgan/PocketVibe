@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { CreationType } from '../types';
 
 /**
  * Per-template visual identity: each creation type gets its own accent
@@ -40,7 +41,13 @@ const DEFAULT_IDENTITY: TemplateIdentity = {
   showHero: true,
 };
 
-export const TEMPLATE_IDENTITIES: Record<string, TemplateIdentity> = {
+/**
+ * Single source of truth for per-type visual identity. Exhaustively typed so
+ * adding a CreationType fails the build until it has an identity here. The small
+ * per-type maps in `creationTypeMeta.ts` (emoji/label/accent) are DERIVED from
+ * this object — never hand-maintain a second copy.
+ */
+export const TEMPLATE_IDENTITIES: Record<CreationType, TemplateIdentity> = {
   checklist: {
     emoji: '✅',
     label: 'Checklist',
@@ -178,28 +185,31 @@ export const TEMPLATE_IDENTITIES: Record<string, TemplateIdentity> = {
     emoji: '🍳',
     label: 'Recipe',
     tagline: 'Cook it with confidence',
-    accent: '#d97706',
-    accentSoft: '#fffbeb',
-    accentBorder: '#fde68a',
-    gradFrom: '#d97706',
-    gradTo: '#f59e0b',
+    // Rose — one recipe colour across hero, tool page, renderer and Ask-Toolie.
+    accent: '#e11d48',
+    accentSoft: '#fff1f2',
+    accentBorder: '#fecdd3',
+    gradFrom: '#f43f5e',
+    gradTo: '#e11d48',
     showHero: false,
   },
   recipe_book: {
     emoji: '📖',
     label: 'Cookbook',
     tagline: 'Your recipes, all in one place',
-    accent: '#d97706',
-    accentSoft: '#fffbeb',
-    accentBorder: '#fde68a',
-    gradFrom: '#b45309',
-    gradTo: '#f59e0b',
+    accent: '#e11d48',
+    accentSoft: '#fff1f2',
+    accentBorder: '#fecdd3',
+    gradFrom: '#fb7185',
+    gradTo: '#e11d48',
     showHero: false,
   },
 };
 
 export function getTemplateIdentity(creationType: string): TemplateIdentity {
-  return TEMPLATE_IDENTITIES[creationType] ?? DEFAULT_IDENTITY;
+  // Indexed by string (cloud rows store creation_type as plain text); unknown
+  // types fall back to the default identity.
+  return TEMPLATE_IDENTITIES[creationType as CreationType] ?? DEFAULT_IDENTITY;
 }
 
 /** CSS variables consumed by the `tpl-*` utility classes in index.css. */

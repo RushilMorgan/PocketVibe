@@ -133,7 +133,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           data-testid="edit-recipe-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-            editMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
           {editMode ? 'Done' : '✎ Edit by hand'}
@@ -151,7 +151,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
               data-testid="recipe-title-input"
               value={content.title}
               onChange={e => update({ title: e.target.value })}
-              className="w-full text-lg font-bold border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              className="w-full text-lg font-bold border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400"
             />
           ) : (
             <h2 className="text-lg font-black text-gray-900 leading-tight">{content.title}</h2>
@@ -164,7 +164,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                 <span key={idx}>
                   {a.label}{' '}
                   {a.url
-                    ? <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-violet-500 underline">link</a>
+                    ? <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-rose-500 underline">link</a>
                     : null}
                   {idx < content.attribution!.length - 1 ? ' ·' : ''}
                 </span>
@@ -192,7 +192,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
               href={content.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full active:bg-violet-100"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full active:bg-rose-100"
             >
               ▶ Watch original
             </a>
@@ -212,11 +212,11 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
               {editMode ? (
                 <div className="flex items-center gap-2">
                   <input value={i.quantity ?? ''} placeholder="1" onChange={e => updateIngredient(i.id, 'quantity', e.target.value)}
-                    className="w-12 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="w-12 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                   <input value={i.unit ?? ''} placeholder="cup" onChange={e => updateIngredient(i.id, 'unit', e.target.value)}
-                    className="w-16 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="w-16 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                   <input value={i.name} placeholder="ingredient" onChange={e => updateIngredient(i.id, 'name', e.target.value)}
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                   <button onClick={() => deleteIngredient(i.id)} className="text-red-400 hover:text-red-600 p-1" aria-label="Delete ingredient">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                   </button>
@@ -225,7 +225,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                 <div className="flex items-center gap-1">
                   <button onClick={() => toggleHave(i.id)} className="flex-1 flex items-center gap-2.5 active:bg-gray-50 text-left min-w-0">
                     <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                      i.have ? 'bg-violet-600 border-violet-600' : 'border-gray-300'
+                      i.have ? 'bg-rose-600 border-rose-600' : 'border-gray-300'
                     }`}>
                       {i.have && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                     </span>
@@ -235,7 +235,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                   {onChat && (
                     <button
                       onClick={() => openChatWith(`About "${ingredientLabel(i)}": `)}
-                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-violet-50 hover:border-violet-200 active:bg-violet-100"
+                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-rose-50 hover:border-rose-200 active:bg-rose-100"
                       aria-label="Ask Toolie about this ingredient"
                       title="Ask Toolie"
                     >💬</button>
@@ -248,7 +248,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
         {editMode && (
           <div className="px-4 pb-4 pt-2">
             <button data-testid="add-ingredient-btn" onClick={addIngredient}
-              className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-xl py-2 active:bg-violet-50">
+              className="w-full text-sm text-rose-600 font-semibold border-2 border-dashed border-rose-200 rounded-xl py-2 active:bg-rose-50">
               + Add ingredient
             </button>
           </div>
@@ -262,7 +262,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Shopping list</h4>
             <button data-testid="copy-shopping-btn" onClick={copyShoppingList}
-              className="text-xs font-semibold text-violet-600 active:opacity-70">
+              className="text-xs font-semibold text-rose-600 active:opacity-70">
               {shareNote ?? 'Copy / share'}
             </button>
           </div>
@@ -284,7 +284,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                     </span>
                     {editMode ? (
                       <input value={x.name} placeholder="item" onChange={e => updateExtra(x.id, e.target.value)} onClick={e => e.stopPropagation()}
-                        className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                        className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-rose-400" />
                     ) : (
                       <span className={`text-sm ${x.checked ? 'line-through text-gray-400' : 'text-gray-700'}`}>{x.name}</span>
                     )}
@@ -320,16 +320,16 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           onChange={e => update({ notes: e.target.value })}
           placeholder="Add your own notes — tweaks, timings, what worked…"
           rows={3}
-          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
         />
       </div>
 
       {/* ── Tags ────────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         {(content.tags ?? []).map(t => (
-          <span key={t} className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full">
+          <span key={t} className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full">
             #{t}
-            <button onClick={() => removeTag(t)} aria-label={`Remove ${t}`} className="text-violet-400 hover:text-violet-700">×</button>
+            <button onClick={() => removeTag(t)} aria-label={`Remove ${t}`} className="text-rose-400 hover:text-rose-700">×</button>
           </span>
         ))}
         <input
@@ -339,7 +339,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           onKeyDown={e => { if (e.key === 'Enter') addTag(); }}
           onBlur={addTag}
           placeholder="+ tag"
-          className="text-xs w-20 border border-gray-200 rounded-full px-3 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400"
+          className="text-xs w-20 border border-gray-200 rounded-full px-3 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400"
         />
       </div>
 
@@ -450,7 +450,7 @@ function StatText({ icon, label, value, editMode, onChange }: {
       <span className="text-gray-400">{label}</span>
       {editMode ? (
         <input value={value ?? ''} placeholder="10 min" onChange={e => onChange(e.target.value)}
-          className="w-16 text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+          className="w-16 text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-rose-400" />
       ) : (
         <span className="font-semibold text-gray-800">{value}</span>
       )}

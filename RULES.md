@@ -95,10 +95,15 @@ and big files get smaller every time they're touched — never bigger.**
 - **Shared UI** → `src/components/shared/` (e.g. `BottomSheet.tsx`,
   `ElementChatSheet.tsx`). Never copy-paste sheet/modal/row scaffolding — if
   you're about to paste JSX from another component, extract it instead.
-- **Single source of truth for cross-cutting maps** →
-  `src/lib/creationTypeMeta.ts` (emoji/label/accent per type, exhaustively
-  typed `Record<CreationType, …>` so the compiler flags a missing entry). Never
-  re-declare per-type maps locally.
+- **Single source of truth for per-type identity** →
+  `src/lib/templateIdentity.ts` holds the full palette (emoji, label, tagline,
+  accent + soft/border, gradient) as an exhaustive `Record<CreationType, …>` so
+  the compiler flags a missing entry. `src/lib/creationTypeMeta.ts` **derives**
+  its `TYPE_EMOJI` / `TYPE_LABEL` / `TYPE_ACCENT` (and `ALL_CREATION_TYPES`) from
+  it — so the list, header, hero and canvas can never drift apart. To change a
+  type's look, edit `templateIdentity.ts` only; never re-declare a per-type map
+  (emoji/label/accent/colour) anywhere else, and don't hardcode a per-type hex
+  in a renderer — read the accent or use the `tpl-*` utilities.
 - **Big renderers**: split by section into sub-components in the same folder
   (header / list / sheet views), keeping the `content`-in, `onChange`-out
   contract at the top level.

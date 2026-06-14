@@ -59,11 +59,11 @@ export function ToolPage({ toolKey }: ToolPageProps) {
 
       <div className="flex-1 overflow-y-auto">
         <Hero config={config} gradFrom={identity.gradFrom} gradTo={identity.gradTo} emoji={identity.emoji} />
-        <HowItWorks config={config} />
+        <HowItWorks config={config} accent={identity.accent} />
         <LiveTool chips={config.chips} />
-        <Customize config={config} />
-        <WhereNext config={config} />
-        <Footer canonicalPath={config.canonicalPath} title={config.h1} />
+        <Customize config={config} accent={identity.accent} />
+        <WhereNext config={config} accent={identity.accent} />
+        <Footer canonicalPath={config.canonicalPath} title={config.h1} accent={identity.accent} />
       </div>
     </AppShell>
   );
@@ -107,7 +107,7 @@ function Hero({ config, gradFrom, gradTo, emoji }: { config: ToolPageConfig; gra
   );
 }
 
-function HowItWorks({ config }: { config: ToolPageConfig }) {
+function HowItWorks({ config, accent }: { config: ToolPageConfig; accent: string }) {
   return (
     <div id="how-it-works" className="px-5 py-6 scroll-mt-4">
       <div className="flex items-center gap-2 mb-4">
@@ -118,7 +118,10 @@ function HowItWorks({ config }: { config: ToolPageConfig }) {
       <div className="flex flex-col gap-3.5">
         {config.steps.map((s, i) => (
           <div key={i} className="flex items-start gap-3.5">
-            <div className="relative w-10 h-10 rounded-2xl bg-rose-500 flex items-center justify-center text-base flex-shrink-0 shadow-sm shadow-rose-200">
+            <div
+              className="relative w-10 h-10 rounded-2xl flex items-center justify-center text-base flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: accent }}
+            >
               {s.icon}
               <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
             </div>
@@ -133,11 +136,11 @@ function HowItWorks({ config }: { config: ToolPageConfig }) {
   );
 }
 
-function Customize({ config }: { config: ToolPageConfig }) {
+function Customize({ config, accent }: { config: ToolPageConfig; accent: string }) {
   return (
     <div className="px-5 py-6 bg-white">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-500">Make it yours</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: accent }}>Make it yours</span>
       </div>
       <h2 className="text-lg font-black text-gray-900 mb-2">Customize with Hey Toolie</h2>
       <p className="text-sm text-gray-500 leading-relaxed">{config.customizeIntro}</p>
@@ -153,7 +156,7 @@ function Customize({ config }: { config: ToolPageConfig }) {
   );
 }
 
-function WhereNext({ config }: { config: ToolPageConfig }) {
+function WhereNext({ config, accent }: { config: ToolPageConfig; accent: string }) {
   return (
     <div className="px-5 py-6">
       <div className="flex items-center gap-2 mb-4">
@@ -173,7 +176,7 @@ function WhereNext({ config }: { config: ToolPageConfig }) {
               <p className="text-sm font-semibold text-gray-800">{w.title}</p>
               <p className="text-xs text-gray-400 mt-0.5">{w.body}</p>
             </div>
-            <span className="text-xs font-bold text-rose-600 flex-shrink-0">{w.cta} →</span>
+            <span className="text-xs font-bold flex-shrink-0" style={{ color: accent }}>{w.cta} →</span>
           </a>
         ))}
       </div>
@@ -181,7 +184,7 @@ function WhereNext({ config }: { config: ToolPageConfig }) {
   );
 }
 
-function Footer({ canonicalPath, title }: { canonicalPath: string; title: string }) {
+function Footer({ canonicalPath, title, accent }: { canonicalPath: string; title: string; accent: string }) {
   const [copied, setCopied] = useState(false);
 
   async function share() {
@@ -201,7 +204,8 @@ function Footer({ canonicalPath, title }: { canonicalPath: string; title: string
       <button
         data-testid="tool-share-btn"
         onClick={share}
-        className="w-full py-3 rounded-2xl bg-rose-500 text-white text-sm font-black active:bg-rose-600 mb-4"
+        className="w-full py-3 rounded-2xl text-white text-sm font-black active:opacity-90 mb-4"
+        style={{ backgroundColor: accent }}
       >
         {copied ? '✓ Link copied' : '🔗 Share this tool'}
       </button>

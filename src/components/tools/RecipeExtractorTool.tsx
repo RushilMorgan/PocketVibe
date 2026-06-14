@@ -6,8 +6,8 @@ import { templateCssVars } from '../../lib/templateIdentity';
 import { celebrate } from '../../lib/celebrate';
 import { formatResetHint } from '../../lib/quotaMessage';
 import type { RecipeContent } from '../../types';
-import type { ToolChip } from '../../lib/toolPages';
-import type { ToolAccent } from '../ToolPage';
+import type { ToolChip, ToolAccent } from '../../lib/toolPages';
+import { ToolCard, ToolButton, ToolChip as Chip, ToolInput } from './ui';
 
 /** A real, well-known cooking video — pre-filled so the page is never a blank box. */
 const SAMPLE_URL = 'https://www.youtube.com/watch?v=PUP7U5vTMM0';
@@ -22,8 +22,8 @@ interface RecipeExtractorToolProps {
 /**
  * The live, anonymous Recipe Extractor. Reuses the deployed `extractRecipe` /
  * `chatAboutRecipe` generation paths via usePocketVibe, and the full
- * RecipeRenderer to display + customize the result. No sign-in required to
- * extract. Velix-style light/frosted chrome (see the .tp-* layer in index.css).
+ * RecipeRenderer (in `frosted` mode) to display + customize the result. No
+ * sign-in required to extract. Composed from the tools/ui.tsx primitives.
  */
 export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps) {
   const auth = useAuth();
@@ -86,15 +86,14 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
       <h2 className="text-lg font-extrabold tp-ink tracking-tight mb-3">Paste a recipe to extract</h2>
 
       {/* ── Extract input ─────────────────────────────────────────────────────── */}
-      <div className="tp-card rounded-[24px] p-[18px]">
-        <input
+      <ToolCard>
+        <ToolInput
+          accent={accent}
           data-testid="extract-url-input"
           value={url}
           onChange={e => setUrl(e.target.value)}
           inputMode="url"
           placeholder="Paste a cooking video link…"
-          className="tp-input w-full text-sm rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2"
-          style={{ ['--tw-ring-color' as string]: accent.accent }}
         />
 
         <div className="flex items-center justify-between mt-2.5">
@@ -112,56 +111,54 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
         </div>
 
         {showManual && (
-          <textarea
+          <ToolInput
+            accent={accent}
+            multiline
             data-testid="extract-manual-input"
             value={manualText}
             onChange={e => setManualText(e.target.value)}
             rows={4}
             placeholder="Paste the recipe text here…"
-            className="tp-input mt-2.5 w-full text-sm rounded-2xl px-4 py-3 resize-none focus:outline-none focus:ring-2"
-            style={{ ['--tw-ring-color' as string]: accent.accent }}
+            className="mt-2.5"
           />
         )}
 
         {error && <p data-testid="extract-error" className="text-xs text-red-600 mt-2.5">{error}</p>}
 
-        <button
-          data-testid="extract-btn"
+        <ToolButton
+          shape="block"
+          full
           onClick={handleExtract}
           disabled={!canExtract}
-          className="tp-btn-dark mt-3.5 w-full py-3.5 rounded-2xl text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+          testId="extract-btn"
+          className="mt-3.5 font-bold"
         >
           {extracting ? <><span className="animate-pulse">🍳</span> Reading the recipe…</> : <>✨ Extract recipe</>}
-        </button>
-      </div>
+        </ToolButton>
+      </ToolCard>
 
       {/* ── Result ────────────────────────────────────────────────────────────── */}
       {recipe ? (
         <div className="mt-5" data-testid="extract-result" style={templateCssVars('recipe')}>
           {/* Customize-with-Toolie chips — live, operate on the result */}
-          <div className="tp-card rounded-[22px] p-4 mb-4">
+          <ToolCard className="mb-4">
             <p className="text-[13px] font-bold tp-ink mb-0.5">💬 Make it yours — ask Toolie</p>
             <p className="text-[11px] tp-ink-3 mb-3">Tap one and watch the recipe update. Re-extract to undo.</p>
             <div className="flex flex-wrap gap-2">
-              {chips.map(chip => {
-                const busy = busyChip === chip.label;
-                return (
-                  <button
-                    key={chip.label}
-                    data-testid={`customize-chip-${chip.label}`}
-                    onClick={() => runChip(chip)}
-                    disabled={!!busyChip}
-                    className="text-[13px] font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-40 transition-colors"
-                    style={busy
-                      ? { background: '#16150f', color: '#fff' }
-                      : { background: accent.accentSoft, color: accent.accent }}
-                  >
-                    {busy ? '…thinking' : chip.label}
-                  </button>
-                );
-              })}
+              {chips.map(chip => (
+                <Chip
+                  key={chip.label}
+                  accent={accent}
+                  active={busyChip === chip.label}
+                  disabled={!!busyChip}
+                  onClick={() => runChip(chip)}
+                  testId={`customize-chip-${chip.label}`}
+                >
+                  {busyChip === chip.label ? '…thinking' : chip.label}
+                </Chip>
+              ))}
             </div>
-          </div>
+          </ToolCard>
 
           <RecipeRenderer
             content={recipe}
@@ -202,9 +199,7 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
               You can extract more {formatResetHint(quotaNotice.resetsAt)}.
               {quotaNotice.tier === 'anonymous' && ' Sign in for a higher daily limit.'}
             </p>
-            <button onClick={dismissQuotaNotice} className="tp-btn-dark w-full py-3 rounded-2xl text-sm font-bold">
-              Got it
-            </button>
+            <ToolButton shape="block" full onClick={dismissQuotaNotice} className="font-bold">Got it</ToolButton>
           </div>
         </div>
       )}

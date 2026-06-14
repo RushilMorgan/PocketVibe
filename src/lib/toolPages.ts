@@ -11,6 +11,12 @@
  * tooling and unit tests without pulling in the component tree.
  */
 
+/** Per-type accent pair (Velix soft-accent treatment), from templateIdentity. */
+export interface ToolAccent {
+  accent: string;
+  accentSoft: string;
+}
+
 /** One "How it works" step, rendered as a numbered card. */
 export interface ToolGuideStep {
   icon: string;

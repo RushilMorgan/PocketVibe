@@ -2,18 +2,13 @@ import React, { useEffect, useState } from 'react';
 import AppShell from './AppShell';
 import { CelebrationLayer } from './CelebrationLayer';
 import { RecipeExtractorTool } from './tools/RecipeExtractorTool';
-import { getToolPageConfig, type ToolPageConfig, type ToolChip } from '../lib/toolPages';
+import { SectionLabel, AccentEyebrow, HeroTile, ToolCard, ToolButton } from './tools/ui';
+import { getToolPageConfig, type ToolPageConfig, type ToolChip, type ToolAccent } from '../lib/toolPages';
 import { getTemplateIdentity } from '../lib/templateIdentity';
 
 interface ToolPageProps {
   /** URL key — the slug after /tools/. */
   toolKey: string;
-}
-
-/** Accent pair handed to every section + the live tool, from the type identity. */
-export interface ToolAccent {
-  accent: string;
-  accentSoft: string;
 }
 
 /** Live, interactive body for each tool, looked up by config key. */
@@ -23,9 +18,10 @@ const LIVE_TOOLS: Record<string, React.ComponentType<{ chips: ToolChip[]; accent
 
 /**
  * Standalone tool-page shell — "Velix" light/frosted look (see the .tp-* layer
- * in index.css). Reads a per-tool config from toolPages.ts and renders:
- * hero → how-it-works → live tool → customize → where-to-go-next → footer.
- * Primary actions are near-black; the per-type colour is used as a soft accent.
+ * in index.css and the primitives in tools/ui.tsx). Reads a per-tool config from
+ * toolPages.ts and renders: hero → how-it-works → live tool → customize →
+ * where-to-go-next → footer. Primary actions are near-black; the per-type colour
+ * is the soft accent.
  */
 export function ToolPage({ toolKey }: ToolPageProps) {
   const config = getToolPageConfig(toolKey);
@@ -45,7 +41,6 @@ export function ToolPage({ toolKey }: ToolPageProps) {
       <CelebrationLayer />
 
       <div className="tp-surface flex flex-col h-full overflow-hidden">
-        {/* Header — light, frosted */}
         <header className="flex-shrink-0 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <a
@@ -76,43 +71,20 @@ export function ToolPage({ toolKey }: ToolPageProps) {
   );
 }
 
-// ── Shared bits ───────────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="h-px flex-1 tp-divider" />
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] tp-ink-3">{children}</p>
-      <div className="h-px flex-1 tp-divider" />
-    </div>
-  );
-}
-
 // ── Sections ──────────────────────────────────────────────────────────────────
 
 function Hero({ config, accent, emoji }: { config: ToolPageConfig; accent: ToolAccent; emoji: string }) {
   return (
     <div className="px-5 pt-4 pb-2">
-      <div
-        className="w-16 h-16 rounded-[20px] flex items-center justify-center text-3xl mb-4"
-        style={{ background: accent.accentSoft, boxShadow: `0 12px 28px ${accent.accent}38` }}
-      >
-        {emoji}
-      </div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: accent.accent }}>
-        {config.eyebrow}
-      </p>
+      <div className="mb-4"><HeroTile accent={accent} emoji={emoji} /></div>
+      <AccentEyebrow accent={accent}>{config.eyebrow}</AccentEyebrow>
       <h1 className="tp-ink text-[34px] font-extrabold tracking-tight leading-[1.04] mt-1.5">{config.h1}</h1>
       <p className="tp-ink-2 text-[15px] mt-2.5 leading-relaxed max-w-xs">{config.tagline}</p>
       <p className="tp-ink-3 text-xs mt-3 leading-relaxed max-w-sm">{config.intro}</p>
 
       <div className="flex items-center gap-2.5 mt-5">
-        <a href="#try-it" data-testid="hero-try-cta" className="tp-btn-dark text-sm font-semibold px-5 py-3 rounded-full flex items-center gap-1.5">
-          Try it now <span>→</span>
-        </a>
-        <a href="#how-it-works" className="tp-glass tp-ink text-sm font-semibold px-5 py-3 rounded-full">
-          How it works
-        </a>
+        <ToolButton href="#try-it" testId="hero-try-cta">Try it now <span>→</span></ToolButton>
+        <ToolButton href="#how-it-works" variant="ghost">How it works</ToolButton>
       </div>
     </div>
   );
@@ -148,17 +120,19 @@ function HowItWorks({ config, accent }: { config: ToolPageConfig; accent: ToolAc
 function Customize({ config, accent }: { config: ToolPageConfig; accent: ToolAccent }) {
   return (
     <div className="px-5 py-6">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: accent.accent }}>Make it yours</p>
+      <AccentEyebrow accent={accent}>Make it yours</AccentEyebrow>
       <h2 className="text-lg font-extrabold tp-ink tracking-tight mt-1 mb-2">Customize with Hey Toolie</h2>
       <p className="text-sm tp-ink-2 leading-relaxed">{config.customizeIntro}</p>
 
-      <div className="mt-4 flex items-start gap-3 tp-card rounded-[20px] px-4 py-3.5">
-        <span className="text-xl flex-shrink-0">🎙️</span>
-        <p className="text-xs tp-ink-2 leading-relaxed">
-          Prefer talking? Open <span className="font-semibold tp-ink">Ask Toolie</span> on your recipe and tap the mic —
-          say "make step three simpler" and it just does it. Or tap any line to edit it by hand.
-        </p>
-      </div>
+      <ToolCard className="mt-4">
+        <div className="flex items-start gap-3">
+          <span className="text-xl flex-shrink-0">🎙️</span>
+          <p className="text-xs tp-ink-2 leading-relaxed">
+            Prefer talking? Open <span className="font-semibold tp-ink">Ask Toolie</span> on your recipe and tap the mic —
+            say "make step three simpler" and it just does it. Or tap any line to edit it by hand.
+          </p>
+        </div>
+      </ToolCard>
     </div>
   );
 }
@@ -170,12 +144,7 @@ function WhereNext({ config, accent }: { config: ToolPageConfig; accent: ToolAcc
       <div className="flex flex-col gap-3">
         {config.whereNext.map((w, i) => (
           <a key={i} href={w.href} className="flex items-center gap-3.5 tp-card rounded-[22px] p-4 active:scale-[0.99] transition-transform">
-            <span
-              className="w-11 h-11 rounded-[15px] flex items-center justify-center text-xl flex-shrink-0"
-              style={{ background: accent.accentSoft }}
-            >
-              {w.icon}
-            </span>
+            <HeroTile accent={accent} emoji={w.icon} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="text-[15px] font-bold tp-ink">{w.title}</p>
               <p className="text-[13px] tp-ink-2 mt-0.5 leading-snug">{w.body}</p>
@@ -205,13 +174,9 @@ function Footer({ canonicalPath, title }: { canonicalPath: string; title: string
 
   return (
     <footer className="px-5 pt-4 pb-9">
-      <button
-        data-testid="tool-share-btn"
-        onClick={share}
-        className="w-full py-3.5 rounded-2xl tp-btn-dark text-sm font-bold mb-4"
-      >
+      <ToolButton shape="block" full onClick={share} testId="tool-share-btn" className="font-bold mb-4">
         {copied ? '✓ Link copied' : '🔗 Share this tool'}
-      </button>
+      </ToolButton>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[#16150f]/40 text-xs">✦</span>

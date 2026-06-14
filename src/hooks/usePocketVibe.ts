@@ -12,11 +12,13 @@ import type {
   TournamentTeam,
   RecipeContent,
   IdeaThinkingBoardContent,
+  MealPlannerContent,
 } from '../types';
 import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
 import { formatQuotaMessage } from '../lib/quotaMessage';
 import { buildIdeaBoardPrompt } from '../lib/ideaBoardPrompt';
 import { buildRecipePrompt } from '../lib/recipePrompt';
+import { buildMealPlanPrompt, type MealPlanIntakeInput } from '../lib/mealPlannerPrompt';
 import { TYPE_ACCENT } from '../lib/creationTypeMeta';
 import { getUsage, _resetUsageStore, type UsageKind, type UsageTier } from '../lib/usageStore';
 import { getWorldCupData } from '../services/worldCupService';
@@ -698,6 +700,73 @@ export function usePocketVibe(userId?: string) {
     }
   }, [isBlockedByQuota]);
 
+  // Generate a 7-day Meal Plan from light inputs, RETURNED for a standalone page
+  // to render (no view navigation). Reuses the deployed `meal_planner` generation;
+  // quota-guarded; returns null on failure. Mirrors extractRecipe / generateIdeaBoard.
+  const generateMealPlan = useCallback(async (
+    input: MealPlanIntakeInput,
+    onStage?: (ev: GenerationStageEvent) => void,
+  ): Promise<MealPlannerContent | null> => {
+    if (isBlockedByQuota('generation')) return null;
+    const locale = {
+      date: new Date().toISOString().slice(0, 10),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const req: GenerateRequest = {
+      userRequest: buildMealPlanPrompt(input), mode: 'new', locale, forcedType: 'meal_planner',
+    };
+    try {
+      const res = await generateCreation(req, (_status, stageEvent) => {
+        if (stageEvent) onStage?.(stageEvent);
+      });
+      const safe = normalizeGenerateResponse(res, req) ?? res;
+      if (safe.creationType !== 'meal_planner' || safe.content.type !== 'meal_planner') return null;
+      return safe.content as MealPlannerContent;
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        setQuotaNotice({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt });
+      }
+      return null;
+    }
+  }, [isBlockedByQuota]);
+
+  // Apply a whole-plan customize prompt (e.g. "make it vegetarian") to a meal plan
+  // and return the updated content. Meal planner has no per-element edit, so this
+  // goes straight through the `improve` generation. Quota-guarded ('chat').
+  const customizeMealPlan = useCallback(async (
+    content: MealPlannerContent,
+    message: string,
+  ): Promise<MealPlannerContent | null> => {
+    if (isBlockedByQuota('chat')) return null;
+    const locale = {
+      date: new Date().toISOString().slice(0, 10),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const req: GenerateRequest = {
+      userRequest: message,
+      mode: 'improve',
+      forcedType: 'meal_planner',
+      currentCreation: {
+        id: 'meal-plan', title: content.weekLabel || 'Meal plan', creationType: 'meal_planner',
+        content, originalRequest: '', version: 1,
+      },
+      locale,
+    };
+    try {
+      const res = await generateCreation(req);
+      const safe = normalizeGenerateResponse(res, req) ?? res;
+      if (safe.creationType === 'meal_planner' && safe.content.type === 'meal_planner') {
+        return safe.content as MealPlannerContent;
+      }
+      return null;
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        setQuotaNotice({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt });
+      }
+      return null;
+    }
+  }, [isBlockedByQuota]);
+
   // Chat about ONE recipe (inside a cookbook). Wraps the recipe as a `recipe`
   // creation so the AI gets that recipe's full context — independent of the
   // active cookbook. Returns an answer, or an updated recipe when the user asked
@@ -1079,6 +1148,8 @@ export function usePocketVibe(userId?: string) {
     createWorldCupPool,
     createIdeaBoard,
     generateIdeaBoard,
+    generateMealPlan,
+    customizeMealPlan,
     createRecipeBook,
     extractRecipe,
     chatAboutRecipe,

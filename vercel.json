@@ -4,6 +4,7 @@
     { "source": "/terms",     "destination": "/terms.html" },
     { "source": "/tools/recipe-extractor", "destination": "/recipe-extractor.html" },
     { "source": "/tools/idea-board", "destination": "/idea-board.html" },
+    { "source": "/tools/meal-planner", "destination": "/meal-planner.html" },
     { "source": "/icon.png",       "destination": "/icon.png" },
     { "source": "/icon-round.png", "destination": "/icon-round.png" },
     { "source": "/logo.png",       "destination": "/logo.png" },

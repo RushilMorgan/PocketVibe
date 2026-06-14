@@ -233,8 +233,8 @@ export default function App() {
             onCreateWorldCupPool={createWorldCupPool}
             onSignIn={auth.isAvailable && !auth.user && !auth.loading ? () => openAuthModal('account') : undefined}
             onOpenChat={() => setComposerOpen(true)}
-            onOpenIdeaBoard={() => setIdeaIntakeOpen(true)}
-            // The recipe tool now lives on its own shareable, SEO-friendly page.
+            // Idea board + recipe now live on their own shareable, SEO-friendly pages.
+            onOpenIdeaBoard={() => { window.location.href = '/tools/idea-board'; }}
             onOpenRecipe={() => { window.location.href = '/tools/recipe-extractor'; }}
           />
         )}

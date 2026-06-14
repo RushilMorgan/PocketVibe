@@ -179,6 +179,62 @@ export const TOOL_PAGES: Record<string, ToolPageConfig> = {
       },
     ],
   },
+
+  'meal-planner': {
+    key: 'meal-planner',
+    identityKey: 'meal_planner',
+    canonicalPath: '/tools/meal-planner',
+    eyebrow: 'Free meal tool',
+    h1: 'Meal Planner',
+    tagline: 'A week of meals and a grocery list, in seconds.',
+    intro:
+      'Tell Toolie who is eating and any preferences, and get a practical 7-day meal plan plus a ' +
+      'consolidated grocery list. Then make it vegetarian, cheaper, or quicker just by asking. ' +
+      'No sign-up needed to try it.',
+    steps: [
+      {
+        icon: '👨‍👩‍👧',
+        title: "Say who's eating",
+        body: 'How many people, and any preferences or dietary needs.',
+      },
+      {
+        icon: '🗓️',
+        title: 'Toolie plans the week',
+        body: 'A varied 7-day plan plus a grocery list, instantly.',
+      },
+      {
+        icon: '💬',
+        title: 'Tweak it your way',
+        body: 'Vegetarian, cheaper, quicker — just ask Toolie.',
+      },
+    ],
+    customizeIntro:
+      'Your plan is fully editable. Tap an example below to reshape the whole week, or edit any ' +
+      'meal and the grocery list by hand.',
+    chips: [
+      { label: '🥦 Make it vegetarian', prompt: 'Make the whole week vegetarian and update the grocery list.' },
+      { label: '💸 Cheaper meals', prompt: 'Swap in cheaper, budget-friendly meals across the week.' },
+      { label: '⚡ Quicker dinners', prompt: 'Make the dinners quicker — 30 minutes or less.' },
+      { label: '🍱 Add lunches', prompt: 'Add a lunch for every day too.' },
+      { label: '🔁 Less repetition', prompt: 'Make the week more varied with less repetition.' },
+    ],
+    whereNext: [
+      {
+        icon: '💾',
+        title: 'Save your week',
+        body: 'Create a free account to keep your plan and grocery list.',
+        href: '/',
+        cta: 'Save it',
+      },
+      {
+        icon: '🍳',
+        title: 'Try the Recipe Extractor',
+        body: 'Turn any cooking video into a clean, editable recipe.',
+        href: '/tools/recipe-extractor',
+        cta: 'Open',
+      },
+    ],
+  },
 };
 
 export function getToolPageConfig(key: string): ToolPageConfig | undefined {

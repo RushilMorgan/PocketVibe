@@ -3,6 +3,7 @@ import AppShell from './AppShell';
 import { CelebrationLayer } from './CelebrationLayer';
 import { RecipeExtractorTool } from './tools/RecipeExtractorTool';
 import { IdeaBoardTool } from './tools/IdeaBoardTool';
+import { MealPlannerTool } from './tools/MealPlannerTool';
 import { SectionLabel, AccentEyebrow, HeroTile, ToolCard, ToolButton } from './tools/ui';
 import { getToolPageConfig, type ToolPageConfig, type ToolChip, type ToolAccent } from '../lib/toolPages';
 import { getTemplateIdentity } from '../lib/templateIdentity';
@@ -16,6 +17,7 @@ interface ToolPageProps {
 const LIVE_TOOLS: Record<string, React.ComponentType<{ chips: ToolChip[]; accent: ToolAccent }>> = {
   'recipe-extractor': RecipeExtractorTool,
   'idea-board': IdeaBoardTool,
+  'meal-planner': MealPlannerTool,
 };
 
 /**

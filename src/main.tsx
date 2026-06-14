@@ -9,6 +9,9 @@ const App = lazy(() => import('./App'));
 const SharedToolPage = lazy(() =>
   import('./components/SharedToolPage').then(m => ({ default: m.SharedToolPage })),
 );
+const ToolPage = lazy(() =>
+  import('./components/ToolPage').then(m => ({ default: m.ToolPage })),
+);
 
 initAnalytics();
 
@@ -22,6 +25,13 @@ function BootFallback() {
 
 function Router() {
   const pathname = window.location.pathname;
+
+  // Standalone tool pages: /tools/:key (shareable, SEO-friendly).
+  const toolMatch = pathname.match(/^\/tools\/([a-z0-9-]+)/i);
+  if (toolMatch) {
+    return <ToolPage toolKey={toolMatch[1].toLowerCase()} />;
+  }
+
   const match = pathname.match(/^\/s\/([a-z0-9]+)/i);
   if (match) {
     const params = new URLSearchParams(window.location.search);

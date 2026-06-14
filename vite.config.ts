@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath } from 'node:url'
 
 // Safety check: VITE_GEMINI_API_KEY should not be set in a production build.
 // It is a dev-only fallback; production uses the Supabase edge function instead.
@@ -22,4 +23,14 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      // Multi-page: each standalone tool page gets its own HTML entry with
+      // hardcoded SEO meta + structured data, served via a vercel.json rewrite.
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        'recipe-extractor': fileURLToPath(new URL('./recipe-extractor.html', import.meta.url)),
+      },
+    },
+  },
 })

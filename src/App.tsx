@@ -234,7 +234,8 @@ export default function App() {
             onSignIn={auth.isAvailable && !auth.user && !auth.loading ? () => openAuthModal('account') : undefined}
             onOpenChat={() => setComposerOpen(true)}
             onOpenIdeaBoard={() => setIdeaIntakeOpen(true)}
-            onOpenRecipe={() => setRecipeIntakeOpen(true)}
+            // The recipe tool now lives on its own shareable, SEO-friendly page.
+            onOpenRecipe={() => { window.location.href = '/tools/recipe-extractor'; }}
           />
         )}
 

@@ -11,6 +11,7 @@ import type {
   GenerationStageEvent,
   TournamentTeam,
   RecipeContent,
+  IdeaThinkingBoardContent,
 } from '../types';
 import { generateCreation, generateOfflineFallback, chatWithCreation, AIConfigError, QuotaExceededError } from '../services/aiService';
 import { formatQuotaMessage } from '../lib/quotaMessage';
@@ -664,6 +665,39 @@ export function usePocketVibe(userId?: string) {
     }
   }, [isBlockedByQuota]);
 
+  // Generate an Idea Board from a rough idea + intent, RETURNED for a standalone
+  // page to render (no view navigation). Reuses the deployed `idea_thinking_board`
+  // generation; quota-guarded; returns null on failure. Mirrors extractRecipe.
+  const generateIdeaBoard = useCallback(async (
+    categoryLabel: string,
+    idea: string,
+    intentId = 'validate',
+    onStage?: (ev: GenerationStageEvent) => void,
+  ): Promise<IdeaThinkingBoardContent | null> => {
+    if (isBlockedByQuota('generation')) return null;
+    const locale = {
+      date: new Date().toISOString().slice(0, 10),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const req: GenerateRequest = {
+      userRequest: buildIdeaBoardPrompt(categoryLabel, idea, intentId),
+      mode: 'new', locale, forcedType: 'idea_thinking_board',
+    };
+    try {
+      const res = await generateCreation(req, (_status, stageEvent) => {
+        if (stageEvent) onStage?.(stageEvent);
+      });
+      const safe = normalizeGenerateResponse(res, req) ?? res;
+      if (safe.creationType !== 'idea_thinking_board' || safe.content.type !== 'idea_thinking_board') return null;
+      return safe.content as IdeaThinkingBoardContent;
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        setQuotaNotice({ kind: err.kind, tier: err.tier, resetsAt: err.resetsAt });
+      }
+      return null;
+    }
+  }, [isBlockedByQuota]);
+
   // Chat about ONE recipe (inside a cookbook). Wraps the recipe as a `recipe`
   // creation so the AI gets that recipe's full context — independent of the
   // active cookbook. Returns an answer, or an updated recipe when the user asked
@@ -1044,6 +1078,7 @@ export function usePocketVibe(userId?: string) {
     setCreationShareSlug,
     createWorldCupPool,
     createIdeaBoard,
+    generateIdeaBoard,
     createRecipeBook,
     extractRecipe,
     chatAboutRecipe,

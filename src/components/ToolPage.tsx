@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AppShell from './AppShell';
 import { CelebrationLayer } from './CelebrationLayer';
 import { RecipeExtractorTool } from './tools/RecipeExtractorTool';
+import { IdeaBoardTool } from './tools/IdeaBoardTool';
 import { SectionLabel, AccentEyebrow, HeroTile, ToolCard, ToolButton } from './tools/ui';
 import { getToolPageConfig, type ToolPageConfig, type ToolChip, type ToolAccent } from '../lib/toolPages';
 import { getTemplateIdentity } from '../lib/templateIdentity';
@@ -14,6 +15,7 @@ interface ToolPageProps {
 /** Live, interactive body for each tool, looked up by config key. */
 const LIVE_TOOLS: Record<string, React.ComponentType<{ chips: ToolChip[]; accent: ToolAccent }>> = {
   'recipe-extractor': RecipeExtractorTool,
+  'idea-board': IdeaBoardTool,
 };
 
 /**

@@ -30,6 +30,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         'recipe-extractor': fileURLToPath(new URL('./recipe-extractor.html', import.meta.url)),
+        'idea-board': fileURLToPath(new URL('./idea-board.html', import.meta.url)),
       },
     },
   },

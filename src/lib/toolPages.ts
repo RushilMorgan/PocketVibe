@@ -123,6 +123,62 @@ export const TOOL_PAGES: Record<string, ToolPageConfig> = {
       },
     ],
   },
+
+  'idea-board': {
+    key: 'idea-board',
+    identityKey: 'idea_thinking_board',
+    canonicalPath: '/tools/idea-board',
+    eyebrow: 'Free idea tool',
+    h1: 'Idea Brainstorm Board',
+    tagline: 'Turn a rough idea into a clear, visual plan.',
+    intro:
+      'Describe your idea in a sentence and Toolie maps it out — who it is for, the problem ' +
+      'it solves, the risks, ways it could make money, a health score, and what to build first. ' +
+      'Then reshape any part of it just by asking. No sign-up needed to try it.',
+    steps: [
+      {
+        icon: '✍️',
+        title: 'Describe your idea',
+        body: 'One or two sentences — an app, a business, a side hustle, anything.',
+      },
+      {
+        icon: '🧠',
+        title: 'Toolie maps it out',
+        body: 'Target users, risks, money ideas, a health score and a visual map.',
+      },
+      {
+        icon: '💬',
+        title: 'Reshape any card',
+        body: 'Tap a card — or an example below — to rethink that part, live.',
+      },
+    ],
+    customizeIntro:
+      'Your board is fully live. Tap any card to talk to it, or try an example below — Toolie ' +
+      'reshapes just that part in place, without disturbing the rest.',
+    chips: [
+      { label: '👤 Who is this for?', prompt: 'Sharpen who this is for and why they would care.' },
+      { label: '⚠️ Biggest risks?', prompt: 'Add the biggest risks I should worry about.' },
+      { label: '💰 Make money?', prompt: 'Suggest realistic ways this could make money.' },
+      { label: '🛠️ Build first?', prompt: 'Suggest the very first thing I should build to test this.' },
+      { label: '✂️ Make it simpler', prompt: 'Simplify the idea down to its strongest core.' },
+    ],
+    whereNext: [
+      {
+        icon: '💾',
+        title: 'Save your board',
+        body: 'Create a free account to keep it and come back to it anytime.',
+        href: '/',
+        cta: 'Save it',
+      },
+      {
+        icon: '🍳',
+        title: 'Try the Recipe Extractor',
+        body: 'Another free tool — paste a cooking video, get a clean recipe.',
+        href: '/tools/recipe-extractor',
+        cta: 'Open',
+      },
+    ],
+  },
 };
 
 export function getToolPageConfig(key: string): ToolPageConfig | undefined {

@@ -235,6 +235,151 @@ export const TOOL_PAGES: Record<string, ToolPageConfig> = {
       },
     ],
   },
+
+  budget: {
+    key: 'budget',
+    identityKey: 'budget_calculator',
+    canonicalPath: '/tools/budget',
+    eyebrow: 'Free money tool',
+    h1: 'Budget Calculator',
+    tagline: 'See where your money goes — in one minute.',
+    intro:
+      'Tell Toolie your income and main expenses in plain English and get a clear monthly budget ' +
+      'you can edit. Then trim costs, add a savings line, or switch to weekly just by asking. No ' +
+      'sign-up needed to try it.',
+    steps: [
+      { icon: '✍️', title: 'Type your income & costs', body: 'Plain English — "I take home £2,400, rent is £950…".' },
+      { icon: '💰', title: 'Toolie builds the budget', body: 'Income, expenses and the leftover, laid out clearly.' },
+      { icon: '💬', title: 'Tweak it your way', body: 'Trim costs, add savings, or go weekly — just ask.' },
+    ],
+    customizeIntro: 'Your budget is fully editable. Tap an example below to reshape it, or edit any line by hand.',
+    chips: [
+      { label: '✂️ Trim expenses', prompt: 'Suggest where I could trim my expenses and apply it.' },
+      { label: '💵 Add a savings line', prompt: 'Add a monthly savings line and adjust the budget to fit.' },
+      { label: '📉 Cut spending 20%', prompt: 'Cut total spending by about 20% across the expenses.' },
+      { label: '🔁 Make it weekly', prompt: 'Convert the whole budget to weekly amounts.' },
+    ],
+    whereNext: [
+      { icon: '💾', title: 'Keep this budget', body: 'Create a free account to save it and track it over time.', href: '/', cta: 'Save it' },
+      { icon: '🎯', title: 'Try the Savings Goal', body: 'Set a target and watch your progress grow.', href: '/tools/savings', cta: 'Open' },
+    ],
+  },
+
+  savings: {
+    key: 'savings',
+    identityKey: 'savings_tracker',
+    canonicalPath: '/tools/savings',
+    eyebrow: 'Free money tool',
+    h1: 'Savings Goal Tracker',
+    tagline: 'Set a goal and watch it grow.',
+    intro:
+      'Tell Toolie what you are saving for and get a clean savings tracker with a target, an ' +
+      'optional deadline, and room to log every contribution. Then raise the target or set a ' +
+      'deadline just by asking. No sign-up needed to try it.',
+    steps: [
+      { icon: '🎯', title: 'Name your goal', body: '"Save £3,000 for a trip to Japan by December".' },
+      { icon: '📊', title: 'Toolie sets it up', body: 'A target, a progress bar, and a place to log savings.' },
+      { icon: '💬', title: 'Tweak it your way', body: 'Set a deadline, raise the target — just ask.' },
+    ],
+    customizeIntro: 'Your tracker is fully editable. Tap an example below to reshape it, or edit it by hand.',
+    chips: [
+      { label: '📅 Set a deadline', prompt: 'Set a realistic deadline for this goal.' },
+      { label: '⬆️ Raise the target', prompt: 'Raise the target amount by a sensible amount.' },
+      { label: '📈 Monthly amount', prompt: 'Suggest how much I need to save each month to hit this.' },
+      { label: '🎯 Make it realistic', prompt: 'Make this goal more realistic for an average budget.' },
+    ],
+    whereNext: [
+      { icon: '💾', title: 'Keep this goal', body: 'Create a free account to save it and log progress.', href: '/', cta: 'Save it' },
+      { icon: '💰', title: 'Try the Budget Calculator', body: 'See where your money goes each month.', href: '/tools/budget', cta: 'Open' },
+    ],
+  },
+
+  workout: {
+    key: 'workout',
+    identityKey: 'workout_tracker',
+    canonicalPath: '/tools/workout',
+    eyebrow: 'Free fitness tool',
+    h1: 'Workout Plan',
+    tagline: 'A weekly plan that fits your goal and gear.',
+    intro:
+      'Tell Toolie your goal, how many days a week, and what equipment you have, and get a ' +
+      'realistic weekly workout plan you can follow and log. Then make it harder, shorter, or ' +
+      'equipment-free just by asking. No sign-up needed to try it.',
+    steps: [
+      { icon: '🎯', title: 'Set your goal', body: '"Get stronger, 3 days a week, dumbbells at home".' },
+      { icon: '🏋️', title: 'Toolie builds the plan', body: 'A realistic weekly structure for your level.' },
+      { icon: '💬', title: 'Tweak it your way', body: 'Harder, shorter, no equipment — just ask.' },
+    ],
+    customizeIntro: 'Your plan is fully editable. Tap an example below to reshape it, or edit it by hand.',
+    chips: [
+      { label: '🏠 No equipment', prompt: 'Rework the plan to need no equipment.' },
+      { label: '⏱️ 30-min sessions', prompt: 'Make every session 30 minutes or less.' },
+      { label: '💪 Make it harder', prompt: 'Make the whole plan more challenging.' },
+      { label: '🗓️ 3 days a week', prompt: 'Rework it for just 3 days a week.' },
+    ],
+    whereNext: [
+      { icon: '💾', title: 'Keep this plan', body: 'Create a free account to save it and log sessions.', href: '/', cta: 'Save it' },
+      { icon: '🍽️', title: 'Try the Meal Planner', body: 'A week of meals and a grocery list.', href: '/tools/meal-planner', cta: 'Open' },
+    ],
+  },
+
+  'event-planner': {
+    key: 'event-planner',
+    identityKey: 'event_planner',
+    canonicalPath: '/tools/event-planner',
+    eyebrow: 'Free planning tool',
+    h1: 'Event Planner',
+    tagline: 'Everything sorted, in good time.',
+    intro:
+      'Tell Toolie what you are planning and get an event plan with a clear checklist of tasks to ' +
+      'get ready in good time. Then add a timeline, plan for more guests, or keep it simple just by ' +
+      'asking. No sign-up needed to try it.',
+    steps: [
+      { icon: '✍️', title: 'Describe the event', body: '"A 6th birthday party for 15 kids, three weeks away".' },
+      { icon: '✅', title: 'Toolie builds the plan', body: 'A checklist of everything to sort, in order.' },
+      { icon: '💬', title: 'Tweak it your way', body: 'Add a timeline, more guests, or simplify — just ask.' },
+    ],
+    customizeIntro: 'Your plan is fully editable. Tap an example below to reshape it, or tick tasks off by hand.',
+    chips: [
+      { label: '⏳ Add a timeline', prompt: 'Add a week-by-week timeline to the tasks.' },
+      { label: '🛒 Add a shopping list', prompt: 'Add a shopping list of what to buy.' },
+      { label: '👥 More guests', prompt: 'Re-plan this for roughly double the guests.' },
+      { label: '✂️ Keep it simple', prompt: 'Simplify the plan to the essentials only.' },
+    ],
+    whereNext: [
+      { icon: '💾', title: 'Keep this plan', body: 'Create a free account to save it and tick tasks off.', href: '/', cta: 'Save it' },
+      { icon: '🍽️', title: 'Try the Meal Planner', body: 'Plan the food for the week too.', href: '/tools/meal-planner', cta: 'Open' },
+    ],
+  },
+
+  price: {
+    key: 'price',
+    identityKey: 'price_calculator',
+    canonicalPath: '/tools/price',
+    eyebrow: 'Free business tool',
+    h1: 'Price Calculator',
+    tagline: 'Quote it right, every time.',
+    intro:
+      'Tell Toolie what you charge for and get a tidy quote calculator with line items and an ' +
+      'optional tax rate. Then add items, offer a discount, or bundle pricing just by asking. No ' +
+      'sign-up needed to try it.',
+    steps: [
+      { icon: '✍️', title: 'Describe what you charge for', body: '"Garden clearance — call-out, labour, disposal".' },
+      { icon: '🧾', title: 'Toolie builds the quote', body: 'Line items, totals and an optional tax rate.' },
+      { icon: '💬', title: 'Tweak it your way', body: 'Add items, discounts, or bundles — just ask.' },
+    ],
+    customizeIntro: 'Your calculator is fully editable. Tap an example below to reshape it, or edit any line by hand.',
+    chips: [
+      { label: '➕ Add a line item', prompt: 'Add another sensible line item.' },
+      { label: '💸 Offer a discount', prompt: 'Add a discount line that takes 10% off.' },
+      { label: '🧾 Add tax', prompt: 'Add a sensible tax rate to the quote.' },
+      { label: '📦 Bundle pricing', prompt: 'Suggest a bundled package price for everything.' },
+    ],
+    whereNext: [
+      { icon: '💾', title: 'Keep this calculator', body: 'Create a free account to save it and reuse it.', href: '/', cta: 'Save it' },
+      { icon: '💡', title: 'Try the Idea Board', body: 'Pressure-test the business idea behind it.', href: '/tools/idea-board', cta: 'Open' },
+    ],
+  },
 };
 
 export function getToolPageConfig(key: string): ToolPageConfig | undefined {

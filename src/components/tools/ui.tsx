@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ToolAccent } from '../../lib/toolPages';
+import { formatResetHint } from '../../lib/quotaMessage';
 
 /**
  * Velix tool-page UI primitives. Every standalone tool page composes these so a
@@ -90,6 +91,30 @@ export function ToolChip({
     >
       {children}
     </button>
+  );
+}
+
+/** Daily-limit modal, shared by every tool. Renders nothing when notice is null. */
+export function ToolQuotaNotice({
+  notice, onDismiss,
+}: {
+  notice: { tier: string; resetsAt: string } | null;
+  onDismiss: () => void;
+}) {
+  if (!notice) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/40" onClick={onDismiss} />
+      <div data-testid="quota-notice-modal" className="relative bg-white rounded-[24px] p-6 shadow-2xl max-w-xs w-full text-center">
+        <div className="text-4xl mb-2">⏳</div>
+        <h3 className="font-extrabold tp-ink text-base mb-1">That's all for today</h3>
+        <p className="text-sm tp-ink-2 mb-5">
+          You can make more {formatResetHint(notice.resetsAt)}.
+          {notice.tier === 'anonymous' && ' Sign in for a higher daily limit.'}
+        </p>
+        <ToolButton shape="block" full onClick={onDismiss} className="font-bold">Got it</ToolButton>
+      </div>
+    </div>
   );
 }
 

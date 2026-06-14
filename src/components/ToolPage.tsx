@@ -4,6 +4,7 @@ import { CelebrationLayer } from './CelebrationLayer';
 import { RecipeExtractorTool } from './tools/RecipeExtractorTool';
 import { IdeaBoardTool } from './tools/IdeaBoardTool';
 import { MealPlannerTool } from './tools/MealPlannerTool';
+import { GenericTool, TOOL_ENGINES } from './tools/GenericTool';
 import { SectionLabel, AccentEyebrow, HeroTile, ToolCard, ToolButton } from './tools/ui';
 import { getToolPageConfig, type ToolPageConfig, type ToolChip, type ToolAccent } from '../lib/toolPages';
 import { getTemplateIdentity } from '../lib/templateIdentity';
@@ -29,13 +30,15 @@ const LIVE_TOOLS: Record<string, React.ComponentType<{ chips: ToolChip[]; accent
  */
 export function ToolPage({ toolKey }: ToolPageProps) {
   const config = getToolPageConfig(toolKey);
-  const LiveTool = config ? LIVE_TOOLS[config.key] : undefined;
+  const BespokeTool = config ? LIVE_TOOLS[config.key] : undefined;
+  const engine = config ? TOOL_ENGINES[config.key] : undefined;
+  const hasTool = Boolean(BespokeTool || engine);
 
   useEffect(() => {
-    if (!config || !LiveTool) window.location.replace('/');
-  }, [config, LiveTool]);
+    if (!config || !hasTool) window.location.replace('/');
+  }, [config, hasTool]);
 
-  if (!config || !LiveTool) return null;
+  if (!config || !hasTool) return null;
 
   const identity = getTemplateIdentity(config.identityKey);
   const accent: ToolAccent = { accent: identity.accent, accentSoft: identity.accentSoft };
@@ -65,7 +68,9 @@ export function ToolPage({ toolKey }: ToolPageProps) {
         <div className="flex-1 overflow-y-auto">
           <Hero config={config} accent={accent} emoji={identity.emoji} />
           <HowItWorks config={config} accent={accent} />
-          <LiveTool chips={config.chips} accent={accent} />
+          {BespokeTool
+            ? <BespokeTool chips={config.chips} accent={accent} />
+            : <GenericTool engine={engine!} chips={config.chips} accent={accent} />}
           <Customize config={config} accent={accent} />
           <WhereNext config={config} accent={accent} />
           <Footer canonicalPath={config.canonicalPath} title={config.h1} />
@@ -130,10 +135,10 @@ function Customize({ config, accent }: { config: ToolPageConfig; accent: ToolAcc
 
       <ToolCard className="mt-4">
         <div className="flex items-start gap-3">
-          <span className="text-xl flex-shrink-0">🎙️</span>
+          <span className="text-xl flex-shrink-0">✨</span>
           <p className="text-xs tp-ink-2 leading-relaxed">
-            Prefer talking? Open <span className="font-semibold tp-ink">Ask Toolie</span> on your recipe and tap the mic —
-            say "make step three simpler" and it just does it. Or tap any line to edit it by hand.
+            Tap an example above and <span className="font-semibold tp-ink">Toolie</span> reshapes the result in place —
+            or edit any field by hand and your changes stay exactly as you make them.
           </p>
         </div>
       </ToolCard>

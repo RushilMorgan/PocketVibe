@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { TournamentPoolTrackerContent, WorldCupTeam, WorldCupMatch } from '../types';
-import { getWorldCupData } from '../services/worldCupService';
+import { useMemo } from 'react';
+import type { TournamentPoolTrackerContent } from '../types';
 import { buildEffectiveMatches, buildEffectiveTeamStages, calcTournamentScores } from '../lib/tournamentScoring';
 import type { ParticipantScore } from '../lib/tournamentScoring';
 import { enrichPoolTeams, liveResultsEnabled } from '../lib/poolLiveSync';
+import { useWorldCupData } from './useWorldCupData';
 
 /**
  * Live leaderboard for a tournament pool: merges canonical world_cup_matches
@@ -18,24 +18,10 @@ export function useLiveTournamentScores(
   content: TournamentPoolTrackerContent,
 ): ParticipantScore[] | null {
   const enabled = liveResultsEnabled(content);
-  const [wc, setWc] = useState<{ teams: WorldCupTeam[]; matches: WorldCupMatch[] } | null>(null);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    const load = () => {
-      getWorldCupData()
-        .then(data => { if (!cancelled) setWc(data); })
-        .catch(() => { /* offline / not configured — pool-only scores still work */ });
-    };
-    load();
-    // Keep open pages current during match evenings — no refresh needed
-    const interval = setInterval(load, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [enabled]);
+  const wc = useWorldCupData(enabled);
 
   return useMemo(() => {
-    if (!enabled || !wc) return null;
+    if (!enabled || !wc.loaded) return null;
     const teams = enrichPoolTeams(content.teams, wc.teams);
     const effectiveMatches = buildEffectiveMatches(
       teams,

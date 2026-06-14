@@ -11,6 +11,10 @@ import { computePoolGuidance } from '../../lib/guidance';
 import { getThemeAccent } from '../../lib/themes';
 import { celebrate } from '../../lib/celebrate';
 import { useLiveTournamentScores } from '../../hooks/useLiveTournamentScores';
+import { useWorldCupData } from '../../hooks/useWorldCupData';
+import { enrichPoolTeams, liveResultsEnabled } from '../../lib/poolLiveSync';
+import { findResultOverride, resolveCanonicalScore, setResultOverride, isSameFixture } from '../../lib/resultOverrides';
+import type { WorldCupMatch } from '../../types';
 import {
   shuffle,
   runFairSeededDraw,
@@ -261,6 +265,11 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [matchStage, setMatchStage] = useState('Group Stage');
 
+  // ── Correcting a synced result ───────────────────────────────────────────
+  const [fixing, setFixing] = useState<WorldCupMatch | null>(null);
+  const [fixHome, setFixHome] = useState('');
+  const [fixAway, setFixAway] = useState('');
+
   // ── Scoring state ────────────────────────────────────────────────────────
   const [editScoring, setEditScoring] = useState<TournamentScoringRules>({ ...content.scoringRules });
   const [scoringDirty, setScoringDirty] = useState(false);
@@ -278,6 +287,46 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
       : localLeaderboard,
     [liveLeaderboard, localLeaderboard],
   );
+  // Canonical results for the admin to review/correct (World Cup pools)
+  const wc = useWorldCupData(liveResultsEnabled(content));
+  const poolTeams = useMemo(() => enrichPoolTeams(content.teams, wc.teams), [content.teams, wc.teams]);
+  const provLabel = (provId: number): string => {
+    const t = poolTeams.find(x => x.providerTeamId === provId);
+    if (t) return `${t.flagEmoji ?? ''} ${t.name}`.trim();
+    const w = wc.teams.find(x => x.providerTeamId === provId);
+    return w ? w.name : `Team ${provId}`;
+  };
+  const syncedResults = wc.loaded
+    ? wc.matches
+        .filter(m => m.status === 'finished' &&
+          poolTeams.some(t => t.providerTeamId === m.homeTeamId || t.providerTeamId === m.awayTeamId))
+        .slice(-8)
+        .reverse()
+        .map(m => {
+          const override = findResultOverride(content.matches, m, poolTeams);
+          const s = resolveCanonicalScore(m, override, poolTeams);
+          return { m, labelHome: provLabel(m.homeTeamId), labelAway: provLabel(m.awayTeamId), ...s };
+        })
+    : [];
+
+  function openFix(m: WorldCupMatch, home?: number, away?: number) {
+    setFixing(m);
+    setFixHome(home != null ? String(home) : '');
+    setFixAway(away != null ? String(away) : '');
+  }
+  function saveCorrection() {
+    if (!fixing) return;
+    const h = parseInt(fixHome), a = parseInt(fixAway);
+    if (isNaN(h) || isNaN(a)) return;
+    update({ matches: setResultOverride(content.matches, fixing, poolTeams, h, a) });
+    setFixing(null); setFixHome(''); setFixAway('');
+    showToast('Result corrected — everyone will see it');
+  }
+  function revertCorrection(m: WorldCupMatch) {
+    update({ matches: content.matches.filter(pm => !isSameFixture(pm, m, poolTeams)) });
+    showToast('Reverted to the synced result');
+  }
+
   const unassignedTeams = content.teams.filter(t => !t.assignedTo);
   const allTeamsAssigned =
     content.teams.length > 0 &&
@@ -819,7 +868,45 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
     if (sheetView === 'addResult') {
       return (
         <>
-          <SheetHeader title="Add result" onBack={() => setSheetView('manage')} />
+          <SheetHeader title="Results" onBack={() => { setFixing(null); setSheetView('manage'); }} />
+
+          {/* Correcting a synced result */}
+          {fixing && (
+            <div data-testid="fix-result-form" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-amber-700">Fix this score</p>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="flex-1 text-right font-semibold">{provLabel(fixing.homeTeamId)}</span>
+                <input data-testid="fix-score-home" type="number" inputMode="numeric" value={fixHome} onChange={e => setFixHome(e.target.value)} placeholder="0" className="w-14 rounded-lg border border-amber-300 px-2 py-2 text-center text-lg font-bold" />
+                <span className="font-bold text-gray-400">–</span>
+                <input data-testid="fix-score-away" type="number" inputMode="numeric" value={fixAway} onChange={e => setFixAway(e.target.value)} placeholder="0" className="w-14 rounded-lg border border-amber-300 px-2 py-2 text-center text-lg font-bold" />
+                <span className="flex-1 font-semibold">{provLabel(fixing.awayTeamId)}</span>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={() => setFixing(null)} className="flex-1 rounded-lg bg-white py-2 text-sm font-semibold text-gray-600 border border-gray-200">Cancel</button>
+                <button data-testid="save-correction-btn" onClick={saveCorrection} className="flex-1 rounded-lg bg-amber-600 py-2 text-sm font-bold text-white active:bg-amber-700">Save correction</button>
+              </div>
+            </div>
+          )}
+
+          {/* Synced results — tap any wrong one to correct it for everyone */}
+          {syncedResults.length > 0 && (
+            <div className="mb-4 space-y-1">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Synced results · tap to fix</p>
+              {syncedResults.map(r => (
+                <div key={String(r.m.providerMatchId)} data-testid={`synced-row-${r.m.providerMatchId}`} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  <button onClick={() => openFix(r.m, r.homeScore, r.awayScore)} className="flex-1 text-left active:opacity-70">
+                    {r.labelHome} <span className="font-bold">{r.homeScore ?? '–'} – {r.awayScore ?? '–'}</span> {r.labelAway}
+                    {r.isManual && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">corrected</span>}
+                  </button>
+                  {r.isManual && (
+                    <button data-testid={`revert-${r.m.providerMatchId}`} onClick={() => revertCorrection(r.m)} className="ml-2 text-xs font-semibold text-gray-400 active:text-gray-600">revert</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-gray-400">Add a custom result</p>
           <div className="space-y-3">
             <div className="flex gap-2">
               <select data-testid="match-team-a-select" value={matchTeamA} onChange={e => setMatchTeamA(e.target.value)} className="flex-1 rounded-lg border border-gray-200 px-2 py-2.5 text-sm">
@@ -840,10 +927,10 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
             <input type="date" value={matchDate} onChange={e => setMatchDate(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm" />
           </div>
 
-          {content.matches.length > 0 && (
+          {content.matches.filter(m => m.providerMatchId == null).length > 0 && (
             <div className="mt-4 space-y-1">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Previous results</p>
-              {content.matches.map(m => {
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Custom results</p>
+              {content.matches.filter(m => m.providerMatchId == null).map(m => {
                 const tA = content.teams.find(t => t.id === m.teamAId);
                 const tB = content.teams.find(t => t.id === m.teamBId);
                 return (

@@ -22,6 +22,8 @@ import { IdeaDecisionMatrixCard } from './IdeaDecisionMatrixCard';
 interface Props {
   content: IdeaThinkingBoardContent;
   onChange: (updated: IdeaThinkingBoardContent) => void;
+  /** Velix light/frosted chrome (standalone tool page); default = app look. */
+  frosted?: boolean;
 }
 
 interface ActiveElement {
@@ -371,11 +373,13 @@ function RadarChart({ scores, revealed, onTap }: {
 const SEVERITY_X: Record<string, number> = { low: 0.82, medium: 0.50, high: 0.18 };
 const IMPACT_Y:   Record<string, number> = { low: 0.75, medium: 0.50, high: 0.20 };
 
-function RiskMatrixChart({ content, onTapRisk, revealed }: {
+function RiskMatrixChart({ content, onTapRisk, revealed, frosted }: {
   content: IdeaThinkingBoardContent;
   onTapRisk?: (risk: IdeaRisk) => void;
   revealed?: boolean;
+  frosted?: boolean;
 }) {
+  const cardP4 = frosted ? 'tp-card rounded-2xl p-4' : 'bg-white rounded-2xl border border-gray-100 p-4';
   // First tap → select (show label); second tap → open AI sheet
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Legend: show first 4, expandable
@@ -428,7 +432,7 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
   const selectedPos  = selectedIdx >= 0 ? dotPositions[selectedIdx] : null;
 
   return (
-    <div data-testid="risk-matrix-chart" className="bg-white rounded-2xl border border-gray-100 p-4">
+    <div data-testid="risk-matrix-chart" className={cardP4}>
       <h4 className="text-sm font-bold text-gray-800 mb-1">Risk vs Reward</h4>
       <p className="text-xs text-gray-400 mb-3">
         Tap a dot to see what it is · tap again to explore with Toolie
@@ -559,9 +563,13 @@ function RiskMatrixChart({ content, onTapRisk, revealed }: {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
+export function IdeaThinkingBoardRenderer({ content, onChange, frosted = false }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [editMode, setEditMode] = useState(false);
+
+  // Velix frosted card surfaces (tool page) vs the app's white cards.
+  const cardP4 = frosted ? 'tp-card rounded-2xl p-4' : 'bg-white rounded-2xl border border-gray-100 p-4';
+  const cardFlush = frosted ? 'tp-card rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden';
 
   // ── Reveal animation — triggers stagger on first mount ────────────────────
   const [revealed, setRevealed] = useState(false);
@@ -667,19 +675,19 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         {/* At a glance — ICE verdict + SWOT, computed live from the board */}
         {!editMode && (
           <div className={revealed ? 'animate-fade-in' : 'opacity-0'} style={{ animationDelay: '0ms' }}>
-            <IdeaSnapshot content={content} />
+            <IdeaSnapshot content={content} frosted={frosted} />
           </div>
         )}
 
         {/* Weighted decision matrix — present on decision/comparison boards */}
         {!editMode && content.decisionMatrix && (
           <div className={revealed ? 'animate-fade-in' : 'opacity-0'} style={{ animationDelay: '40ms' }}>
-            <IdeaDecisionMatrixCard matrix={content.decisionMatrix} />
+            <IdeaDecisionMatrixCard matrix={content.decisionMatrix} frosted={frosted} />
           </div>
         )}
 
         {/* Hero card */}
-        <div className={`bg-white rounded-2xl border border-gray-100 overflow-hidden ${revealed ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '60ms' }}>
+        <div className={`${cardFlush} ${revealed ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '60ms' }}>
           <div className="px-4 pt-4 pb-3" style={{ background: 'linear-gradient(135deg, #7c3aed15, #a855f715)' }}>
             {editMode ? (
               <input
@@ -749,7 +757,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         {/* Five Whys root-cause chain — present on validate boards */}
         {!editMode && content.fiveWhys && content.fiveWhys.length >= 2 && (
           <div className={revealed ? 'animate-fade-in' : 'opacity-0'} style={{ animationDelay: '70ms' }}>
-            <IdeaFiveWhys steps={content.fiveWhys} />
+            <IdeaFiveWhys steps={content.fiveWhys} frosted={frosted} />
           </div>
         )}
 
@@ -757,7 +765,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         <div
           data-testid="idea-health-score"
           onClick={() => openElement('scores', null, 'Idea health scores', content.scores)}
-          className={`${talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'scores', null)} ${revealed ? 'animate-fade-in' : 'opacity-0'}`}
+          className={`${talkCard(cardP4, 'scores', null)} ${revealed ? 'animate-fade-in' : 'opacity-0'}`}
           style={{ animationDelay: '80ms' }}
         >
           <div className="flex items-center justify-between mb-1">
@@ -821,7 +829,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         </div>
 
         {/* Target users */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className={cardP4}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-gray-800">Who is this for?</h3>
             {editMode && (
@@ -902,7 +910,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
         </div>
 
         {/* Notes */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className={cardP4}>
           <h3 className="text-sm font-bold text-gray-800 mb-2">Notes</h3>
           <textarea
             data-testid="edit-notes"
@@ -922,7 +930,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
   function renderMap() {
     return (
       <div className="flex flex-col gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className={cardP4}>
           <h3 className="text-sm font-bold text-gray-800 mb-3">Visual idea map</h3>
           <IdeaMapSVG
             content={content}
@@ -962,6 +970,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
             content={content}
             revealed={revealed}
             onTapRisk={editMode ? undefined : (r) => openElement('risk', r.id, r.title, r)}
+            frosted={frosted}
           />
         )}
         <div className="flex items-center justify-between">
@@ -988,7 +997,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
               key={risk.id}
               data-testid={`risk-card-${risk.id}`}
               onClick={() => openElement('risk', risk.id, risk.title, risk)}
-              className={talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'risk', risk.id)}
+              className={talkCard(cardP4, 'risk', risk.id)}
             >
               {editMode ? (
                 <div className="space-y-2">
@@ -1072,7 +1081,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
     return (
       <div className="flex flex-col gap-4">
         {/* Next steps */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className={cardP4}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-gray-800">What to do next</h3>
             <button
@@ -1163,7 +1172,7 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
             key={idea.id}
             data-testid={`money-card-${idea.id}`}
             onClick={() => openElement('moneyIdea', idea.id, idea.model, idea)}
-            className={talkCard('bg-white rounded-2xl border border-gray-100 p-4', 'moneyIdea', idea.id)}
+            className={talkCard(cardP4, 'moneyIdea', idea.id)}
           >
             {editMode ? (
               <div className="space-y-2">
@@ -1236,10 +1245,10 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
     <>
     <div className="flex flex-col gap-0 pb-4">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 sticky top-0 z-10">
+      <div className={`flex items-center justify-between px-4 py-3 sticky top-0 z-10 ${frosted ? 'bg-white/70 border-b border-black/5' : 'bg-white border-b border-gray-100'}`}>
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-base">💡</span>
-          <span className="text-xs font-bold text-gray-700 truncate">Idea Board</span>
+          <span className={`text-xs font-bold truncate ${frosted ? 'tp-ink' : 'text-gray-700'}`}>Idea Board</span>
           <span
             data-testid="health-badge"
             className="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
@@ -1252,7 +1261,9 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
           data-testid="edit-idea-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors flex-shrink-0 ${
-            editMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode
+              ? (frosted ? 'tp-btn-dark' : 'bg-violet-600 text-white')
+              : (frosted ? 'tp-glass tp-ink' : 'bg-gray-100 text-gray-600 active:bg-gray-200')
           }`}
         >
           {editMode ? 'Done' : 'Edit idea'}
@@ -1260,15 +1271,22 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
       </div>
 
       {/* Tap-to-talk hint (view mode only) */}
-      {!editMode && (
+      {!editMode && (frosted ? (
+        <div className="mx-4 mt-3 -mb-1 flex items-center gap-2.5 tp-card rounded-[16px] px-3.5 py-2.5">
+          <span className="w-7 h-7 rounded-[10px] flex items-center justify-center text-sm flex-shrink-0" style={{ background: '#f5f3ff' }}>✨</span>
+          <p className="text-xs tp-ink-2 leading-snug">
+            <span className="font-semibold tp-ink">Tap any card to refine it</span> — a risk, the money ideas, the next steps. Toolie reshapes just that part.
+          </p>
+        </div>
+      ) : (
         <div className="px-4 py-1.5 bg-violet-50/60 border-b border-violet-100/60 flex items-center gap-1.5">
           <span className="text-violet-400 text-[11px]">✦</span>
           <p className="text-[11px] text-violet-600/80">Tap any card to talk to Toolie about it.</p>
         </div>
-      )}
+      ))}
 
       {/* Tab bar */}
-      <div className="flex overflow-x-auto px-3 py-2 gap-1 bg-white border-b border-gray-100 no-scrollbar">
+      <div className={`flex overflow-x-auto px-3 py-2 gap-1 no-scrollbar ${frosted ? '' : 'bg-white border-b border-gray-100'}`}>
         {TABS.map(t => (
           <button
             key={t.id}
@@ -1276,8 +1294,8 @@ export function IdeaThinkingBoardRenderer({ content, onChange }: Props) {
             onClick={() => setTab(t.id)}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-colors ${
               tab === t.id
-                ? 'bg-violet-600 text-white'
-                : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                ? (frosted ? 'tp-btn-dark' : 'bg-violet-600 text-white')
+                : (frosted ? 'tp-glass tp-ink' : 'bg-gray-100 text-gray-600 active:bg-gray-200')
             }`}
           >
             <span>{t.emoji}</span>

@@ -40,6 +40,10 @@ it to the user, explain the data impact, and ask how they want to handle it.
 - **QA / staging** work is done on the `qa` branch — merge to `main` only when ready to go live
 - SPA routing handled via `vercel.json` rewrite: all paths serve `index.html`
 - Shared tool pages route as `/s/:slug` client-side
+- **Standalone tool pages** route as `/tools/:key` and are **prerendered** HTML
+  entries (multi-page Vite build) served via explicit `vercel.json` rewrites
+  placed *above* the SPA catch-all. `robots.txt` + `sitemap.xml` live in
+  `public/`. See **Standalone Tool Pages (SEO)** below.
 
 ---
 
@@ -56,9 +60,19 @@ it to the user, explain the data impact, and ask how they want to handle it.
 
 ### Tailwind CSS v4
 - Utility-first styling via `@tailwindcss/vite` plugin
-- **Design system — two tiers:**
-  - **Dark chrome** (`gray-950` / `gray-900` + violet/yellow accents) — Toolie AI UI, shared page headers, FAB
-  - **Light canvas** (white / `gray-50`) — tool content rendered inside the app
+- **Design system — "Velix" (light/frosted, monochrome-primary). READ
+  [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) before styling anything new** — it is
+  the single source for tokens, primitives, and patterns.
+  - **Light & frosted everywhere.** Pearlescent canvas, translucent white cards,
+    hairline borders, soft shadows. The old dark `gray-950` Toolie chrome is gone
+    — every surface (home, header, FAB + chat sheet, tool pages, idea board,
+    intake sheets, `/s/:slug`) is light Velix.
+  - **Near-black `#16150f` is primary** (buttons, FAB, send, active pills); each
+    type's identity colour is a **soft pastel accent** only. Data-viz colours
+    (ICE ring, SWOT, score bars) are kept.
+  - **Compose, don't hand-roll:** the scoped `.tp-*` layer (`index.css`), the
+    primitives in `src/components/tools/ui.tsx`, and the per-type identity in
+    `src/lib/templateIdentity.ts`. Never re-declare colours/emoji/per-type maps.
 
 ### Lucide React
 - Icon library — use existing icons before adding new ones
@@ -91,10 +105,15 @@ and big files get smaller every time they're touched — never bigger.**
 - **Shared UI** → `src/components/shared/` (e.g. `BottomSheet.tsx`,
   `ElementChatSheet.tsx`). Never copy-paste sheet/modal/row scaffolding — if
   you're about to paste JSX from another component, extract it instead.
-- **Single source of truth for cross-cutting maps** →
-  `src/lib/creationTypeMeta.ts` (emoji/label/accent per type, exhaustively
-  typed `Record<CreationType, …>` so the compiler flags a missing entry). Never
-  re-declare per-type maps locally.
+- **Single source of truth for per-type identity** →
+  `src/lib/templateIdentity.ts` holds the full palette (emoji, label, tagline,
+  accent + soft/border, gradient) as an exhaustive `Record<CreationType, …>` so
+  the compiler flags a missing entry. `src/lib/creationTypeMeta.ts` **derives**
+  its `TYPE_EMOJI` / `TYPE_LABEL` / `TYPE_ACCENT` (and `ALL_CREATION_TYPES`) from
+  it — so the list, header, hero and canvas can never drift apart. To change a
+  type's look, edit `templateIdentity.ts` only; never re-declare a per-type map
+  (emoji/label/accent/colour) anywhere else, and don't hardcode a per-type hex
+  in a renderer — read the accent or use the `tpl-*` utilities.
 - **Big renderers**: split by section into sub-components in the same folder
   (header / list / sheet views), keeping the `content`-in, `onChange`-out
   contract at the top level.
@@ -158,6 +177,50 @@ templates should adopt it as they're meaningfully touched.
 4. Add the `element_edit` prompt branch for the new kinds (keep client/edge prompts in sync)
    and **deploy the edge function**.
 5. Cover it with tests mirroring `src/__tests__/tapToTalk.test.tsx`.
+
+---
+
+## Standalone Tool Pages (SEO)
+
+Any tool can have its own **shareable, crawlable** landing page at `/tools/:key`
+(first one: `/tools/recipe-extractor`). The page **reuses the existing tool
+components** and works **anonymously**, so a visitor arriving from search can use
+it immediately (sign-in is only prompted to save/share). This is the pattern for
+promoting individual tools for SEO going forward.
+
+### Architecture (reuse — do not fork the tool UI)
+- `src/lib/toolPages.ts` — pure-data registry (`TOOL_PAGES`): per-tool hero copy,
+  how-it-works steps, customize chips, where-next, identity key, canonical path.
+  No React imports, so it's testable and readable by build/SEO tooling.
+- `src/components/ToolPage.tsx` — generic shell (hero → how-it-works → live tool →
+  customize → where-next → footer). Maps `key → live component` via `LIVE_TOOLS`
+  and **redirects unknown keys home**.
+- `src/components/tools/<Tool>.tsx` — the live, anonymous interactive body. Reuses
+  the **deployed** generation paths (e.g. `extractRecipe` / `chatAboutRecipe`) and
+  the existing renderer — never a re-implementation. Customize chips + the
+  renderer's built-in tap-to-talk sheet are the Toolie surface (no separate FAB).
+- Route: `/tools/:key` matched in `main.tsx`, **lazy-loaded** (code-split, like
+  `/s/:slug`).
+- SEO: a prerendered HTML entry at repo root (`<key>.html`) with hardcoded
+  `<title>` / description / canonical / OG / Twitter + JSON-LD; registered as a
+  Vite multi-page `build.rollupOptions.input`; served at the pretty URL via a
+  `vercel.json` rewrite **above** the `/(.*)` SPA fallback. Use **absolute**
+  `https://heytoolie.com` URLs in the prerendered head.
+
+### Required when adding a new tool page
+1. Add a `TOOL_PAGES` entry in `src/lib/toolPages.ts` **and** a `LIVE_TOOLS`
+   component mapping in `ToolPage.tsx`.
+2. Build the live component from existing tool logic / renderers — **reuse, don't
+   fork**. It must work without a signed-in session.
+3. Add the prerendered `<key>.html` (real meta + canonical + OG + JSON-LD,
+   absolute URLs) — keep its visible copy in sync with the `TOOL_PAGES` config.
+4. Register it as a Vite input (`vite.config.ts`) **and** add the `vercel.json`
+   rewrite above the SPA catch-all.
+5. **Add the URL to `public/sitemap.xml`** (keep `robots.txt` pointing at the
+   sitemap). ← easy to forget; the page won't be discovered without it.
+6. Verify: `npm run build`, confirm `dist/<key>.html` carries the meta + JSON-LD
+   and `dist/sitemap.xml` lists the URL, then confirm the page renders and the
+   tool works **anonymously** in the browser.
 
 ---
 

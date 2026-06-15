@@ -16,6 +16,8 @@ interface RecipeRendererProps {
   onChange: (updated: RecipeContent) => void;
   /** Tap-to-talk: ask Toolie about this recipe (it has full recipe context). */
   onChat?: (message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
+  /** Velix light/frosted card surface (standalone tool pages); default = app look. */
+  frosted?: boolean;
 }
 
 function ingredientLabel(i: RecipeIngredient): string {
@@ -24,7 +26,9 @@ function ingredientLabel(i: RecipeIngredient): string {
 
 const QUICK_PROMPTS = ['Make it dairy-free', 'Scale to 4 people', 'Simplify the steps', 'Suggest a side dish'];
 
-export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProps) {
+export function RecipeRenderer({ content, onChange, onChat, frosted = false }: RecipeRendererProps) {
+  const card = frosted ? 'tp-card overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden';
+  const cardPad = frosted ? 'tp-card p-4' : 'bg-white rounded-2xl border border-gray-100 p-4';
   const [editMode, setEditMode] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
@@ -133,7 +137,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           data-testid="edit-recipe-btn"
           onClick={() => setEditMode(e => !e)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-            editMode ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            editMode ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
           }`}
         >
           {editMode ? 'Done' : '✎ Edit by hand'}
@@ -141,7 +145,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
       </div>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className={card}>
         {content.thumbnailUrl && (
           <VideoThumb src={content.thumbnailUrl} className="w-full h-40 object-cover" />
         )}
@@ -151,7 +155,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
               data-testid="recipe-title-input"
               value={content.title}
               onChange={e => update({ title: e.target.value })}
-              className="w-full text-lg font-bold border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              className="w-full text-lg font-bold border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400"
             />
           ) : (
             <h2 className="text-lg font-black text-gray-900 leading-tight">{content.title}</h2>
@@ -164,7 +168,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                 <span key={idx}>
                   {a.label}{' '}
                   {a.url
-                    ? <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-violet-500 underline">link</a>
+                    ? <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-rose-500 underline">link</a>
                     : null}
                   {idx < content.attribution!.length - 1 ? ' ·' : ''}
                 </span>
@@ -192,7 +196,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
               href={content.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full active:bg-violet-100"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full active:bg-rose-100"
             >
               ▶ Watch original
             </a>
@@ -201,7 +205,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
       </div>
 
       {/* ── Ingredients + shopping list ─────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className={card}>
         <div className="px-4 pt-4 pb-2 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800 text-sm">Ingredients</h3>
           <span className="text-xs text-gray-400">Tick what you have</span>
@@ -212,11 +216,11 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
               {editMode ? (
                 <div className="flex items-center gap-2">
                   <input value={i.quantity ?? ''} placeholder="1" onChange={e => updateIngredient(i.id, 'quantity', e.target.value)}
-                    className="w-12 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="w-12 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                   <input value={i.unit ?? ''} placeholder="cup" onChange={e => updateIngredient(i.id, 'unit', e.target.value)}
-                    className="w-16 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="w-16 text-sm border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                   <input value={i.name} placeholder="ingredient" onChange={e => updateIngredient(i.id, 'name', e.target.value)}
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                   <button onClick={() => deleteIngredient(i.id)} className="text-red-400 hover:text-red-600 p-1" aria-label="Delete ingredient">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                   </button>
@@ -225,7 +229,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                 <div className="flex items-center gap-1">
                   <button onClick={() => toggleHave(i.id)} className="flex-1 flex items-center gap-2.5 active:bg-gray-50 text-left min-w-0">
                     <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-                      i.have ? 'bg-violet-600 border-violet-600' : 'border-gray-300'
+                      i.have ? 'bg-rose-600 border-rose-600' : 'border-gray-300'
                     }`}>
                       {i.have && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                     </span>
@@ -235,7 +239,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                   {onChat && (
                     <button
                       onClick={() => openChatWith(`About "${ingredientLabel(i)}": `)}
-                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-violet-50 hover:border-violet-200 active:bg-violet-100"
+                      className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-rose-50 hover:border-rose-200 active:bg-rose-100"
                       aria-label="Ask Toolie about this ingredient"
                       title="Ask Toolie"
                     >💬</button>
@@ -248,7 +252,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
         {editMode && (
           <div className="px-4 pb-4 pt-2">
             <button data-testid="add-ingredient-btn" onClick={addIngredient}
-              className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-xl py-2 active:bg-violet-50">
+              className="w-full text-sm text-rose-600 font-semibold border-2 border-dashed border-rose-200 rounded-xl py-2 active:bg-rose-50">
               + Add ingredient
             </button>
           </div>
@@ -262,7 +266,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wide">Shopping list</h4>
             <button data-testid="copy-shopping-btn" onClick={copyShoppingList}
-              className="text-xs font-semibold text-violet-600 active:opacity-70">
+              className="text-xs font-semibold text-rose-600 active:opacity-70">
               {shareNote ?? 'Copy / share'}
             </button>
           </div>
@@ -284,7 +288,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                     </span>
                     {editMode ? (
                       <input value={x.name} placeholder="item" onChange={e => updateExtra(x.id, e.target.value)} onClick={e => e.stopPropagation()}
-                        className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                        className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-rose-400" />
                     ) : (
                       <span className={`text-sm ${x.checked ? 'line-through text-gray-400' : 'text-gray-700'}`}>{x.name}</span>
                     )}
@@ -309,10 +313,11 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
         editMode={editMode}
         onUpdate={update}
         onAskAboutStep={onChat ? openChatWith : undefined}
+        frosted={frosted}
       />
 
       {/* ── Notes ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+      <div className={cardPad}>
         <h3 className="font-semibold text-gray-800 text-sm mb-2">My notes</h3>
         <textarea
           data-testid="recipe-notes"
@@ -320,16 +325,16 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           onChange={e => update({ notes: e.target.value })}
           placeholder="Add your own notes — tweaks, timings, what worked…"
           rows={3}
-          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
         />
       </div>
 
       {/* ── Tags ────────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         {(content.tags ?? []).map(t => (
-          <span key={t} className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full">
+          <span key={t} className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full">
             #{t}
-            <button onClick={() => removeTag(t)} aria-label={`Remove ${t}`} className="text-violet-400 hover:text-violet-700">×</button>
+            <button onClick={() => removeTag(t)} aria-label={`Remove ${t}`} className="text-rose-400 hover:text-rose-700">×</button>
           </span>
         ))}
         <input
@@ -339,7 +344,7 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
           onKeyDown={e => { if (e.key === 'Enter') addTag(); }}
           onBlur={addTag}
           placeholder="+ tag"
-          className="text-xs w-20 border border-gray-200 rounded-full px-3 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400"
+          className="text-xs w-20 border border-gray-200 rounded-full px-3 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400"
         />
       </div>
 
@@ -348,48 +353,52 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
         <button
           data-testid="recipe-ask-toolie"
           onClick={() => setChatOpen(true)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950 active:bg-gray-900 text-left"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl tp-card active:scale-[0.99] transition-transform text-left"
         >
           <span className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #e11d48, #f43f5e)' }}>✨</span>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white leading-tight">Ask Toolie about this recipe</p>
-            <p className="text-xs text-white/45 mt-0.5">Substitutions, scaling, tips — anything.</p>
+            <p className="text-xs font-bold tp-ink leading-tight">Ask Toolie about this recipe</p>
+            <p className="text-xs tp-ink-3 mt-0.5">Substitutions, scaling, tips — anything.</p>
           </div>
-          <span className="text-white/30 text-sm flex-shrink-0">→</span>
+          <span className="tp-ink-3 text-sm flex-shrink-0">→</span>
         </button>
       )}
 
       {onChat && chatOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChatOpen(false)} />
-          <div className="relative bg-gray-950 rounded-t-3xl shadow-2xl flex flex-col max-h-[85%] z-10 border-t border-rose-500/20">
-            <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 bg-white/20 rounded-full" /></div>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
+          <div className="relative bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[85%] z-10">
+            <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(22,21,15,0.15)' }} /></div>
             <div className="px-5 pb-2 pt-1 flex-shrink-0">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-rose-300 font-black">Ask Toolie</p>
-              <p className="text-sm font-semibold text-white truncate">{content.title}</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] tp-ink-3 font-black">Ask Toolie</p>
+              <p className="text-sm font-bold tp-ink truncate">{content.title}</p>
             </div>
 
             {/* Conversation */}
             <div className="flex-1 overflow-y-auto px-5 py-2 min-h-0 flex flex-col gap-2">
               {chatMsgs.length === 0 && (
-                <p className="text-xs text-white/40 py-2">
+                <p className="text-xs tp-ink-3 py-2">
                   Ask anything about this recipe — "what can I swap for tahini?", "how long do leftovers keep?", "make step 3 simpler". I already know the whole recipe.
                 </p>
               )}
               {chatMsgs.map((m, idx) => (
-                <div key={idx} className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${m.role === 'user' ? 'self-end bg-rose-600 text-white' : 'self-start bg-white/10 text-white/90'}`}>
+                <div
+                  key={idx}
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${m.role === 'user' ? 'self-end text-white' : 'self-start tp-ink'}`}
+                  style={m.role === 'user' ? { background: '#16150f' } : { background: 'rgba(22,21,15,0.05)' }}
+                >
                   {m.text}
                 </div>
               ))}
-              {chatBusy && <div className="self-start bg-white/10 text-white/60 rounded-2xl px-3.5 py-2 text-sm animate-pulse">Toolie is thinking…</div>}
+              {chatBusy && <div className="self-start tp-ink-2 rounded-2xl px-3.5 py-2 text-sm animate-pulse" style={{ background: 'rgba(22,21,15,0.05)' }}>Toolie is thinking…</div>}
             </div>
 
             {/* Quick prompts */}
             {chatMsgs.length === 0 && !chatBusy && (
               <div className="px-5 pb-2 flex flex-wrap gap-2 flex-shrink-0">
                 {QUICK_PROMPTS.map(q => (
-                  <button key={q} onClick={() => sendChat(q)} className="text-xs font-semibold text-rose-200 bg-rose-400/10 border border-rose-400/25 px-3 py-1.5 rounded-full active:bg-rose-400/20">
+                  <button key={q} onClick={() => sendChat(q)} className="tp-glass text-xs font-semibold tp-ink px-3 py-1.5 rounded-full active:scale-95 transition-transform">
                     {q}
                   </button>
                 ))}
@@ -404,10 +413,11 @@ export function RecipeRenderer({ content, onChange, onChat }: RecipeRendererProp
                 onChange={e => setChatInput(e.target.value)}
                 autoFocus
                 placeholder="Ask about an ingredient, a step, anything…"
-                className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="tp-input flex-1 rounded-full px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{ ['--tw-ring-color' as string]: 'rgba(22,21,15,0.18)' }}
               />
               <button type="submit" disabled={chatBusy || !chatInput.trim()}
-                className="w-11 h-11 rounded-full flex items-center justify-center bg-rose-500 text-white disabled:opacity-40 active:bg-rose-600 flex-shrink-0" aria-label="Send">
+                className="tp-btn-dark w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform flex-shrink-0" aria-label="Send">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
               </button>
             </form>
@@ -450,7 +460,7 @@ function StatText({ icon, label, value, editMode, onChange }: {
       <span className="text-gray-400">{label}</span>
       {editMode ? (
         <input value={value ?? ''} placeholder="10 min" onChange={e => onChange(e.target.value)}
-          className="w-16 text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+          className="w-16 text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-rose-400" />
       ) : (
         <span className="font-semibold text-gray-800">{value}</span>
       )}

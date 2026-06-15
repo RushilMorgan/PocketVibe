@@ -13,6 +13,8 @@ interface RecipeStepsProps {
   onUpdate: (patch: Partial<RecipeContent>) => void;
   /** Tap-to-talk: prefill a question about a step. Absent when chat is off. */
   onAskAboutStep?: (prefill: string) => void;
+  /** Velix light/frosted card surface (standalone tool pages); default = app look. */
+  frosted?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface RecipeStepsProps {
  * gets a tappable timer; when it runs out, the nudge fits the view — card and
  * list point at the next step below, the focus step view offers to advance.
  */
-export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: RecipeStepsProps) {
+export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep, frosted = false }: RecipeStepsProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const layout: RecipeLayoutMode = content.layoutMode ?? 'card';
   const steps = content.steps;
@@ -73,7 +75,7 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
   const currentIsLast = safeStepIndex >= steps.length - 1;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div className={frosted ? 'tp-card overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden'}>
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <h3 className="font-semibold text-gray-800 text-sm">Steps</h3>
         {/* Layout switcher */}
@@ -84,7 +86,7 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
               data-testid={`recipe-layout-${mode}`}
               onClick={() => { onUpdate({ layoutMode: mode }); setStepIndex(0); }}
               className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize transition-colors ${
-                layout === mode ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500'
+                layout === mode ? 'bg-white text-rose-700 shadow-sm' : 'text-gray-500'
               }`}
             >
               {mode}
@@ -102,12 +104,12 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
           <div className="flex flex-col gap-2">
             {steps.map(s => (
               <div key={s.id} className="flex items-start gap-2">
-                <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-1">{s.number}</span>
+                <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-1">{s.number}</span>
                 <div className="flex-1">
                   <textarea value={s.text} placeholder="Describe this step…" onChange={e => updateStep(s.id, 'text', e.target.value)} rows={2}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none" />
+                    className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none" />
                   <input value={s.time ?? ''} placeholder="time (optional, e.g. 5 min)" onChange={e => updateStep(s.id, 'time', e.target.value)}
-                    className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rose-400" />
                 </div>
                 <button onClick={() => deleteStep(s.id)} className="text-red-400 hover:text-red-600 p-1 mt-1" aria-label="Delete step">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -115,7 +117,7 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
               </div>
             ))}
             <button data-testid="add-step-btn" onClick={addStep}
-              className="w-full text-sm text-violet-600 font-semibold border-2 border-dashed border-violet-200 rounded-xl py-2 active:bg-violet-50">
+              className="w-full text-sm text-rose-600 font-semibold border-2 border-dashed border-rose-200 rounded-xl py-2 active:bg-rose-50">
               + Add step
             </button>
           </div>
@@ -125,10 +127,10 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
             {/* Progress dots */}
             <div className="flex items-center gap-1">
               {steps.map((_, idx) => (
-                <span key={idx} className={`w-1.5 h-1.5 rounded-full ${idx === safeStepIndex ? 'bg-violet-600' : 'bg-gray-200'}`} />
+                <span key={idx} className={`w-1.5 h-1.5 rounded-full ${idx === safeStepIndex ? 'bg-rose-600' : 'bg-gray-200'}`} />
               ))}
             </div>
-            <span className="text-xs font-bold text-violet-500 uppercase tracking-wide">
+            <span className="text-xs font-bold text-rose-500 uppercase tracking-wide">
               Step {safeStepIndex + 1} of {steps.length}
             </span>
             <p className="text-base text-gray-800 leading-relaxed min-h-[4rem]">{current?.text}</p>
@@ -153,7 +155,7 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
 
             {onAskAboutStep && current && (
               <button onClick={() => onAskAboutStep(`About step ${safeStepIndex + 1} ("${current.text.slice(0, 40)}…"): `)}
-                className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full active:bg-violet-100">
+                className="text-xs font-semibold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full active:bg-rose-100">
                 💬 Ask about this step
               </button>
             )}
@@ -161,16 +163,16 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
               <button disabled={safeStepIndex === 0} onClick={() => setStepIndex(i => Math.max(0, i - 1))}
                 className="px-4 py-2 rounded-xl bg-gray-100 text-sm font-semibold text-gray-700 disabled:opacity-40 active:bg-gray-200">Prev</button>
               <button disabled={currentIsLast} onClick={() => setStepIndex(i => Math.min(steps.length - 1, i + 1))}
-                className="px-4 py-2 rounded-xl bg-violet-600 text-sm font-semibold text-white disabled:opacity-40 active:bg-violet-700">Next</button>
+                className="px-4 py-2 rounded-xl bg-rose-600 text-sm font-semibold text-white disabled:opacity-40 active:bg-rose-700">Next</button>
             </div>
           </div>
         ) : (
           <ol className={layout === 'list' ? 'flex flex-col gap-1.5' : 'flex flex-col gap-3'}>
             {steps.map((s, idx) => (
               <li key={s.id} className="flex items-start gap-3">
-                <span className="relative w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="relative w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-base leading-none">{s.emoji || stepEmoji(s.text)}</span>
-                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">{s.number}</span>
+                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center">{s.number}</span>
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className={`text-gray-800 ${layout === 'list' ? 'text-sm' : 'text-sm leading-relaxed'}`}>{s.text}</p>
@@ -179,7 +181,7 @@ export function RecipeSteps({ content, editMode, onUpdate, onAskAboutStep }: Rec
                 {onAskAboutStep && (
                   <button
                     onClick={() => onAskAboutStep(`About step ${s.number} ("${s.text.slice(0, 40)}…"): `)}
-                    className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-violet-50 hover:border-violet-200 active:bg-violet-100"
+                    className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-xs hover:bg-rose-50 hover:border-rose-200 active:bg-rose-100"
                     aria-label="Ask about this step"
                     title="Ask Toolie"
                   >💬</button>

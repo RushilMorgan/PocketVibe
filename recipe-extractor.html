@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#d97706" />
+
+    <title>Recipe Extractor — Turn any cooking video into a clean recipe | Hey Toolie</title>
+    <meta name="description" content="Paste a cooking-video link or recipe text and get a clean, editable recipe — ingredient checklist, step-by-step method, and a shopping list. Free, no sign-up. Scale, swap, and customize it just by asking." />
+    <link rel="canonical" href="https://heytoolie.com/tools/recipe-extractor" />
+
+    <!-- Open Graph / social previews -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://heytoolie.com/tools/recipe-extractor" />
+    <meta property="og:title" content="Recipe Extractor — Turn any cooking video into a clean recipe" />
+    <meta property="og:description" content="Paste a cooking-video link or recipe text and get a clean, editable recipe with an ingredient checklist, clear steps, and a shopping list. Free, no sign-up." />
+    <meta property="og:site_name" content="Hey Toolie" />
+    <meta property="og:image" content="https://heytoolie.com/logo.png" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Recipe Extractor — Turn any cooking video into a clean recipe" />
+    <meta name="twitter:description" content="Paste a cooking-video link or recipe text and get a clean, editable recipe. Free, no sign-up." />
+    <meta name="twitter:image" content="https://heytoolie.com/logo.png" />
+
+    <!-- Structured data: the tool itself + the how-to flow, so search engines can
+         show rich results. Kept in sync with the on-page content. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "Recipe Extractor",
+          "applicationCategory": "LifestyleApplication",
+          "operatingSystem": "Web",
+          "url": "https://heytoolie.com/tools/recipe-extractor",
+          "description": "Paste a cooking-video link or recipe text and get a clean, editable recipe with an ingredient checklist, step-by-step method, and a shopping list. Customize it with Hey Toolie.",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "publisher": { "@type": "Organization", "name": "Hey Toolie", "url": "https://heytoolie.com" }
+        },
+        {
+          "@type": "HowTo",
+          "name": "How to extract a recipe from a cooking video",
+          "description": "Turn any cooking video or block of recipe text into a clean, editable recipe in three steps.",
+          "step": [
+            { "@type": "HowToStep", "position": 1, "name": "Paste a link or recipe text", "text": "Paste a cooking-video URL, or any recipe text you copied from anywhere." },
+            { "@type": "HowToStep", "position": 2, "name": "Toolie pulls out the recipe", "text": "Get the ingredients, step-by-step method, and a shopping list instantly." },
+            { "@type": "HowToStep", "position": 3, "name": "Tweak it your way", "text": "Scale the servings, swap ingredients, or simplify the steps just by asking Toolie." }
+          ]
+        }
+      ]
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- Real, crawler-readable content. React replaces #app on mount; until then
+         (and for crawlers that don't run JS) this static copy describes the tool. -->
+    <div id="app">
+      <main style="max-width: 640px; margin: 0 auto; padding: 32px 20px; font-family: Nunito, system-ui, sans-serif; color: #1f2937;">
+        <p style="font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: #d97706;">Free recipe tool</p>
+        <h1 style="font-size: 30px; font-weight: 900; margin: 6px 0 8px;">Recipe Extractor</h1>
+        <p style="font-size: 15px; color: #4b5563;">Paste any cooking video — get a clean, editable recipe.</p>
+        <p style="font-size: 14px; color: #6b7280; line-height: 1.6; margin-top: 14px;">
+          Drop in a cooking-video link or paste a wall of recipe text, and Hey Toolie pulls out a
+          beginner-friendly recipe: a tidy ingredient checklist, clear numbered steps, and a
+          ready-to-go shopping list. Then make it yours — scale the servings, swap ingredients, or
+          go dairy-free — just by asking. No sign-up needed to try it.
+        </p>
+        <h2 style="font-size: 18px; font-weight: 800; margin-top: 24px;">How it works</h2>
+        <ol style="font-size: 14px; color: #4b5563; line-height: 1.7; padding-left: 20px;">
+          <li>Paste a cooking-video link or recipe text.</li>
+          <li>Toolie pulls out the ingredients, step-by-step method, and a shopping list.</li>
+          <li>Tweak it your way — scale it, swap ingredients, or simplify the steps by asking Toolie.</li>
+        </ol>
+      </main>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,13 +1,24 @@
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import { initAnalytics } from './lib/analytics';
+
+// Register the service worker (precache + push + share-target delivery).
+// autoUpdate: a new deploy's worker activates immediately (skipWaiting in sw.ts).
+registerSW({ immediate: true });
 
 // Route-level code splitting: visitors opening a shared link don't download the
 // whole app, and app users don't download the shared-page bundle.
 const App = lazy(() => import('./App'));
 const SharedToolPage = lazy(() =>
   import('./components/SharedToolPage').then(m => ({ default: m.SharedToolPage })),
+);
+const ToolPage = lazy(() =>
+  import('./components/ToolPage').then(m => ({ default: m.ToolPage })),
+);
+const SharePage = lazy(() =>
+  import('./components/SharePage').then(m => ({ default: m.SharePage })),
 );
 
 initAnalytics();
@@ -22,6 +33,18 @@ function BootFallback() {
 
 function Router() {
   const pathname = window.location.pathname;
+
+  // Web Share Target landing: the manifest's share_target GETs here.
+  if (/^\/share\/?$/i.test(pathname)) {
+    return <SharePage />;
+  }
+
+  // Standalone tool pages: /tools/:key (shareable, SEO-friendly).
+  const toolMatch = pathname.match(/^\/tools\/([a-z0-9-]+)/i);
+  if (toolMatch) {
+    return <ToolPage toolKey={toolMatch[1].toLowerCase()} />;
+  }
+
   const match = pathname.match(/^\/s\/([a-z0-9]+)/i);
   if (match) {
     const params = new URLSearchParams(window.location.search);

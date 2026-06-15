@@ -18,7 +18,7 @@ export function StepTimerChip({ seconds, phase, remaining, doneLabel, onStart, o
   if (phase === 'running') {
     return (
       <span className="inline-flex items-center gap-1" data-testid="step-timer-running">
-        <span className="inline-flex items-center gap-1 text-xs font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2.5 py-1 rounded-full tabular-nums">
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full tabular-nums">
           ⏳ {formatCountdown(remaining)}
         </span>
         <button
@@ -46,7 +46,7 @@ export function StepTimerChip({ seconds, phase, remaining, doneLabel, onStart, o
     <button
       onClick={onStart}
       data-testid="step-timer-start"
-      className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full active:bg-violet-100"
+      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full active:bg-rose-100"
     >
       ⏱️ Start {formatDurationShort(seconds)} timer
     </button>

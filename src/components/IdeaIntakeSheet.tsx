@@ -72,10 +72,10 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
             <div className="px-5 pb-3 pt-2 flex-shrink-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-2xl">💡</span>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-300">Idea Thinking Board</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] tp-ink-3">Idea Thinking Board</p>
               </div>
-              <h3 className="text-lg font-bold text-white leading-tight">What are you exploring?</h3>
-              <p className="text-xs text-white/45 mt-0.5">
+              <h3 className="text-lg font-extrabold tp-ink tracking-tight leading-tight">What are you exploring?</h3>
+              <p className="text-xs tp-ink-3 mt-0.5">
                 An idea, a question, a decision — anything you want to think through. Plain words are perfect.
               </p>
             </div>
@@ -90,7 +90,8 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
                   rows={3}
                   maxLength={400}
                   placeholder="Just describe it in plain words — no need to make it perfect."
-                  className="flex-1 rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="tp-input flex-1 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2"
+                  style={{ ['--tw-ring-color' as string]: 'rgba(22,21,15,0.18)' }}
                 />
                 <MicButton value={idea} onChange={setIdea} testId="idea-mic-btn" />
               </div>
@@ -101,18 +102,18 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
                   <button
                     data-testid="idea-guide-btn"
                     onClick={() => setStep('guide')}
-                    className="mt-2.5 w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl bg-violet-500/15 border border-violet-400/30 text-left active:bg-violet-500/25 transition-colors"
+                    className="tp-card mt-2.5 w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-left active:scale-[0.99] transition-transform"
                   >
                     <span className="text-lg leading-none flex-shrink-0">🤝</span>
-                    <span className="text-xs text-violet-200 leading-snug">
-                      <span className="font-bold">Not sure how to put it?</span> Let Toolie ask you a few quick questions.
+                    <span className="text-xs tp-ink-2 leading-snug">
+                      <span className="font-bold tp-ink">Not sure how to put it?</span> Let Toolie ask you a few quick questions.
                     </span>
-                    <span className="ml-auto text-violet-300/60 flex-shrink-0">→</span>
+                    <span className="ml-auto tp-ink-3 flex-shrink-0">→</span>
                   </button>
 
                   {/* Starter examples — beat blank-canvas anxiety */}
                   <div className="mt-4">
-                    <p className="text-[10px] font-semibold text-white/35 mb-2 px-1">
+                    <p className="text-[10px] font-semibold tp-ink-3 mb-2 px-1">
                       ✦ Or tap an example to get started:
                     </p>
                     <div className="flex flex-col gap-1.5">
@@ -121,17 +122,17 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
                           key={i}
                           data-testid={`idea-starter-${i}`}
                           onClick={() => setIdea(starter.text)}
-                          className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/8 text-left active:bg-white/10 transition-colors"
+                          className="tp-glass flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left active:scale-[0.99] transition-transform"
                         >
                           <span className="text-base leading-none flex-shrink-0 mt-0.5">{starter.emoji}</span>
-                          <span className="text-xs text-white/65 leading-relaxed">{starter.text}</span>
+                          <span className="text-xs tp-ink-2 leading-relaxed">{starter.text}</span>
                         </button>
                       ))}
                     </div>
 
                     {/* Optional example filter — Toolie works the category out itself */}
-                    <p className="text-[10px] font-semibold text-white/35 mt-3 mb-2 px-1">
-                      Want examples for something specific? <span className="text-white/25">(optional)</span>
+                    <p className="text-[10px] font-semibold tp-ink-3 mt-3 mb-2 px-1">
+                      Want examples for something specific? <span className="opacity-60">(optional)</span>
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {IDEA_CATEGORIES.map(cat => (
@@ -139,10 +140,8 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
                           key={cat.id}
                           data-testid={`idea-category-${cat.id}`}
                           onClick={() => setCategoryId(prev => prev === cat.id ? null : cat.id)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
-                            categoryId === cat.id
-                              ? 'bg-violet-600 border-violet-400 text-white'
-                              : 'bg-white/5 border-white/10 text-white/60 active:bg-white/10'
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-transform active:scale-95 ${
+                            categoryId === cat.id ? 'tp-btn-dark' : 'tp-glass tp-ink'
                           }`}
                         >
                           <span className="leading-none">{cat.emoji}</span>
@@ -161,7 +160,7 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
                 data-testid="idea-next-btn"
                 onClick={goToIntent}
                 disabled={!canProceed}
-                className="w-full py-3.5 rounded-2xl bg-violet-500 text-white text-sm font-black active:bg-violet-600 disabled:opacity-40 transition-colors"
+                className="tp-btn-dark w-full py-3.5 rounded-2xl text-sm font-black active:scale-[0.99] disabled:opacity-40 transition-transform"
               >
                 Next →
               </button>
@@ -173,46 +172,47 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
             <div className="px-5 pb-3 pt-2 flex-shrink-0">
               <button
                 onClick={() => setStep('describe')}
-                className="text-xs text-white/40 mb-2 active:text-white/60"
+                className="text-xs tp-ink-3 mb-2 active:opacity-60"
               >
                 ← Back
               </button>
-              <h3 className="text-lg font-bold text-white leading-tight">What do you want from this?</h3>
-              <p className="text-xs text-white/45 mt-0.5">
+              <h3 className="text-lg font-extrabold tp-ink tracking-tight leading-tight">What do you want from this?</h3>
+              <p className="text-xs tp-ink-3 mt-0.5">
                 Toolie suggested one from your description — change it if it's off.
               </p>
             </div>
 
             <div className="overflow-y-auto px-5 pb-2 min-h-0">
               <div className="flex flex-col gap-2">
-                {IDEA_INTENTS.map(intent => (
-                  <button
-                    key={intent.id}
-                    data-testid={`idea-intent-${intent.id}`}
-                    onClick={() => setIntentId(intent.id)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-colors ${
-                      intentId === intent.id
-                        ? 'bg-violet-600 border-violet-400 text-white'
-                        : 'bg-white/5 border-white/10 text-white/70 active:bg-white/10'
-                    }`}
-                  >
-                    <span className="text-2xl leading-none flex-shrink-0">{intent.emoji}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold leading-tight">{intent.label}</p>
-                      <p className="text-xs text-white/45 mt-0.5">{intent.description}</p>
-                    </div>
-                    <span className="ml-auto flex-shrink-0 flex items-center gap-1.5">
-                      {intent.id === suggestedId && (
-                        <span className={`text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                          intentId === intent.id ? 'bg-white/20 text-white' : 'bg-violet-500/20 text-violet-300'
-                        }`}>
-                          ✨ Suggested
-                        </span>
-                      )}
-                      {intentId === intent.id && <span className="text-white/80">✓</span>}
-                    </span>
-                  </button>
-                ))}
+                {IDEA_INTENTS.map(intent => {
+                  const selected = intentId === intent.id;
+                  return (
+                    <button
+                      key={intent.id}
+                      data-testid={`idea-intent-${intent.id}`}
+                      onClick={() => setIntentId(intent.id)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-transform active:scale-[0.99] ${
+                        selected ? 'tp-btn-dark' : 'tp-glass tp-ink'
+                      }`}
+                    >
+                      <span className="text-2xl leading-none flex-shrink-0">{intent.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold leading-tight">{intent.label}</p>
+                        <p className={`text-xs mt-0.5 ${selected ? 'text-white/65' : 'tp-ink-3'}`}>{intent.description}</p>
+                      </div>
+                      <span className="ml-auto flex-shrink-0 flex items-center gap-1.5">
+                        {intent.id === suggestedId && (
+                          <span className={`text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                            selected ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-700'
+                          }`}>
+                            ✨ Suggested
+                          </span>
+                        )}
+                        {selected && <span className="text-white/80">✓</span>}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -222,7 +222,7 @@ export function IdeaIntakeSheet({ open, onClose, onSubmit }: IdeaIntakeSheetProp
                 data-testid="build-idea-board-btn"
                 onClick={handleBuild}
                 disabled={!canBuild}
-                className="w-full py-3.5 rounded-2xl bg-violet-500 text-white text-sm font-black active:bg-violet-600 disabled:opacity-40 disabled:active:bg-violet-500 transition-colors flex items-center justify-center gap-2"
+                className="tp-btn-dark w-full py-3.5 rounded-2xl text-sm font-black active:scale-[0.99] disabled:opacity-40 transition-transform flex items-center justify-center gap-2"
               >
                 ✨ Build my board
               </button>

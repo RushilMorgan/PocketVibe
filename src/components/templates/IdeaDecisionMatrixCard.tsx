@@ -4,6 +4,7 @@ import { rankOptions } from '../../lib/decisionMatrix';
 
 interface IdeaDecisionMatrixCardProps {
   matrix: IdeaDecisionMatrix;
+  frosted?: boolean;
 }
 
 function WeightDots({ weight }: { weight: number }) {
@@ -21,13 +22,13 @@ function WeightDots({ weight }: { weight: number }) {
  * rendered mobile-first: ranked option bars with the winner crowned, each
  * expandable into its per-criterion breakdown. AI-written per board.
  */
-export function IdeaDecisionMatrixCard({ matrix }: IdeaDecisionMatrixCardProps) {
+export function IdeaDecisionMatrixCard({ matrix, frosted = false }: IdeaDecisionMatrixCardProps) {
   const ranked = rankOptions(matrix);
   const [openId, setOpenId] = useState<string | null>(null);
   const max = ranked[0]?.total || 10;
 
   return (
-    <div data-testid="idea-decision-matrix" className="bg-white rounded-2xl border border-gray-100 p-4">
+    <div data-testid="idea-decision-matrix" className={frosted ? 'tp-card rounded-2xl p-4' : 'bg-white rounded-2xl border border-gray-100 p-4'}>
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-bold text-gray-800">⚖️ The matrix says…</h3>
         <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Weighted scores</span>

@@ -281,6 +281,23 @@ export function CreationComposer({
   const aiStatus = getAIConnectionStatus();
   const context = getContext(activeCreation);
 
+  // ── FAB collapse-on-scroll ──────────────────────────────────────────────────
+  // The extended "Ask Toolie" pill shrinks to a circle while the user scrolls,
+  // then re-expands shortly after they stop — bold on arrival, never in the way.
+  // Capture-phase listener so it catches scroll from any nested scroll container.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (isOpen) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      setCollapsed(true);
+      clearTimeout(idle);
+      idle = setTimeout(() => setCollapsed(false), 1100);
+    };
+    document.addEventListener('scroll', onScroll, true);
+    return () => { document.removeEventListener('scroll', onScroll, true); clearTimeout(idle); };
+  }, [isOpen]);
+
   // ── Daily usage hints ───────────────────────────────────────────────────────
   // When there's an active tool, the next message is usually a chat turn; on the
   // home screen it's a new generation. Show the relevant remaining count.
@@ -323,48 +340,68 @@ export function CreationComposer({
 
   return (
     <>
-      {/* FAB trigger */}
+      {/* FAB trigger — Velix extended pill; collapses to a circle on scroll */}
       {!isOpen && (
         <button
+          data-testid="toolie-fab"
           onClick={() => setIsOpen(true)}
-          className="absolute bottom-6 right-5 w-14 h-14 rounded-full shadow-xl overflow-hidden z-20"
-          style={{ boxShadow: '0 4px 24px rgba(124,58,237,0.55)' }}
-          aria-label={hasActive ? context.title : 'Make something'}
+          className="absolute bottom-6 right-5 z-20 flex items-center h-14 rounded-full bg-[#16150f] text-white active:scale-95 transition-transform"
+          style={{ boxShadow: '0 12px 30px rgba(22,21,15,0.32)' }}
+          aria-label={hasActive ? context.title : 'Ask Toolie'}
         >
-          <img src="/icon-round.png" alt="Hey Toolie" className="w-full h-full object-cover" />
+          <span className="relative w-14 h-14 flex items-center justify-center flex-shrink-0">
+            {/* Stardust — tiny particles twinkling around the sparkle */}
+            <span aria-hidden="true" className="absolute w-[3px] h-[3px] rounded-full bg-white animate-twinkle" style={{ top: '14px', right: '15px', animationDelay: '0s' }} />
+            <span aria-hidden="true" className="absolute w-[2px] h-[2px] rounded-full bg-white animate-twinkle" style={{ bottom: '15px', left: '16px', animationDelay: '.6s' }} />
+            <span aria-hidden="true" className="absolute w-[2px] h-[2px] rounded-full bg-white animate-twinkle" style={{ top: '17px', left: '15px', animationDelay: '1.1s' }} />
+            <span aria-hidden="true" className="absolute w-[1.5px] h-[1.5px] rounded-full bg-white animate-twinkle" style={{ bottom: '16px', right: '17px', animationDelay: '1.5s' }} />
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z" />
+            </svg>
+          </span>
+          <span
+            className={`overflow-hidden whitespace-nowrap text-sm font-semibold transition-all duration-300 ease-out ${
+              collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100 pr-5'
+            }`}
+          >
+            Ask Toolie
+          </span>
         </button>
       )}
 
-      {/* Sheet overlay */}
+      {/* Sheet overlay — Velix light/frosted */}
       {isOpen && (
         <div className="absolute inset-0 z-30 flex flex-col justify-end">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Sheet — dark Toolie space */}
-          <div className="relative bg-gray-950 rounded-t-3xl shadow-2xl flex flex-col max-h-[82%] z-10 border-t border-white/8">
+          {/* Sheet */}
+          <div
+            className="relative bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[82%] z-10"
+            style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
+          >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 bg-white/20 rounded-full" />
+              <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(22,21,15,0.15)' }} />
             </div>
 
             {/* Header */}
             <div className="px-4 pb-3 pt-1 flex-shrink-0">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-violet-400 text-xs">✦</span>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">Toolie</p>
+                <span className="tp-ink text-xs">✦</span>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] tp-ink-3">Toolie</p>
               </div>
-              <h3 className="text-base font-bold text-white">{context.title}</h3>
-              <p className="text-xs text-white/40 mt-0.5">{context.subtitle}</p>
+              <h3 className="text-base font-extrabold tp-ink tracking-tight">{context.title}</h3>
+              <p className="text-xs tp-ink-3 mt-0.5">{context.subtitle}</p>
             </div>
 
             {isGenerating && processingStatus && (
-              <div className="mx-4 mb-2 px-4 py-2.5 bg-violet-600/20 border border-violet-500/25 rounded-xl flex items-center gap-2 flex-shrink-0">
+              <div className="mx-4 mb-2 px-4 py-2.5 rounded-xl flex items-center gap-2 flex-shrink-0" style={{ background: 'rgba(22,21,15,0.04)' }}>
                 <span className="text-sm animate-spin">⚙️</span>
-                <span className="text-sm text-violet-300 font-medium">{processingStatus}</span>
+                <span className="text-sm tp-ink-2 font-medium">{processingStatus}</span>
               </div>
             )}
 
@@ -372,10 +409,10 @@ export function CreationComposer({
             {!aiStatus.connected && (
               <div
                 data-testid="ai-status-banner"
-                className="mx-4 mb-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 flex-shrink-0"
+                className="mx-4 mb-2 px-4 py-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-2 flex-shrink-0"
               >
                 <span className="text-sm">⚠️</span>
-                <span className="text-sm text-amber-300">
+                <span className="text-sm text-amber-700">
                   AI updates are not connected yet. You can still edit this tool directly.
                 </span>
               </div>
@@ -400,7 +437,7 @@ export function CreationComposer({
                         sendPrompt(suggestion.prompt);
                       }
                     }}
-                    className="flex-shrink-0 whitespace-nowrap rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-medium text-white/65 active:bg-white/12"
+                    className="tp-glass flex-shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold tp-ink active:scale-95 transition-transform"
                   >
                     {suggestion.label}
                   </button>
@@ -419,9 +456,12 @@ export function CreationComposer({
                     <div
                       className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                         msg.role === 'user'
-                          ? 'bg-violet-600 text-white rounded-br-sm'
-                          : 'bg-white/8 text-white/85 rounded-bl-sm border border-white/8'
+                          ? 'text-white rounded-br-sm'
+                          : 'tp-ink rounded-bl-sm'
                       }`}
+                      style={msg.role === 'user'
+                        ? { background: '#16150f' }
+                        : { background: 'rgba(22,21,15,0.05)' }}
                     >
                       {msg.text}
                     </div>
@@ -435,12 +475,13 @@ export function CreationComposer({
             {limitReached ? (
               <div
                 data-testid="quota-limit-panel"
-                className="mx-4 mb-6 mt-2 px-4 py-3.5 bg-violet-600/10 border border-violet-500/25 rounded-2xl flex-shrink-0"
+                className="mx-4 mb-6 mt-2 px-4 py-3.5 rounded-2xl flex-shrink-0"
+                style={{ background: 'rgba(22,21,15,0.03)', border: '1px solid rgba(22,21,15,0.08)' }}
               >
-                <p className="text-sm font-semibold text-white/90">
+                <p className="text-sm font-bold tp-ink">
                   {usageKind === 'chat' ? "That's all your questions for today" : "That's all your creations for today"}
                 </p>
-                <p className="text-xs text-white/50 mt-0.5">
+                <p className="text-xs tp-ink-3 mt-0.5">
                   You can make more {formatResetHint(usageSnap?.resetsAt ?? '')}.
                   {!isSignedIn && onRequestSignIn && ' Sign in for a higher daily limit.'}
                 </p>
@@ -448,7 +489,7 @@ export function CreationComposer({
                   <button
                     data-testid="quota-signin-btn"
                     onClick={onRequestSignIn}
-                    className="mt-2.5 text-xs font-bold text-violet-950 bg-violet-400 px-4 py-2 rounded-full active:bg-violet-300"
+                    className="tp-btn-dark mt-2.5 text-xs font-bold px-4 py-2 rounded-full"
                   >
                     Sign in for more →
                   </button>
@@ -458,7 +499,7 @@ export function CreationComposer({
               <>
                 {/* Low-stock hint */}
                 {showLowHint && !isGenerating && (
-                  <p data-testid="quota-remaining-hint" className="px-5 pb-1 pt-1 text-[11px] text-white/35 flex-shrink-0">
+                  <p data-testid="quota-remaining-hint" className="px-5 pb-1 pt-1 text-[11px] tp-ink-3 flex-shrink-0">
                     {formatRemainingLabel(usageKind, remaining as number)}
                   </p>
                 )}
@@ -475,7 +516,8 @@ export function CreationComposer({
                         : context.placeholder
                     }
                     disabled={isGenerating}
-                    className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                    className="tp-input flex-1 rounded-full px-4 py-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
+                    style={{ ['--tw-ring-color' as string]: 'rgba(22,21,15,0.18)' }}
                   />
                   {speech.supported && (
                     <button
@@ -484,10 +526,10 @@ export function CreationComposer({
                       onClick={toggleMic}
                       disabled={isGenerating}
                       aria-label={speech.listening ? 'Stop listening' : 'Speak instead of typing'}
-                      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${
+                      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-transform disabled:opacity-40 active:scale-95 ${
                         speech.listening
                           ? 'bg-red-500 text-white animate-pulse'
-                          : 'bg-white/8 text-white/70 border border-white/10 active:bg-white/15'
+                          : 'tp-glass tp-ink'
                       }`}
                     >
                       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -501,7 +543,7 @@ export function CreationComposer({
                   <button
                     type="submit"
                     disabled={isGenerating || !input.trim()}
-                    className="w-11 h-11 rounded-full flex items-center justify-center bg-violet-600 text-white disabled:opacity-40 active:bg-violet-700 transition-colors flex-shrink-0"
+                    className="tp-btn-dark w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40 transition-transform active:scale-95 flex-shrink-0"
                     aria-label="Send"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

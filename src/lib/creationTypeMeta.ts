@@ -7,60 +7,31 @@
  * functions / validator / renderer stay in sync too.
  */
 import type { CreationType } from '../types';
+import { TEMPLATE_IDENTITIES } from './templateIdentity';
 
-export const TYPE_EMOJI: Record<CreationType, string> = {
-  checklist: '✅',
-  habit_tracker: '🔁',
-  budget_calculator: '💰',
-  savings_tracker: '💸',
-  landing_page: '🌐',
-  event_planner: '🎉',
-  meal_planner: '🍽️',
-  workout_tracker: '💪',
-  price_calculator: '🧾',
-  task_planner: '📌',
-  tournament_pool_tracker: '🏆',
-  idea_thinking_board: '💡',
-  recipe: '🍳',
-  recipe_book: '📖',
-};
+/**
+ * Emoji / label / accent per type are DERIVED from the single identity source
+ * (`templateIdentity.ts`) so the list, header, hero and canvas can never drift
+ * apart again. To change a type's look, edit TEMPLATE_IDENTITIES — not here.
+ */
+const IDENTITY_ENTRIES = Object.entries(TEMPLATE_IDENTITIES) as Array<
+  [CreationType, (typeof TEMPLATE_IDENTITIES)[CreationType]]
+>;
 
-export const TYPE_LABEL: Record<CreationType, string> = {
-  checklist: 'Checklist',
-  habit_tracker: 'Habit tracker',
-  budget_calculator: 'Budget',
-  savings_tracker: 'Savings goal',
-  landing_page: 'Landing page',
-  event_planner: 'Event planner',
-  meal_planner: 'Meal planner',
-  workout_tracker: 'Workout plan',
-  price_calculator: 'Price calculator',
-  task_planner: 'Task planner',
-  tournament_pool_tracker: 'Tournament pool',
-  idea_thinking_board: 'Idea board',
-  recipe: 'Recipe',
-  recipe_book: 'Cookbook',
-};
+export const TYPE_EMOJI = Object.fromEntries(
+  IDENTITY_ENTRIES.map(([type, id]) => [type, id.emoji]),
+) as Record<CreationType, string>;
 
-export const TYPE_ACCENT: Record<CreationType, string> = {
-  checklist: '#7c3aed',
-  habit_tracker: '#f97316',
-  budget_calculator: '#16a34a',
-  savings_tracker: '#0ea5e9',
-  landing_page: '#ec4899',
-  event_planner: '#f43f5e',
-  meal_planner: '#14b8a6',
-  workout_tracker: '#ef4444',
-  price_calculator: '#8b5cf6',
-  task_planner: '#6366f1',
-  tournament_pool_tracker: '#f59e0b',
-  idea_thinking_board: '#7c3aed',
-  recipe: '#e11d48',
-  recipe_book: '#e11d48',
-};
+export const TYPE_LABEL = Object.fromEntries(
+  IDENTITY_ENTRIES.map(([type, id]) => [type, id.label]),
+) as Record<CreationType, string>;
 
-/** Every creation type, derived from the exhaustively-typed map above. */
-export const ALL_CREATION_TYPES = Object.keys(TYPE_LABEL) as CreationType[];
+export const TYPE_ACCENT = Object.fromEntries(
+  IDENTITY_ENTRIES.map(([type, id]) => [type, id.accent]),
+) as Record<CreationType, string>;
+
+/** Every creation type, from the exhaustively-typed identity source. */
+export const ALL_CREATION_TYPES = Object.keys(TEMPLATE_IDENTITIES) as CreationType[];
 
 /** String-friendly lookups (cloud rows store creation_type as plain text). */
 export function typeEmoji(type: string): string {

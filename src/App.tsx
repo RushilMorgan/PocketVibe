@@ -93,6 +93,21 @@ export default function App() {
     return () => window.removeEventListener('popstate', handler);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Shared-from-OS payload routed to the free-form composer: the share sheet
+  // (/share → "Ask Toolie") lands here as /?shared=<link-or-text>. Kick off a
+  // new creation from it, then strip the param so a refresh doesn't re-fire.
+  const sharedHandledRef = useRef(false);
+  useEffect(() => {
+    if (sharedHandledRef.current) return;
+    const shared = new URLSearchParams(window.location.search).get('shared');
+    if (shared && shared.trim()) {
+      sharedHandledRef.current = true;
+      window.history.replaceState({ pv: true }, '', '/');
+      startNewCreation(shared.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);

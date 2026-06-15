@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePocketVibe } from '../../hooks/usePocketVibe';
 import { RecipeRenderer } from '../templates/RecipeRenderer';
@@ -9,6 +9,7 @@ import { formatResetHint } from '../../lib/quotaMessage';
 import type { RecipeContent, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
 import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolProgress } from './ui';
+import { PushNudge } from '../PushNudge';
 
 /** A real, well-known cooking video — pre-filled so the page is never a blank box. */
 const SAMPLE_URL = 'https://www.youtube.com/watch?v=PUP7U5vTMM0';
@@ -42,14 +43,16 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
 
   const canExtract = !extracting && (url.trim().length > 0 || manualText.trim().length > 0);
 
-  async function handleExtract() {
-    if (!canExtract) return;
+  // Core extraction, callable with explicit values (used both by the button and
+  // by the shared-link auto-run below, where React state hasn't flushed yet).
+  async function extractWith(youtubeUrl: string, manual: string) {
+    if (extracting) return;
     setExtracting(true);
     setStageEvents([]);
     setError(null);
     try {
       const result = await extractRecipe(
-        { youtubeUrl: url.trim(), manualText: manualText.trim() },
+        { youtubeUrl, manualText: manual },
         ev => setStageEvents(prev => [...prev, ev]),
       );
       if (!result) {
@@ -67,6 +70,26 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
       setExtracting(false);
     }
   }
+
+  function handleExtract() {
+    if (!canExtract) return;
+    void extractWith(url.trim(), manualText.trim());
+  }
+
+  // Shared-link auto-run: when reached from the share sheet (/share → here with
+  // ?shared=<link>), prefill the URL and extract immediately so the user lands
+  // straight in the "kitchen theater" without a second tap.
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    const shared = new URLSearchParams(window.location.search).get('shared');
+    if (shared && shared.trim()) {
+      autoRanRef.current = true;
+      setUrl(shared.trim());
+      void extractWith(shared.trim(), '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function runChip(chip: ToolChip) {
     if (!recipe || busyChip) return;
@@ -184,6 +207,10 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
             onChat={(msg) => chatAboutRecipe(recipe, msg)}
             frosted
           />
+
+          {/* Opt-in push nudge — only after a successful extract (self-gating) */}
+          <PushNudge userId={auth.user?.id} accentColor={accent.accent} />
+
 
           {/* Gentle save nudge — extracting is free, saving prompts an account */}
           <a

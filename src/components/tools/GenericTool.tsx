@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { templateCssVars } from '../../lib/templateIdentity';
 import { celebrate } from '../../lib/celebrate';
-import type { CreationContent, CreationType } from '../../types';
+import { stageLabel } from '../../services/aiService';
+import type { CreationContent, CreationType, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
-import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolQuotaNotice } from './ui';
+import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolQuotaNotice, ToolProgress } from './ui';
 import { useToolGenerator } from './useToolGenerator';
 import { BudgetCalculatorRenderer } from '../templates/BudgetCalculatorRenderer';
 import { SavingsTrackerRenderer } from '../templates/SavingsTrackerRenderer';
@@ -38,6 +39,7 @@ export function GenericTool({ engine, chips, accent }: { engine: ToolEngine; chi
   const { generate, customize, quotaNotice, dismissQuotaNotice } = useToolGenerator();
   const [text, setText] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [stageEvents, setStageEvents] = useState<GenerationStageEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<CreationContent | null>(null);
   const [busyChip, setBusyChip] = useState<string | null>(null);
@@ -48,9 +50,14 @@ export function GenericTool({ engine, chips, accent }: { engine: ToolEngine; chi
   async function handleGenerate() {
     if (!canGenerate) return;
     setGenerating(true);
+    setStageEvents([]);
     setError(null);
     try {
-      const result = await generate(engine.forcedType, engine.buildPrompt(text.trim()));
+      const result = await generate(
+        engine.forcedType,
+        engine.buildPrompt(text.trim()),
+        ev => setStageEvents(prev => [...prev, ev]),
+      );
       if (!result) {
         setError("Couldn't make that one — try adding a little more detail.");
         return;
@@ -108,16 +115,28 @@ export function GenericTool({ engine, chips, accent }: { engine: ToolEngine; chi
 
         {error && <p data-testid="tool-error" className="text-xs text-red-600 mt-3">{error}</p>}
 
-        <ToolButton
-          shape="block"
-          full
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          testId="tool-generate-btn"
-          className="mt-3.5 font-bold"
-        >
-          {generating ? engine.generatingLabel : engine.generateLabel}
-        </ToolButton>
+        {generating ? (
+          <div className="mt-3.5">
+            <ToolProgress
+              stageEvents={stageEvents}
+              accent={accent}
+              heading="Toolie is on it"
+              fallback={engine.generatingLabel}
+              labelFor={stageLabel}
+            />
+          </div>
+        ) : (
+          <ToolButton
+            shape="block"
+            full
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            testId="tool-generate-btn"
+            className="mt-3.5 font-bold"
+          >
+            {engine.generateLabel}
+          </ToolButton>
+        )}
       </ToolCard>
 
       {content ? (

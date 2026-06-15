@@ -2,13 +2,13 @@ import React, { useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePocketVibe } from '../../hooks/usePocketVibe';
 import { RecipeRenderer } from '../templates/RecipeRenderer';
-import { RecipeExtractionTheater } from '../templates/RecipeExtractionTheater';
 import { templateCssVars } from '../../lib/templateIdentity';
+import { recipeStageLabel } from '../../lib/recipeStages';
 import { celebrate } from '../../lib/celebrate';
 import { formatResetHint } from '../../lib/quotaMessage';
 import type { RecipeContent, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
-import { ToolCard, ToolButton, ToolChip as Chip, ToolInput } from './ui';
+import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolProgress } from './ui';
 
 /** A real, well-known cooking video — pre-filled so the page is never a blank box. */
 const SAMPLE_URL = 'https://www.youtube.com/watch?v=PUP7U5vTMM0';
@@ -133,7 +133,13 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
 
         {extracting ? (
           <div className="mt-3.5">
-            <RecipeExtractionTheater stageEvents={stageEvents} hasVideo={url.trim().length > 0} />
+            <ToolProgress
+              stageEvents={stageEvents}
+              accent={accent}
+              heading="Toolie is in the kitchen"
+              fallback={url.trim().length > 0 ? 'Pulling the recipe out of your video…' : 'Pulling your recipe together…'}
+              labelFor={ev => recipeStageLabel(ev, url.trim().length > 0)}
+            />
           </div>
         ) : (
           <ToolButton

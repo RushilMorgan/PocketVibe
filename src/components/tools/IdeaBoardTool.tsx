@@ -7,9 +7,10 @@ import { applyElementPatch } from '../../lib/applyElementPatch';
 import { IDEA_INTENTS } from '../../lib/ideaBoardPrompt';
 import { celebrate } from '../../lib/celebrate';
 import { formatResetHint } from '../../lib/quotaMessage';
-import type { IdeaThinkingBoardContent } from '../../types';
+import { stageLabel } from '../../services/aiService';
+import type { IdeaThinkingBoardContent, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
-import { ToolCard, ToolButton, ToolChip as Chip, ToolInput } from './ui';
+import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolProgress } from './ui';
 
 interface IdeaBoardToolProps {
   /** Example "ask Toolie" prompts shown under the result. */
@@ -32,6 +33,7 @@ export function IdeaBoardTool({ chips, accent }: IdeaBoardToolProps) {
   const [idea, setIdea] = useState('');
   const [intentId, setIntentId] = useState('validate');
   const [generating, setGenerating] = useState(false);
+  const [stageEvents, setStageEvents] = useState<GenerationStageEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [board, setBoard] = useState<IdeaThinkingBoardContent | null>(null);
   const [busyChip, setBusyChip] = useState<string | null>(null);
@@ -42,9 +44,10 @@ export function IdeaBoardTool({ chips, accent }: IdeaBoardToolProps) {
   async function handleGenerate() {
     if (!canGenerate) return;
     setGenerating(true);
+    setStageEvents([]);
     setError(null);
     try {
-      const result = await generateIdeaBoard('', idea.trim(), intentId);
+      const result = await generateIdeaBoard('', idea.trim(), intentId, ev => setStageEvents(prev => [...prev, ev]));
       if (!result) {
         setError("Couldn't map that one — try rephrasing your idea, or add a little more detail.");
         return;
@@ -114,16 +117,28 @@ export function IdeaBoardTool({ chips, accent }: IdeaBoardToolProps) {
 
         {error && <p data-testid="idea-error" className="text-xs text-red-600 mt-3">{error}</p>}
 
-        <ToolButton
-          shape="block"
-          full
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          testId="idea-generate-btn"
-          className="mt-3.5 font-bold"
-        >
-          {generating ? <><span className="animate-pulse">🧠</span> Mapping your idea…</> : <>✨ Map my idea</>}
-        </ToolButton>
+        {generating ? (
+          <div className="mt-3.5">
+            <ToolProgress
+              stageEvents={stageEvents}
+              accent={accent}
+              heading="Toolie is thinking"
+              fallback="Mapping your idea…"
+              labelFor={stageLabel}
+            />
+          </div>
+        ) : (
+          <ToolButton
+            shape="block"
+            full
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            testId="idea-generate-btn"
+            className="mt-3.5 font-bold"
+          >
+            ✨ Map my idea
+          </ToolButton>
+        )}
       </ToolCard>
 
       {/* ── Result ────────────────────────────────────────────────────────────── */}

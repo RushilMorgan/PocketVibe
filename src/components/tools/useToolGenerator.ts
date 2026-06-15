@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { generateCreation, QuotaExceededError } from '../../services/aiService';
 import { normalizeGenerateResponse } from '../../lib/normalizeResponse';
-import type { GenerateRequest, CreationContent, CreationType } from '../../types';
+import type { GenerateRequest, CreationContent, CreationType, GenerationStageEvent } from '../../types';
 
 interface QuotaNotice {
   kind: 'generation' | 'chat';
@@ -31,10 +31,13 @@ export function useToolGenerator() {
   const generate = useCallback(async (
     forcedType: CreationType,
     userRequest: string,
+    onStage?: (ev: GenerationStageEvent) => void,
   ): Promise<CreationContent | null> => {
     const req: GenerateRequest = { userRequest, mode: 'new', locale: locale(), forcedType };
     try {
-      const res = await generateCreation(req);
+      const res = await generateCreation(req, (_status, stageEvent) => {
+        if (stageEvent) onStage?.(stageEvent);
+      });
       const safe = normalizeGenerateResponse(res, req) ?? res;
       if (safe.creationType !== forcedType || safe.content.type !== forcedType) return null;
       return safe.content as CreationContent;

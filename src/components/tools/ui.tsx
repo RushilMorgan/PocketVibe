@@ -1,6 +1,8 @@
 import React from 'react';
 import type { ToolAccent } from '../../lib/toolPages';
+import type { GenerationStageEvent } from '../../types';
 import { formatResetHint } from '../../lib/quotaMessage';
+import { buildStageTimeline } from '../../lib/stageTimeline';
 
 /**
  * Velix tool-page UI primitives. Every standalone tool page composes these so a
@@ -91,6 +93,74 @@ export function ToolChip({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Velix-styled live progress for every tool page. Frosted card themed in the
+ * tool's accent, narrating the real pipeline stages (server `onStage` events)
+ * with a shimmering result skeleton underneath — so generation never looks
+ * stalled. `labelFor` supplies the per-tool voice; falls back to one line until
+ * structured events arrive.
+ */
+export function ToolProgress({
+  stageEvents, accent, heading, fallback, labelFor,
+}: {
+  stageEvents: GenerationStageEvent[];
+  accent: ToolAccent;
+  heading: string;
+  fallback: string;
+  labelFor: (ev: GenerationStageEvent) => string;
+}) {
+  const timeline = buildStageTimeline(stageEvents, labelFor);
+  const dots = (
+    <span className="inline-flex gap-0.5 ml-1" aria-hidden="true">
+      {[0, 1, 2].map(i => (
+        <span key={i} className="w-1 h-1 rounded-full animate-dot-bounce" style={{ background: accent.accent, animationDelay: `${i * 0.15}s` }} />
+      ))}
+    </span>
+  );
+
+  return (
+    <div data-testid="tool-progress" className="tp-card rounded-[22px] p-[18px]">
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="w-7 h-7 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: accent.accentSoft }}>
+          <span className="w-3.5 h-3.5 rounded-full border-2 animate-spin" style={{ borderColor: `${accent.accent}33`, borderTopColor: accent.accent }} />
+        </span>
+        <span className="text-sm font-bold tp-ink">{heading}</span>
+      </div>
+
+      {timeline.length > 0 ? (
+        <ol className="flex flex-col gap-2" aria-live="polite">
+          {timeline.map((item, i) => {
+            const isCurrent = i === timeline.length - 1 && !item.done;
+            return (
+              <li key={item.key + String(i)} className="flex items-center gap-2.5 animate-fade-in">
+                {item.done ? (
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 animate-check-pop" style={{ background: accent.accent }}>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="w-4 h-4 rounded-full border-2 animate-spin flex-shrink-0" style={{ borderColor: `${accent.accent}33`, borderTopColor: accent.accent }} />
+                )}
+                <span className={`text-sm ${item.done ? 'tp-ink-3' : 'font-semibold tp-ink'}`}>{item.label}</span>
+                {isCurrent && dots}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="text-sm font-semibold tp-ink-2 flex items-center" aria-live="polite">{fallback}{dots}</p>
+      )}
+
+      <div className="mt-4 flex flex-col gap-2" aria-hidden="true">
+        {['w-2/5', 'w-full', 'w-4/5'].map((width, i) => (
+          <div key={i} className={`h-3 ${width} rounded-full bg-black/5 animate-pulse`} style={{ animationDelay: `${i * 0.2}s` }} />
+        ))}
+      </div>
+    </div>
   );
 }
 

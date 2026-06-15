@@ -5,9 +5,10 @@ import { MealPlannerRenderer } from '../templates/MealPlannerRenderer';
 import { templateCssVars } from '../../lib/templateIdentity';
 import { celebrate } from '../../lib/celebrate';
 import { formatResetHint } from '../../lib/quotaMessage';
-import type { MealPlannerContent } from '../../types';
+import { stageLabel } from '../../services/aiService';
+import type { MealPlannerContent, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
-import { ToolCard, ToolButton, ToolChip as Chip, ToolInput } from './ui';
+import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolProgress } from './ui';
 
 const DIETARY = ['none', 'vegetarian', 'vegan', 'gluten-free', 'dairy-free'] as const;
 
@@ -31,6 +32,7 @@ export function MealPlannerTool({ chips, accent }: MealPlannerToolProps) {
   const [request, setRequest] = useState('');
   const [dietary, setDietary] = useState<string>('none');
   const [generating, setGenerating] = useState(false);
+  const [stageEvents, setStageEvents] = useState<GenerationStageEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [plan, setPlan] = useState<MealPlannerContent | null>(null);
   const [busyChip, setBusyChip] = useState<string | null>(null);
@@ -41,9 +43,10 @@ export function MealPlannerTool({ chips, accent }: MealPlannerToolProps) {
   async function handleGenerate() {
     if (!canGenerate) return;
     setGenerating(true);
+    setStageEvents([]);
     setError(null);
     try {
-      const result = await generateMealPlan({ request: request.trim(), dietary });
+      const result = await generateMealPlan({ request: request.trim(), dietary }, ev => setStageEvents(prev => [...prev, ev]));
       if (!result) {
         setError("Couldn't plan that one — try adding a little more detail about who it's for.");
         return;
@@ -115,16 +118,28 @@ export function MealPlannerTool({ chips, accent }: MealPlannerToolProps) {
 
         {error && <p data-testid="meal-error" className="text-xs text-red-600 mt-3">{error}</p>}
 
-        <ToolButton
-          shape="block"
-          full
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          testId="meal-generate-btn"
-          className="mt-3.5 font-bold"
-        >
-          {generating ? <><span className="animate-pulse">🍽️</span> Planning your week…</> : <>✨ Plan my week</>}
-        </ToolButton>
+        {generating ? (
+          <div className="mt-3.5">
+            <ToolProgress
+              stageEvents={stageEvents}
+              accent={accent}
+              heading="Toolie is planning your week"
+              fallback="Planning your week…"
+              labelFor={stageLabel}
+            />
+          </div>
+        ) : (
+          <ToolButton
+            shape="block"
+            full
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            testId="meal-generate-btn"
+            className="mt-3.5 font-bold"
+          >
+            ✨ Plan my week
+          </ToolButton>
+        )}
       </ToolCard>
 
       {/* ── Result ────────────────────────────────────────────────────────────── */}

@@ -2,10 +2,11 @@ import React, { useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePocketVibe } from '../../hooks/usePocketVibe';
 import { RecipeRenderer } from '../templates/RecipeRenderer';
+import { RecipeExtractionTheater } from '../templates/RecipeExtractionTheater';
 import { templateCssVars } from '../../lib/templateIdentity';
 import { celebrate } from '../../lib/celebrate';
 import { formatResetHint } from '../../lib/quotaMessage';
-import type { RecipeContent } from '../../types';
+import type { RecipeContent, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
 import { ToolCard, ToolButton, ToolChip as Chip, ToolInput } from './ui';
 
@@ -33,6 +34,7 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
   const [showManual, setShowManual] = useState(false);
   const [manualText, setManualText] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [stageEvents, setStageEvents] = useState<GenerationStageEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [recipe, setRecipe] = useState<RecipeContent | null>(null);
   const [busyChip, setBusyChip] = useState<string | null>(null);
@@ -43,9 +45,13 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
   async function handleExtract() {
     if (!canExtract) return;
     setExtracting(true);
+    setStageEvents([]);
     setError(null);
     try {
-      const result = await extractRecipe({ youtubeUrl: url.trim(), manualText: manualText.trim() });
+      const result = await extractRecipe(
+        { youtubeUrl: url.trim(), manualText: manualText.trim() },
+        ev => setStageEvents(prev => [...prev, ev]),
+      );
       if (!result) {
         setError("Couldn't read that one — try another link, or paste the recipe text instead.");
         return;
@@ -125,16 +131,22 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
 
         {error && <p data-testid="extract-error" className="text-xs text-red-600 mt-2.5">{error}</p>}
 
-        <ToolButton
-          shape="block"
-          full
-          onClick={handleExtract}
-          disabled={!canExtract}
-          testId="extract-btn"
-          className="mt-3.5 font-bold"
-        >
-          {extracting ? <><span className="animate-pulse">🍳</span> Reading the recipe…</> : <>✨ Extract recipe</>}
-        </ToolButton>
+        {extracting ? (
+          <div className="mt-3.5">
+            <RecipeExtractionTheater stageEvents={stageEvents} hasVideo={url.trim().length > 0} />
+          </div>
+        ) : (
+          <ToolButton
+            shape="block"
+            full
+            onClick={handleExtract}
+            disabled={!canExtract}
+            testId="extract-btn"
+            className="mt-3.5 font-bold"
+          >
+            ✨ Extract recipe
+          </ToolButton>
+        )}
       </ToolCard>
 
       {/* ── Result ────────────────────────────────────────────────────────────── */}

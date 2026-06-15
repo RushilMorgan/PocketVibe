@@ -60,9 +60,19 @@ it to the user, explain the data impact, and ask how they want to handle it.
 
 ### Tailwind CSS v4
 - Utility-first styling via `@tailwindcss/vite` plugin
-- **Design system — two tiers:**
-  - **Dark chrome** (`gray-950` / `gray-900` + violet/yellow accents) — Toolie AI UI, shared page headers, FAB
-  - **Light canvas** (white / `gray-50`) — tool content rendered inside the app
+- **Design system — "Velix" (light/frosted, monochrome-primary). READ
+  [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) before styling anything new** — it is
+  the single source for tokens, primitives, and patterns.
+  - **Light & frosted everywhere.** Pearlescent canvas, translucent white cards,
+    hairline borders, soft shadows. The old dark `gray-950` Toolie chrome is gone
+    — every surface (home, header, FAB + chat sheet, tool pages, idea board,
+    intake sheets, `/s/:slug`) is light Velix.
+  - **Near-black `#16150f` is primary** (buttons, FAB, send, active pills); each
+    type's identity colour is a **soft pastel accent** only. Data-viz colours
+    (ICE ring, SWOT, score bars) are kept.
+  - **Compose, don't hand-roll:** the scoped `.tp-*` layer (`index.css`), the
+    primitives in `src/components/tools/ui.tsx`, and the per-type identity in
+    `src/lib/templateIdentity.ts`. Never re-declare colours/emoji/per-type maps.
 
 ### Lucide React
 - Icon library — use existing icons before adding new ones

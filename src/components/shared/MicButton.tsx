@@ -9,7 +9,7 @@ interface MicButtonProps {
 }
 
 /**
- * Tap-to-talk mic for any text field (dark-sheet styling). Speech streams in
+ * Tap-to-talk mic for any text field (Velix light styling). Speech streams in
  * live after whatever was already typed; renders nothing on browsers without
  * SpeechRecognition support.
  */
@@ -41,10 +41,10 @@ export function MicButton({ value, onChange, testId = 'mic-btn' }: MicButtonProp
       data-testid={testId}
       onClick={toggle}
       aria-label={speech.listening ? 'Stop listening' : 'Speak instead of typing'}
-      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 ${
         speech.listening
           ? 'bg-red-500 text-white animate-pulse'
-          : 'bg-white/8 text-white/70 border border-white/10 active:bg-white/15'
+          : 'tp-glass tp-ink'
       }`}
     >
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

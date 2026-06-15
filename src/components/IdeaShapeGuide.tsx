@@ -36,15 +36,15 @@ export function IdeaShapeGuide({ onDone, onBack }: IdeaShapeGuideProps) {
   return (
     <>
       <div className="px-5 pb-3 pt-2 flex-shrink-0">
-        <button onClick={onBack} className="text-xs text-white/40 mb-2 active:text-white/60">← Back</button>
+        <button onClick={onBack} className="text-xs tp-ink-3 mb-2 active:opacity-60">← Back</button>
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl">🤝</span>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-300">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] tp-ink-3">
             Question {index + 1} of {SHAPE_QUESTIONS.length}
           </p>
         </div>
-        <h3 className="text-lg font-bold text-white leading-tight">{q.question}</h3>
-        <p className="text-xs text-white/45 mt-0.5">{q.hint}</p>
+        <h3 className="text-lg font-extrabold tp-ink tracking-tight leading-tight">{q.question}</h3>
+        <p className="text-xs tp-ink-3 mt-0.5">{q.hint}</p>
       </div>
 
       <div className="overflow-y-auto px-5 pb-2 min-h-0">
@@ -57,7 +57,8 @@ export function IdeaShapeGuide({ onDone, onBack }: IdeaShapeGuideProps) {
             maxLength={200}
             autoFocus
             placeholder={q.placeholder}
-            className="flex-1 rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="tp-input flex-1 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2"
+            style={{ ['--tw-ring-color' as string]: 'rgba(22,21,15,0.18)' }}
           />
           <MicButton value={draft} onChange={setDraft} testId="idea-guide-mic" />
         </div>
@@ -68,7 +69,7 @@ export function IdeaShapeGuide({ onDone, onBack }: IdeaShapeGuideProps) {
           <button
             data-testid="idea-guide-skip"
             onClick={() => advance('')}
-            className="px-4 py-3.5 rounded-2xl bg-white/5 border border-white/10 text-sm font-semibold text-white/60 active:bg-white/10"
+            className="tp-glass tp-ink px-4 py-3.5 rounded-2xl text-sm font-semibold active:scale-95 transition-transform"
           >
             Skip
           </button>
@@ -77,7 +78,7 @@ export function IdeaShapeGuide({ onDone, onBack }: IdeaShapeGuideProps) {
           data-testid="idea-guide-next"
           onClick={() => advance(draft)}
           disabled={!canNext}
-          className="flex-1 py-3.5 rounded-2xl bg-violet-500 text-white text-sm font-black active:bg-violet-600 disabled:opacity-40 transition-colors"
+          className="tp-btn-dark flex-1 py-3.5 rounded-2xl text-sm font-black active:scale-[0.99] disabled:opacity-40 transition-transform"
         >
           {isLast ? '✨ Put it together' : 'Next →'}
         </button>

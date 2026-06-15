@@ -281,6 +281,23 @@ export function CreationComposer({
   const aiStatus = getAIConnectionStatus();
   const context = getContext(activeCreation);
 
+  // ── FAB collapse-on-scroll ──────────────────────────────────────────────────
+  // The extended "Ask Toolie" pill shrinks to a circle while the user scrolls,
+  // then re-expands shortly after they stop — bold on arrival, never in the way.
+  // Capture-phase listener so it catches scroll from any nested scroll container.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (isOpen) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      setCollapsed(true);
+      clearTimeout(idle);
+      idle = setTimeout(() => setCollapsed(false), 1100);
+    };
+    document.addEventListener('scroll', onScroll, true);
+    return () => { document.removeEventListener('scroll', onScroll, true); clearTimeout(idle); };
+  }, [isOpen]);
+
   // ── Daily usage hints ───────────────────────────────────────────────────────
   // When there's an active tool, the next message is usually a chat turn; on the
   // home screen it's a new generation. Show the relevant remaining count.
@@ -323,15 +340,27 @@ export function CreationComposer({
 
   return (
     <>
-      {/* FAB trigger */}
+      {/* FAB trigger — Velix extended pill; collapses to a circle on scroll */}
       {!isOpen && (
         <button
+          data-testid="toolie-fab"
           onClick={() => setIsOpen(true)}
-          className="absolute bottom-6 right-5 w-14 h-14 rounded-full shadow-xl overflow-hidden z-20"
-          style={{ boxShadow: '0 4px 24px rgba(124,58,237,0.55)' }}
-          aria-label={hasActive ? context.title : 'Make something'}
+          className="absolute bottom-6 right-5 z-20 flex items-center h-14 rounded-full bg-[#16150f] text-white active:scale-95 transition-transform"
+          style={{ boxShadow: '0 12px 30px rgba(22,21,15,0.32)' }}
+          aria-label={hasActive ? context.title : 'Ask Toolie'}
         >
-          <img src="/icon-round.png" alt="Hey Toolie" className="w-full h-full object-cover" />
+          <span className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z" />
+            </svg>
+          </span>
+          <span
+            className={`overflow-hidden whitespace-nowrap text-sm font-semibold transition-all duration-300 ease-out ${
+              collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100 pr-5'
+            }`}
+          >
+            Ask Toolie
+          </span>
         </button>
       )}
 

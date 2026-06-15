@@ -3,6 +3,7 @@ import { buildSwot, iceScore } from '../../lib/ideaFrameworks';
 
 interface IdeaSnapshotProps {
   content: IdeaThinkingBoardContent;
+  frosted?: boolean;
 }
 
 const QUADRANTS = [
@@ -57,12 +58,12 @@ function IceBar({ label, value }: { label: string; value: number }) {
  * Confidence × Ease) and a SWOT grid. Visual-first: the verdict lands
  * before a single paragraph is read.
  */
-export function IdeaSnapshot({ content }: IdeaSnapshotProps) {
+export function IdeaSnapshot({ content, frosted = false }: IdeaSnapshotProps) {
   const ice = iceScore(content.scores);
   const swot = buildSwot(content);
 
   return (
-    <div data-testid="idea-snapshot" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div data-testid="idea-snapshot" className={frosted ? 'tp-card rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden'}>
       {/* ICE verdict strip */}
       <div className="px-4 pt-4 pb-3 flex items-center gap-4">
         <IceDial total={ice.total} />

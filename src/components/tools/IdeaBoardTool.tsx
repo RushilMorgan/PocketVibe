@@ -164,7 +164,7 @@ export function IdeaBoardTool({ chips, accent }: IdeaBoardToolProps) {
             </div>
           </ToolCard>
 
-          <IdeaThinkingBoardRenderer content={board} onChange={setBoard} />
+          <IdeaThinkingBoardRenderer content={board} onChange={setBoard} frosted />
 
           {/* Gentle save nudge — using it is free, saving prompts an account */}
           <a

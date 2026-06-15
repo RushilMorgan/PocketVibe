@@ -2,6 +2,7 @@ import type { IdeaWhyStep } from '../../types';
 
 interface IdeaFiveWhysProps {
   steps: IdeaWhyStep[];
+  frosted?: boolean;
 }
 
 /**
@@ -9,9 +10,9 @@ interface IdeaFiveWhysProps {
  * the surface problem at the top, each "why?" stepping deeper, the root
  * cause highlighted at the bottom. AI-written per board.
  */
-export function IdeaFiveWhys({ steps }: IdeaFiveWhysProps) {
+export function IdeaFiveWhys({ steps, frosted = false }: IdeaFiveWhysProps) {
   return (
-    <div data-testid="idea-five-whys" className="bg-white rounded-2xl border border-gray-100 p-4">
+    <div data-testid="idea-five-whys" className={frosted ? 'tp-card rounded-2xl p-4' : 'bg-white rounded-2xl border border-gray-100 p-4'}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-800">🔍 Why, really?</h3>
         <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Five Whys</span>

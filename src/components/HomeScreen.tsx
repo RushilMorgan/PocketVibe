@@ -145,7 +145,7 @@ export function HomeScreen({ onPrompt, isGenerating, onCreateWorldCupPool, onSig
 
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <div className="px-5 pt-7 pb-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] flex items-center gap-1.5" style={{ color: '#7c3aed' }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] flex items-center gap-1.5 tp-ink-3">
             <span>✦</span> AI-powered tools
           </p>
           <h1 data-testid="landing-headline" className="tp-ink text-[32px] font-extrabold leading-[1.05] tracking-tight mt-2">

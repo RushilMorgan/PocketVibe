@@ -59,7 +59,7 @@ export default function PVHeader({
         </button>
       ) : (
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-sm" style={{ color: accentColor, transition: 'color 0.3s' }}>✦</span>
+          <span className="text-sm tp-ink">✦</span>
           <span className="text-base font-extrabold tracking-tight tp-ink">Hey Toolie</span>
         </div>
       )}

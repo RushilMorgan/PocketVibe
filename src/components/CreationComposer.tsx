@@ -349,7 +349,12 @@ export function CreationComposer({
           style={{ boxShadow: '0 12px 30px rgba(22,21,15,0.32)' }}
           aria-label={hasActive ? context.title : 'Ask Toolie'}
         >
-          <span className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+          <span className="relative w-14 h-14 flex items-center justify-center flex-shrink-0">
+            {/* Stardust — tiny particles twinkling around the sparkle */}
+            <span aria-hidden="true" className="absolute w-[3px] h-[3px] rounded-full bg-white animate-twinkle" style={{ top: '14px', right: '15px', animationDelay: '0s' }} />
+            <span aria-hidden="true" className="absolute w-[2px] h-[2px] rounded-full bg-white animate-twinkle" style={{ bottom: '15px', left: '16px', animationDelay: '.6s' }} />
+            <span aria-hidden="true" className="absolute w-[2px] h-[2px] rounded-full bg-white animate-twinkle" style={{ top: '17px', left: '15px', animationDelay: '1.1s' }} />
+            <span aria-hidden="true" className="absolute w-[1.5px] h-[1.5px] rounded-full bg-white animate-twinkle" style={{ bottom: '16px', right: '17px', animationDelay: '1.5s' }} />
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z" />
             </svg>

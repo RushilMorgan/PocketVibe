@@ -205,3 +205,14 @@ body {
 .tp-input { background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(22, 21, 15, 0.08); color: #16150f; }
 .tp-input::placeholder { color: #9a9d96; }
 .tp-divider { background: rgba(22, 21, 15, 0.08); }
+
+/* ── Toolie FAB stardust ──────────────────────────────────────────────────── */
+/* Tiny particles twinkling around the sparkle in the "Ask Toolie" pill. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.12; transform: scale(0.5); }
+  50%      { opacity: 0.95; transform: scale(1); }
+}
+.animate-twinkle { animation: twinkle 1.9s ease-in-out infinite; will-change: opacity, transform; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-twinkle { animation: none; opacity: 0.55; }
+}

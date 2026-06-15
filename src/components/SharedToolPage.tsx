@@ -196,20 +196,20 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
     if (accessMode === 'admin') {
       return (
-        <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+        <span className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">
           Admin
         </span>
       );
     }
     if (accessMode === 'participant') {
       return (
-        <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+        <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">
           {participantName ? `${participantName}` : 'Participant'}
         </span>
       );
     }
     return (
-      <span className="text-xs bg-white/10 text-white/40 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+      <span className="text-xs tp-ink-3 px-2 py-0.5 rounded-full font-semibold flex-shrink-0" style={{ background: 'rgba(22,21,15,0.05)' }}>
         Viewing
       </span>
     );
@@ -219,12 +219,12 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
   if (phase === 'loading') {
     return (
-      <div data-testid="shared-tool-loading" className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div data-testid="shared-tool-loading" className="min-h-screen flex items-center justify-center tp-surface">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-violet-600/20 flex items-center justify-center mx-auto">
-            <span className="text-violet-400 text-xl animate-pulse">✦</span>
+          <div className="w-12 h-12 rounded-2xl tp-glass flex items-center justify-center mx-auto">
+            <span className="tp-ink text-xl animate-pulse">✦</span>
           </div>
-          <p className="text-sm text-white/40">Loading…</p>
+          <p className="text-sm tp-ink-3">Loading…</p>
         </div>
       </div>
     );
@@ -232,12 +232,12 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
   if (phase === 'error' || !creation) {
     return (
-      <div data-testid="shared-tool-error" className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div data-testid="shared-tool-error" className="min-h-screen flex items-center justify-center tp-surface">
         <div className="text-center px-6 space-y-3 max-w-xs">
           <p className="text-4xl">😕</p>
-          <h1 className="text-base font-semibold text-white/80">Couldn't open this link</h1>
-          <p className="text-sm text-white/40">{errorMsg ?? 'The link may have expired — ask whoever sent it to share it again.'}</p>
-          <button onClick={load} className="text-sm text-violet-400 font-medium underline">
+          <h1 className="text-base font-bold tp-ink">Couldn't open this link</h1>
+          <p className="text-sm tp-ink-3">{errorMsg ?? 'The link may have expired — ask whoever sent it to share it again.'}</p>
+          <button onClick={load} className="text-sm tp-ink font-semibold underline">
             Try again
           </button>
         </div>
@@ -246,41 +246,41 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
   }
 
   return (
-    <div data-testid="shared-tool-page" className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Dark header */}
-      <header className="bg-gray-900 px-4 py-3.5 flex items-center justify-between gap-3">
+    <div data-testid="shared-tool-page" className="min-h-screen tp-surface flex flex-col">
+      {/* Header — Velix light/frosted */}
+      <header className="bg-white/80 border-b border-black/5 px-4 py-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <a
             href="/"
             aria-label="Back to Hey Toolie"
             title="Back to Hey Toolie"
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 active:bg-white/20 flex-shrink-0"
+            className="w-8 h-8 rounded-full tp-glass flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16150f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </a>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-violet-400 text-xs">✦</span>
-            <span className="text-xs font-black text-white/60 tracking-tight">Hey Toolie</span>
+            <span className="tp-ink text-xs">✦</span>
+            <span className="text-xs font-black tp-ink tracking-tight">Hey Toolie</span>
           </div>
-          <span className="text-white/20 text-xs">·</span>
-          <h1 className="text-sm font-semibold text-white truncate">{creation.title}</h1>
+          <span className="tp-ink-3 text-xs">·</span>
+          <h1 className="text-sm font-bold tp-ink truncate">{creation.title}</h1>
           <RoleBadge />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {saveStatus === 'saving' && <span className="text-xs text-white/40">Saving…</span>}
-          {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
-          {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
+          {saveStatus === 'saving' && <span className="text-xs tp-ink-3">Saving…</span>}
+          {saveStatus === 'saved' && <span className="text-xs text-emerald-600">Saved</span>}
+          {saveStatus === 'error' && <span className="text-xs text-red-600">Save failed</span>}
           {saveStatus === 'conflict' && (
-            <button onClick={load} className="text-xs text-amber-400 underline">
+            <button onClick={load} className="text-xs text-amber-600 underline">
               Refresh to sync
             </button>
           )}
           <button
             data-testid="shared-tool-refresh-btn"
             onClick={load}
-            className="text-sm text-white/40 px-2 py-1 rounded-lg hover:text-white/70"
+            className="text-sm tp-ink-3 px-2 py-1 rounded-lg active:opacity-60"
             aria-label="Refresh"
           >
             ⟳
@@ -290,8 +290,8 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
       {/* Admin banner */}
       {accessMode === 'admin' && (
-        <div className="bg-violet-600/10 border-b border-violet-500/20 px-4 py-2.5 flex items-center gap-2">
-          <span className="text-xs text-violet-400 flex-1">
+        <div className="border-b border-black/5 px-4 py-2.5 flex items-center gap-2" style={{ background: 'rgba(22,21,15,0.03)' }}>
+          <span className="text-xs tp-ink-2 flex-1">
             🔑 You're the creator — full edit access. People you share with see view-only.
           </span>
         </div>
@@ -299,13 +299,13 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
 
       {/* Viewer banner */}
       {accessMode === 'viewer' && (
-        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-400">You're viewing someone else's tool</p>
+        <div className="bg-white border-b border-black/5 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs tp-ink-3">You're viewing someone else's tool</p>
           <button
             data-testid="viewer-remix-btn"
             onClick={handleRemix}
             title="You get your own editable version — the original stays theirs"
-            className="text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 active:bg-violet-100 flex-shrink-0"
+            className="tp-btn-dark text-xs font-semibold px-3.5 py-1.5 rounded-full flex-shrink-0 active:scale-95 transition-transform"
           >
             Save my own copy
           </button>
@@ -313,14 +313,14 @@ export function SharedToolPage({ shareSlug, adminToken, participantToken }: Shar
       )}
 
       {/* Sticky brand footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-gray-900 px-4 py-3 flex items-center justify-between gap-3">
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/80 border-t border-black/5 px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-violet-400 text-xs">✦</span>
-          <p className="text-xs text-white/50 font-medium">Made with Hey Toolie</p>
+          <span className="tp-ink text-xs">✦</span>
+          <p className="text-xs tp-ink-3 font-medium">Made with Hey Toolie</p>
         </div>
         <a
           href="/"
-          className="flex-shrink-0 text-xs font-black text-gray-900 bg-violet-400 px-4 py-1.5 rounded-full active:bg-violet-300"
+          className="tp-btn-dark flex-shrink-0 text-xs font-black px-4 py-1.5 rounded-full active:scale-95 transition-transform"
         >
           Create your own ✨
         </a>

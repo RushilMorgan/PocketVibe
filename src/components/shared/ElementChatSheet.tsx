@@ -22,8 +22,8 @@ interface ElementChatSheetProps {
 /**
  * The "tap-to-talk" sheet — summoned by tapping any element on the Idea Board.
  * Shows the element, 2–3 AI-chosen actions, and a free-text line. Single-shot:
- * the result lands back on the canvas, not in a chat thread. Dark Toolie styling
- * matches IdeaIntakeSheet / CreationComposer.
+ * the result lands back on the canvas, not in a chat thread. Velix light/frosted
+ * styling matches the CreationComposer sheet.
  */
 export function ElementChatSheet({
   open, kind, preview, actions, busy, errorText, onAction, onLocalAction, onClose,
@@ -46,39 +46,40 @@ export function ElementChatSheet({
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={busy ? undefined : onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={busy ? undefined : onClose} />
 
-      {/* Sheet */}
+      {/* Sheet — Velix light/frosted */}
       <div
         data-testid="element-chat-sheet"
-        className="relative bg-gray-950 rounded-t-3xl shadow-2xl flex flex-col z-10 border-t border-violet-500/20 max-h-[80%]"
+        className="relative bg-white rounded-t-3xl shadow-2xl flex flex-col z-10 max-h-[80%]"
+        style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 bg-white/20 rounded-full" />
+          <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(22,21,15,0.15)' }} />
         </div>
 
         {/* Header */}
         <div className="px-5 pb-3 pt-1 flex-shrink-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-violet-400 text-xs">✦</span>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">Ask Toolie about {kindLabel(kind)}</p>
+            <span className="tp-ink text-xs">✦</span>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] tp-ink-3">Ask Toolie about {kindLabel(kind)}</p>
           </div>
-          <p className="text-sm font-semibold text-white leading-snug line-clamp-2">{preview}</p>
+          <p className="text-sm font-bold tp-ink leading-snug line-clamp-2">{preview}</p>
         </div>
 
         {/* Inline error / quota message */}
         {errorText && !busy && (
-          <div data-testid="element-chat-error" className="mx-5 mb-3 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex-shrink-0">
-            <span className="text-sm text-amber-300">{errorText}</span>
+          <div data-testid="element-chat-error" className="mx-5 mb-3 px-4 py-2.5 bg-amber-50 border border-amber-100 rounded-xl flex-shrink-0">
+            <span className="text-sm text-amber-700">{errorText}</span>
           </div>
         )}
 
         {/* Thinking state */}
         {busy && (
-          <div className="mx-5 mb-3 px-4 py-2.5 bg-violet-600/20 border border-violet-500/25 rounded-xl flex items-center gap-2 flex-shrink-0">
+          <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl flex items-center gap-2 flex-shrink-0" style={{ background: 'rgba(22,21,15,0.04)' }}>
             <span className="text-sm animate-spin">⚙️</span>
-            <span className="text-sm text-violet-300 font-medium">Toolie is reshaping this…</span>
+            <span className="text-sm tp-ink-2 font-medium">Toolie is reshaping this…</span>
           </div>
         )}
 
@@ -93,7 +94,7 @@ export function ElementChatSheet({
                   if (action.localAction) onLocalAction?.(action.localAction);
                   else if (action.prompt) run(action.prompt);
                 }}
-                className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-medium text-white/75 active:bg-white/12"
+                className="tp-glass rounded-full px-3 py-1.5 text-xs font-semibold tp-ink active:scale-95 transition-transform"
               >
                 {action.label}
               </button>
@@ -102,7 +103,7 @@ export function ElementChatSheet({
               <button
                 data-testid="element-action-delete"
                 onClick={() => onLocalAction('delete')}
-                className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 active:bg-red-500/20"
+                className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 active:bg-red-100"
               >
                 Remove
               </button>
@@ -120,12 +121,13 @@ export function ElementChatSheet({
             placeholder={busy ? 'Working on it…' : 'Or tell Toolie what to change…'}
             disabled={busy}
             maxLength={500}
-            className="flex-1 rounded-full border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+            className="tp-input flex-1 rounded-full px-4 py-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
+            style={{ ['--tw-ring-color' as string]: 'rgba(22,21,15,0.18)' }}
           />
           <button
             type="submit"
             disabled={busy || !input.trim()}
-            className="w-11 h-11 rounded-full flex items-center justify-center bg-violet-600 text-white disabled:opacity-40 active:bg-violet-700 transition-colors flex-shrink-0"
+            className="tp-btn-dark w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform flex-shrink-0"
             aria-label="Send"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

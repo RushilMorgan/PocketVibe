@@ -143,6 +143,27 @@ async function enforceQuota(
   }
 }
 
+/**
+ * Hand back one usage unit after a FAILED generation. Quota is charged before
+ * the pipeline runs, so without this a flaky failure (or an auto-retry) would
+ * cost the user a daily generation they never got a result for. Best-effort.
+ */
+async function refundQuota(
+  supabaseAdmin: unknown,
+  identity: Identity,
+  kind: QuotaKind,
+): Promise<void> {
+  if (!supabaseAdmin) return;
+  try {
+    await (supabaseAdmin as any).rpc('refund_daily_usage', {
+      p_identifier: identity.identifier,
+      p_kind: kind,
+    });
+  } catch (e) {
+    console.error('[quota] refund_daily_usage failed:', e);
+  }
+}
+
 /** Shape attached to successful responses so the client can show remaining counts. */
 function usagePayload(r: QuotaResult) {
   return { kind: r.kind, used: r.used, limit: r.limit, remaining: r.remaining, tier: r.tier, resetsAt: r.resetsAt };
@@ -1237,9 +1258,21 @@ const handleRequest = async (req: Request): Promise<Response> => {
     return { status: 200, body: responseBody };
   };
 
+  // A generation only "counts" if it succeeds. enforceQuota charged a unit up
+  // front; refund it on any non-200 so a flaky failure (or an auto-retry) never
+  // costs the user a daily generation. Skip when the quota check ran degraded
+  // (DB error → no unit was actually charged). 'chat'/'element_edit' paths
+  // returned earlier, so the charged kind here is always 'generation'.
+  const refundIfFailed = async (status: number) => {
+    if (status !== 200 && !genQuota.degraded) {
+      await refundQuota(supabaseAdmin, identity, 'generation');
+    }
+  };
+
   // ── Response: legacy single JSON, or live NDJSON stage stream ──────────────
   if (body.stream !== true) {
     const result = await runPipeline(() => {});
+    await refundIfFailed(result.status);
     return new Response(JSON.stringify(result.body), {
       status: result.status,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -1257,12 +1290,14 @@ const handleRequest = async (req: Request): Promise<Response> => {
         }
       };
       runPipeline(emit)
-        .then(({ status, body: out }) => {
+        .then(async ({ status, body: out }) => {
+          await refundIfFailed(status);
           if (status === 200) emit({ event: 'done', data: out });
           else emit({ event: 'error', status, ...out });
         })
-        .catch((err) => {
+        .catch(async (err) => {
           console.error('[generate] pipeline error:', err);
+          await refundIfFailed(500);
           emit({ event: 'error', status: 500, error: 'The AI service had a problem. Please try again.' });
         })
         .finally(() => {

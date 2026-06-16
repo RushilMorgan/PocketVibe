@@ -21,6 +21,8 @@ interface RecipeBookRendererProps {
   onExtractRecipe?: (input: RecipeIntakeInput, onStage?: (ev: GenerationStageEvent) => void) => Promise<RecipeContent | null>;
   /** Chat about one recipe (AI has that recipe's context). Absent for viewers. */
   onRecipeChat?: (recipe: RecipeContent, message: string) => Promise<{ answer?: string; updatedRecipe?: RecipeContent }>;
+  /** Velix light/frosted card surface; default = legacy app look. */
+  frosted?: boolean;
 }
 
 const DIETARY = ['none', 'vegetarian', 'vegan', 'gluten-free', 'dairy-free'] as const;
@@ -34,7 +36,11 @@ function recipeMeta(r: RecipeContent): string {
   ].filter(Boolean).join(' · ');
 }
 
-export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecipeChat }: RecipeBookRendererProps) {
+export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecipeChat, frosted = false }: RecipeBookRendererProps) {
+  const cardP4 = frosted ? 'tp-card rounded-2xl p-4' : 'bg-white rounded-2xl border border-gray-100 p-4';
+  const cardFlush = frosted ? 'tp-card rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden';
+  const ink = frosted ? 'tp-ink' : 'text-gray-900';
+  const ink3 = frosted ? 'tp-ink-3' : 'text-gray-400';
   const [showPrefs, setShowPrefs] = useState(false);
   const [url, setUrl] = useState('');
   const [showManual, setShowManual] = useState(false);
@@ -108,13 +114,13 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
   return (
     <div className="flex flex-col gap-4 p-4">
       {/* ── Cookbook header + preferences ──────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+      <div className={cardP4}>
         <div className="flex items-center justify-between gap-2">
           <input
             data-testid="cookbook-title-input"
             value={content.title}
             onChange={e => update({ title: e.target.value })}
-            className="flex-1 min-w-0 text-lg font-black text-gray-900 bg-transparent focus:outline-none focus:bg-gray-50 rounded px-1 -mx-1"
+            className={`flex-1 min-w-0 text-lg font-black bg-transparent focus:outline-none focus:bg-black/5 rounded px-1 -mx-1 ${ink}`}
           />
           <button
             data-testid="cookbook-prefs-toggle"
@@ -179,8 +185,8 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
 
       {/* ── Add a recipe from a link ───────────────────────────────────────── */}
       {onExtractRecipe && (
-        <div className="bg-rose-50/60 rounded-2xl border border-rose-100 p-4">
-          <h3 className="text-sm font-bold text-gray-800 mb-2">➕ Add a recipe</h3>
+        <div className={frosted ? 'tp-card rounded-2xl p-4' : 'bg-rose-50/60 rounded-2xl border border-rose-100 p-4'}>
+          <h3 className={`text-sm font-bold mb-2 ${frosted ? 'tp-ink' : 'text-gray-800'}`}>➕ Add a recipe</h3>
           <input
             data-testid="cookbook-url-input"
             value={url}
@@ -207,7 +213,7 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
               data-testid="cookbook-add-recipe-btn"
               onClick={addRecipe}
               disabled={!canAdd}
-              className="mt-3 w-full py-2.5 rounded-xl bg-rose-500 text-white text-sm font-black active:bg-rose-600 disabled:opacity-40 flex items-center justify-center gap-2"
+              className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black disabled:opacity-40 flex items-center justify-center gap-2 ${frosted ? 'tp-btn-dark active:scale-[0.99] transition-transform' : 'bg-rose-500 text-white active:bg-rose-600'}`}
             >
               ✨ Add to cookbook
             </button>
@@ -219,38 +225,39 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
       {content.recipes.length === 0 ? (
         <div className="text-center py-10 px-6">
           <p className="text-3xl mb-2">🍽️</p>
-          <p className="text-sm font-semibold text-gray-600">No recipes yet</p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className={`text-sm font-semibold ${frosted ? 'tp-ink-2' : 'text-gray-600'}`}>No recipes yet</p>
+          <p className={`text-xs mt-1 ${ink3}`}>
             {onExtractRecipe ? 'Paste a cooking video link above to add your first one.' : 'This cookbook is empty.'}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-gray-400 px-1">{content.recipes.length} recipe{content.recipes.length !== 1 ? 's' : ''}</p>
+          <p className={`text-xs px-1 ${ink3}`}>{content.recipes.length} recipe{content.recipes.length !== 1 ? 's' : ''}</p>
           {content.recipes.map((r, i) => {
             const id = `${i}-${r.title}`;
             const expanded = expandedId === id;
             return (
-              <div key={id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div key={id} className={cardFlush}>
                 <div className="flex items-center gap-3 p-4">
                   <button onClick={() => setExpandedId(expanded ? null : id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                     <RecipeThumb recipe={r} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{r.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">{recipeMeta(r)}</p>
+                      <p className={`text-sm font-semibold truncate ${ink}`}>{r.title}</p>
+                      <p className={`text-xs mt-0.5 truncate ${ink3}`}>{recipeMeta(r)}</p>
                     </div>
-                    <span className={`text-gray-300 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}>›</span>
+                    <span className={`flex-shrink-0 transition-transform ${ink3} ${expanded ? 'rotate-90' : ''}`}>›</span>
                   </button>
-                  <button onClick={() => removeRecipeAt(i)} className="text-gray-200 hover:text-red-500 p-1 flex-shrink-0" aria-label="Remove recipe">
+                  <button onClick={() => removeRecipeAt(i)} className={`p-1 flex-shrink-0 hover:text-red-500 ${frosted ? 'tp-ink-3' : 'text-gray-200'}`} aria-label="Remove recipe">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
                   </button>
                 </div>
                 {expanded && (
-                  <div className="border-t border-gray-100">
+                  <div className={frosted ? 'border-t border-black/5' : 'border-t border-gray-100'}>
                     <RecipeRenderer
                       content={r}
                       onChange={updated => updateRecipeAt(i, updated)}
                       onChat={onRecipeChat ? (msg) => onRecipeChat(r, msg) : undefined}
+                      frosted={frosted}
                     />
                   </div>
                 )}

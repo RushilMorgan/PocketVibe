@@ -94,7 +94,7 @@ export function EventPlannerRenderer({ content, onChange }: EventPlannerRenderer
       </div>
 
       {/* Tasks */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="tp-card rounded-2xl overflow-hidden">
         <div className="px-4 pt-4 pb-2 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800 text-sm">Tasks</h3>
           <span className="text-xs text-gray-400">{done}/{total}</span>

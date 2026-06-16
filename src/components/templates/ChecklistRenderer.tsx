@@ -104,7 +104,7 @@ export function ChecklistRenderer({ content, onChange }: ChecklistRendererProps)
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
         return (
-          <div key={section.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div key={section.id} className="tp-card rounded-2xl overflow-hidden">
             {/* Section header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               {editMode ? (

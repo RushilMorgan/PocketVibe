@@ -108,7 +108,7 @@ export function TaskPlannerRenderer({ content, onChange }: TaskPlannerRendererPr
         const sectionDone = section.tasks.filter(t => t.done).length;
         const sectionTotal = section.tasks.length;
         return (
-          <div key={section.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div key={section.id} className="tp-card rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
               {editMode ? (
                 <div className="flex items-center gap-2 flex-1">

@@ -94,7 +94,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
   if (isEditing) {
     return (
       <div className="flex flex-col gap-4 p-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="tp-card rounded-2xl p-5">
           <h3 className="font-bold text-gray-900 text-base mb-4">Edit savings goal</h3>
 
           <label className="block mb-3">
@@ -179,7 +179,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
   return (
     <div className="flex flex-col gap-4 p-4">
       {/* Goal card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      <div className="tp-card rounded-2xl p-5">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-bold text-gray-900 text-base">{content.goalName}</h3>
           <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
 
       {/* Add contribution */}
       {!isComplete && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className="tp-card rounded-2xl p-4">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Add contribution</h4>
           <div className="flex gap-2 mb-2">
             <div className="flex-1 flex items-center border border-gray-200 rounded-xl px-3 py-2 gap-1">
@@ -256,7 +256,7 @@ export function SavingsTrackerRenderer({ content, onChange }: SavingsTrackerRend
 
       {/* Contribution history */}
       {content.contributions.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="tp-card rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-50">
             <h4 className="text-sm font-semibold text-gray-700">Contributions</h4>
           </div>

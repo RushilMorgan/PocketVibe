@@ -64,7 +64,7 @@ export function PriceCalculatorRenderer({ content, onChange }: PriceCalculatorRe
 
       {/* Currency + Tax rate (edit mode) */}
       {editMode && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex gap-4">
+        <div className="tp-card rounded-2xl p-4 flex gap-4">
           <div className="flex-1">
             <label className="text-xs text-gray-400 block mb-1">Currency symbol</label>
             <input
@@ -92,7 +92,7 @@ export function PriceCalculatorRenderer({ content, onChange }: PriceCalculatorRe
       )}
 
       {/* Line items */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="tp-card rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-50">
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
             <span>Item</span>
@@ -193,7 +193,7 @@ export function PriceCalculatorRenderer({ content, onChange }: PriceCalculatorRe
       </div>
 
       {/* Summary cards */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="tp-card rounded-2xl overflow-hidden">
         <div className="divide-y divide-gray-50">
           <div className="flex justify-between px-4 py-3">
             <span className="text-sm text-gray-500">Subtotal</span>

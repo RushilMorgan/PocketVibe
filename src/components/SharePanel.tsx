@@ -144,7 +144,7 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
                 <button
                   data-testid={`copy-participant-link-${p.id}`}
                   onClick={() => handleCopyParticipantLink(p.id, pUrl)}
-                  className="flex-shrink-0 text-xs font-semibold text-white bg-violet-600 px-3 py-1.5 rounded-xl active:bg-violet-700"
+                  className="tp-btn-dark flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-xl active:scale-[0.98] transition-transform"
                 >
                   {isCopied ? '✓ Copied' : typeof navigator.share === 'function' ? '↗ Share' : 'Copy'}
                 </button>
@@ -153,7 +153,7 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
                   data-testid={`get-participant-link-${p.id}`}
                   onClick={() => handleGenerateParticipantLink(p.id, p.name, p.emoji)}
                   disabled={isGenerating || !token}
-                  className="flex-shrink-0 text-xs font-semibold text-violet-600 border border-violet-200 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 disabled:opacity-50"
+                  className="tp-glass tp-ink flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50"
                 >
                   {isGenerating ? 'Getting…' : 'Get link'}
                 </button>
@@ -198,7 +198,7 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
           </p>
           <button
             onClick={onRequestAuth}
-            className="w-full py-3 rounded-2xl bg-violet-600 text-white font-semibold text-sm active:bg-violet-700 transition-colors"
+            className="tp-btn-dark w-full py-3 rounded-2xl font-semibold text-sm active:scale-[0.99] transition-transform"
           >
             Sign in / create free account
           </button>
@@ -231,7 +231,7 @@ export function SharePanel({ creation, onClose, onCreationShared, isLoggedIn, on
           data-testid="create-share-link-btn"
           onClick={handleCreate}
           disabled={phase === 'creating' || !isShareAvailable()}
-          className="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-black text-sm disabled:opacity-50 active:bg-black transition-colors"
+          className="tp-btn-dark w-full py-3.5 rounded-2xl font-black text-sm disabled:opacity-50 active:scale-[0.99] transition-transform"
         >
           {phase === 'creating' ? '⚙️ Creating…' : '✨ Create share link'}
         </button>
@@ -277,8 +277,8 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
         </div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
-            <span className="text-violet-500 text-xs">✦</span>
-            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">Hey Toolie</span>
+            <span className="tp-ink text-xs">✦</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.22em] tp-ink-3">Hey Toolie</span>
           </div>
           <button onClick={onClose} className="text-gray-300 text-xl leading-none p-1 active:text-gray-500">×</button>
         </div>
@@ -290,12 +290,12 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
 
 function UrlDisplay({ url, copied, onCopy }: { url: string; copied: boolean; onCopy: () => void }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-gray-950 px-4 py-3 flex items-center gap-3">
-      <p className="flex-1 text-xs text-white/50 font-mono truncate">{url}</p>
+    <div className="tp-card rounded-2xl px-4 py-3 flex items-center gap-3">
+      <p className="flex-1 text-xs tp-ink-2 font-mono truncate">{url}</p>
       <button
         data-testid="copy-share-link-btn"
         onClick={onCopy}
-        className="flex-shrink-0 text-xs font-semibold text-white bg-violet-600 px-3 py-1.5 rounded-xl active:bg-violet-700"
+        className="tp-btn-dark flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-xl active:scale-[0.98] transition-transform"
       >
         {copied ? '✓ Copied' : typeof navigator.share === 'function' ? '↗ Share' : 'Copy'}
       </button>

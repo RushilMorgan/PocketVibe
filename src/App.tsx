@@ -294,7 +294,7 @@ export default function App() {
             {activeCreation && activeCreation.status !== 'generating' ? (
               <div
                 key={`${activeCreation.id}-v${activeCreation.version}`}
-                className="flex-1 overflow-y-auto pb-24 animate-creation-rise"
+                className="flex-1 overflow-y-auto pb-24 animate-creation-rise tp-surface"
                 style={templateCssVars(activeCreation.creationType)}
               >
                 <CreationHero creation={activeCreation} />

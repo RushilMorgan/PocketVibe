@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type {
   RecipeBookContent,
   RecipeContent,
@@ -13,9 +13,25 @@ import { celebrate } from '../../lib/celebrate';
 import { youtubeThumbnailUrl } from '../../lib/youtubeThumb';
 import { dishEmoji } from '../../lib/recipeIcons';
 import { VideoThumb } from '../shared/VideoThumb';
+import { useAuth } from '../../hooks/useAuth';
+import {
+  startRecipeJob,
+  getRecipeJob,
+  loadPendingCookbookJob,
+  clearPendingCookbookJob,
+  type PendingRecipeJob,
+} from '../../lib/recipeJob';
+import { getExistingPushEndpoint } from '../../lib/push';
+
+/** Keep polling a job this long before declaring it failed (server gives up sooner). */
+const MAX_JOB_MS = 240_000;
+/** Only resume a left-behind job within this window on a fresh mount. */
+const RESUME_WINDOW_MS = 30 * 60_000;
 
 interface RecipeBookRendererProps {
   content: RecipeBookContent;
+  /** Stable creation id — keys the per-cookbook background job for resume. */
+  cookbookId?: string;
   onChange: (updated: RecipeBookContent) => void;
   /** Pulls a recipe from a link/text (respecting preferences). Absent for viewers. */
   onExtractRecipe?: (input: RecipeIntakeInput, onStage?: (ev: GenerationStageEvent) => void) => Promise<RecipeContent | null>;
@@ -36,7 +52,8 @@ function recipeMeta(r: RecipeContent): string {
   ].filter(Boolean).join(' · ');
 }
 
-export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecipeChat, frosted = false }: RecipeBookRendererProps) {
+export function RecipeBookRenderer({ content, cookbookId, onChange, onExtractRecipe, onRecipeChat, frosted = false }: RecipeBookRendererProps) {
+  const auth = useAuth();
   const cardP4 = frosted ? 'tp-card rounded-2xl p-4' : 'bg-white rounded-2xl border border-gray-100 p-4';
   const cardFlush = frosted ? 'tp-card rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-gray-100 overflow-hidden';
   const ink = frosted ? 'tp-ink' : 'text-gray-900';
@@ -46,7 +63,9 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
   const [showManual, setShowManual] = useState(false);
   const [manualText, setManualText] = useState('');
   const [extracting, setExtracting] = useState(false);
-  const [stageEvents, setStageEvents] = useState<GenerationStageEvent[]>([]);
+  // Background jobs don't stream stages, so the theater shows its generic
+  // "in the kitchen" state (empty timeline) — kept for the shimmer/animation.
+  const [stageEvents] = useState<GenerationStageEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -55,53 +74,127 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
   const updatePrefs = (patch: Partial<RecipeBookPreferences>) =>
     update({ preferences: { ...prefs, ...patch } });
 
-  const canAdd = !!onExtractRecipe && (url.trim().length > 0 || manualText.trim().length > 0);
+  // Latest content for async appends — the poll callback closes over the content
+  // at start time, but the user may have edited the cookbook meanwhile.
+  const contentRef = useRef(content);
+  contentRef.current = content;
+
+  const canAdd = !!onExtractRecipe && !!cookbookId && (url.trim().length > 0 || manualText.trim().length > 0);
+
+  // ── Background extraction (server-side job) ───────────────────────────────
+  // The extraction runs on the server, not in this tab, so adding a recipe
+  // survives backgrounding the app and never loses the recipe (or a credit) if
+  // you step away — we poll the job, then append the finished recipe. The pasted
+  // link is ground truth for the thumbnail (the AI's echoed sourceUrl often
+  // mangles the video id).
+  const pollRef = useRef<number | null>(null);
+  function stopPolling() {
+    if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+  useEffect(() => () => stopPolling(), []);
+
+  function appendRecipe(recipe: RecipeContent, pastedUrl: string) {
+    const sourceUrl = pastedUrl || recipe.sourceUrl?.trim() || undefined;
+    const enriched: RecipeContent = {
+      ...recipe,
+      sourceUrl,
+      thumbnailUrl: (sourceUrl ? youtubeThumbnailUrl(sourceUrl) : null) ?? undefined,
+    };
+    const latest = contentRef.current;
+    const firstRecipe = latest.recipes.length === 0;
+    onChange({ ...latest, recipes: [enriched, ...latest.recipes] });
+    celebrate(firstRecipe
+      ? { intensity: 'big', message: 'First recipe in your cookbook! 🍳' }
+      : { intensity: 'small' });
+    setUrl('');
+    setManualText('');
+    setShowManual(false);
+    setExpandedId(null);
+  }
+
+  function finishAddError(msg: string) {
+    stopPolling();
+    if (cookbookId) clearPendingCookbookJob(cookbookId);
+    setExtracting(false);
+    setError(msg);
+  }
+
+  async function pollOnce(job: PendingRecipeJob): Promise<boolean> {
+    const timedOut = Date.now() - job.startedAt > MAX_JOB_MS;
+    const state = await getRecipeJob(job.jobId, job.token);
+    if (!state) {
+      if (timedOut) { finishAddError('This took too long — please try again.'); return true; }
+      return false;
+    }
+    if (state.status === 'running') {
+      if (timedOut) { finishAddError('This took too long — please try again.'); return true; }
+      return false;
+    }
+    if (state.status === 'done' && state.recipe) {
+      stopPolling();
+      if (cookbookId) clearPendingCookbookJob(cookbookId);
+      appendRecipe(state.recipe, job.label ?? '');
+      setExtracting(false);
+      return true;
+    }
+    finishAddError(
+      state.error === 'quota'
+        ? "You've hit today's limit — please try again later."
+        : "Couldn't read that one — try another link or paste the recipe text.",
+    );
+    return true;
+  }
+
+  function startPolling(job: PendingRecipeJob) {
+    stopPolling();
+    setExtracting(true);
+    void (async () => {
+      if (await pollOnce(job)) return;
+      pollRef.current = window.setInterval(async () => {
+        if (await pollOnce(job)) stopPolling();
+      }, 2500);
+    })();
+  }
 
   async function addRecipe() {
-    if (!onExtractRecipe || extracting) return;
+    if (!onExtractRecipe || !cookbookId || extracting) return;
     if (!url.trim() && !manualText.trim()) return;
-    setExtracting(true);
-    setStageEvents([]);
     setError(null);
-    try {
-      const recipe = await onExtractRecipe(
-        {
-          youtubeUrl: url.trim(),
-          manualText: manualText.trim(),
-          servings: prefs.servings,
-          dietary: prefs.dietary,
-        },
-        ev => setStageEvents(prev => [...prev, ev]),
-      );
-      if (!recipe) {
-        setError("Couldn't read that one — try another link or paste the recipe text.");
-        return;
-      }
-      // Attach the source link + derived video thumbnail ourselves. The pasted
-      // link is ground truth — the AI's echoed sourceUrl often mangles the
-      // video id, which points the thumbnail at a video that doesn't exist.
-      const pastedUrl = url.trim();
-      const sourceUrl = pastedUrl || recipe.sourceUrl?.trim() || undefined;
-      const enriched: RecipeContent = {
-        ...recipe,
-        sourceUrl,
-        thumbnailUrl: (sourceUrl ? youtubeThumbnailUrl(sourceUrl) : null) ?? undefined,
-      };
-      const firstRecipe = content.recipes.length === 0;
-      update({ recipes: [enriched, ...content.recipes] });
-      celebrate(firstRecipe
-        ? { intensity: 'big', message: 'First recipe in your cookbook! 🍳' }
-        : { intensity: 'small' });
-      setUrl('');
-      setManualText('');
-      setShowManual(false);
-      setExpandedId(null);
-    } catch {
-      setError('Something went wrong adding that recipe. Please try again.');
-    } finally {
+    setExtracting(true);
+    const notifyEndpoint = auth.user ? null : await getExistingPushEndpoint();
+    const job = await startRecipeJob(
+      {
+        youtubeUrl: url.trim(),
+        manualText: manualText.trim(),
+        servings: prefs.servings,
+        dietary: prefs.dietary,
+      },
+      { userId: auth.user?.id ?? null, notifyEndpoint, source: 'paste', cookbookId },
+    );
+    if (!job) {
       setExtracting(false);
+      setError('Something went wrong adding that recipe. Please try again.');
+      return;
     }
+    startPolling(job);
   }
+
+  // Resume a left-behind add on a fresh mount (left the app and came back, or
+  // the OS killed the PWA mid-extraction). A finished job appends its recipe; a
+  // still-running one keeps polling; an ancient handle is cleared silently.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || !cookbookId || !onExtractRecipe) return;
+    resumedRef.current = true;
+    const pending = loadPendingCookbookJob(cookbookId);
+    if (!pending) return;
+    if (Date.now() - pending.startedAt > RESUME_WINDOW_MS) {
+      clearPendingCookbookJob(cookbookId);
+      return;
+    }
+    startPolling(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cookbookId]);
 
   function updateRecipeAt(index: number, updated: RecipeContent) {
     update({ recipes: content.recipes.map((r, i) => (i === index ? updated : r)) });
@@ -207,6 +300,9 @@ export function RecipeBookRenderer({ content, onChange, onExtractRecipe, onRecip
           {extracting ? (
             <div className="mt-3">
               <RecipeExtractionTheater stageEvents={stageEvents} hasVideo={url.trim().length > 0} />
+              <p className={`text-xs mt-2 text-center ${frosted ? 'tp-ink-3' : 'text-gray-500'}`}>
+                You can close this — it’ll be in your cookbook when you’re back.
+              </p>
             </div>
           ) : (
             <button

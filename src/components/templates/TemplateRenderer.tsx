@@ -93,7 +93,7 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
         return <RecipeRenderer content={content} onChange={handleChange} onChat={onRecipeChat ? (msg) => onRecipeChat(content, msg) : undefined} frosted />;
 
       case 'recipe_book':
-        return <RecipeBookRenderer content={content} onChange={handleChange} onExtractRecipe={onExtractRecipe} onRecipeChat={onRecipeChat} frosted />;
+        return <RecipeBookRenderer content={content} cookbookId={creation.id} onChange={handleChange} onExtractRecipe={onExtractRecipe} onRecipeChat={onRecipeChat} frosted />;
 
       default:
         return (

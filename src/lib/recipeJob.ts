@@ -36,20 +36,33 @@ export interface PendingRecipeJob {
 }
 
 // ── localStorage handoff ────────────────────────────────────────────────────
-export function loadPendingRecipeJob(): PendingRecipeJob | null {
+// Generic per-key storage so the standalone tool and each cookbook can have
+// their own in-flight job without colliding.
+function loadPending(key: string): PendingRecipeJob | null {
   try {
-    const raw = localStorage.getItem(PENDING_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as PendingRecipeJob) : null;
   } catch {
     return null;
   }
 }
-export function savePendingRecipeJob(job: PendingRecipeJob): void {
-  try { localStorage.setItem(PENDING_KEY, JSON.stringify(job)); } catch { /* quota */ }
+function savePending(key: string, job: PendingRecipeJob): void {
+  try { localStorage.setItem(key, JSON.stringify(job)); } catch { /* quota */ }
 }
-export function clearPendingRecipeJob(): void {
-  try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+function clearPending(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* ignore */ }
 }
+
+// Standalone recipe-extractor tool (single in-flight job).
+export const loadPendingRecipeJob = (): PendingRecipeJob | null => loadPending(PENDING_KEY);
+export const savePendingRecipeJob = (job: PendingRecipeJob): void => savePending(PENDING_KEY, job);
+export const clearPendingRecipeJob = (): void => clearPending(PENDING_KEY);
+
+// In-app cookbook "add recipe" (one in-flight job per cookbook, keyed by id).
+const cookbookKey = (cookbookId: string) => `pv_pending_cookbook_job_${cookbookId}`;
+export const loadPendingCookbookJob = (cookbookId: string): PendingRecipeJob | null =>
+  loadPending(cookbookKey(cookbookId));
+export const clearPendingCookbookJob = (cookbookId: string): void => clearPending(cookbookKey(cookbookId));
 
 function buildRecipeRequest(input: RecipeExtractInput): GenerateRequest {
   const locale = {
@@ -65,7 +78,14 @@ function buildRecipeRequest(input: RecipeExtractInput): GenerateRequest {
  */
 export async function startRecipeJob(
   input: RecipeExtractInput,
-  opts: { userId?: string | null; notifyEndpoint?: string | null; source?: RecipeExtractionSource } = {},
+  opts: {
+    userId?: string | null;
+    notifyEndpoint?: string | null;
+    source?: RecipeExtractionSource;
+    /** When set, the handle is persisted under this cookbook's own key so the
+     *  cookbook and the standalone tool never collide. */
+    cookbookId?: string;
+  } = {},
 ): Promise<PendingRecipeJob | null> {
   if (!SUPABASE_URL || !ANON) return null;
   const token = crypto.randomUUID();
@@ -109,7 +129,7 @@ export async function startRecipeJob(
     label: input.youtubeUrl.trim() || 'your recipe',
     source: opts.source ?? 'paste',
   };
-  savePendingRecipeJob(job);
+  savePending(opts.cookbookId ? cookbookKey(opts.cookbookId) : PENDING_KEY, job);
   return job;
 }
 

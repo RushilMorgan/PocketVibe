@@ -140,24 +140,24 @@ export function MyThingsPage({
   const isEmpty = things.length === 0 && !cloudLoading;
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full tp-surface">
       {/* Account row — only when signed in */}
       {user && (
-        <div className="flex items-center gap-2 px-4 pt-3 pb-3 border-b border-gray-100 flex-shrink-0 bg-white">
-          <p className="text-xs text-gray-400 flex-1 truncate">{user.email}</p>
+        <div className="flex items-center gap-2 px-4 pt-3 pb-3 border-b border-black/5 flex-shrink-0 bg-white/70">
+          <p className="text-xs tp-ink-3 flex-1 truncate">{user.email}</p>
           {onGoMyProfile && (
             <button
               data-testid="my-profile-btn"
               onClick={onGoMyProfile}
-              className="flex-shrink-0 flex items-center gap-1 text-xs text-violet-600 font-semibold px-2.5 py-1.5 rounded-xl bg-violet-50 active:bg-violet-100"
+              className="tp-glass flex-shrink-0 flex items-center gap-1 text-xs tp-ink font-semibold px-2.5 py-1.5 rounded-xl active:scale-95 transition-transform"
             >
-              <span className="text-violet-400 text-[10px]">✦</span>
+              <span className="tp-ink text-[10px]">✦</span>
               My profile
             </button>
           )}
           <button
             onClick={onSignOut}
-            className="flex-shrink-0 text-xs text-gray-400 font-medium px-3 py-1.5 rounded-xl active:bg-gray-100"
+            className="flex-shrink-0 text-xs tp-ink-3 font-medium px-3 py-1.5 rounded-xl active:bg-black/5"
           >
             Sign out
           </button>
@@ -166,11 +166,11 @@ export function MyThingsPage({
 
       {/* Count / sync subtitle */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0 flex items-center gap-2">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs tp-ink-3">
           {things.length} thing{things.length !== 1 ? 's' : ''}
         </p>
         {cloudLoading && (
-          <span className="text-xs text-gray-300 animate-pulse">· syncing…</span>
+          <span className="text-xs tp-ink-3 animate-pulse">· syncing…</span>
         )}
       </div>
 
@@ -183,7 +183,7 @@ export function MyThingsPage({
         <div className="px-4 pb-2 flex-shrink-0 flex gap-1.5 overflow-x-auto">
           <button
             onClick={() => setActiveTag(null)}
-            className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap ${activeTag === null ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+            className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap transition-transform active:scale-95 ${activeTag === null ? 'tp-btn-dark' : 'tp-glass tp-ink'}`}
           >
             All
           </button>
@@ -192,7 +192,7 @@ export function MyThingsPage({
               key={tag}
               data-testid={`tag-filter-${tag}`}
               onClick={() => setActiveTag(t => t === tag ? null : tag)}
-              className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap ${activeTag === tag ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+              className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap transition-transform active:scale-95 ${activeTag === tag ? 'tp-btn-dark' : 'tp-glass tp-ink'}`}
             >
               #{tag}
             </button>
@@ -204,18 +204,18 @@ export function MyThingsPage({
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-4 py-16">
-            <div className="w-16 h-16 rounded-3xl bg-violet-100 flex items-center justify-center">
-              <span className="text-3xl">✦</span>
+            <div className="w-16 h-16 rounded-3xl tp-card flex items-center justify-center">
+              <span className="text-3xl tp-ink">✦</span>
             </div>
             <div>
-              <p className="text-gray-700 text-sm font-semibold mb-1">Nothing yet</p>
-              <p className="text-gray-400 text-xs leading-relaxed">
+              <p className="tp-ink text-sm font-bold mb-1">Nothing yet</p>
+              <p className="tp-ink-3 text-xs leading-relaxed">
                 Make something and it'll show up here — on this device and your account.
               </p>
             </div>
             <button
               onClick={onGoHome}
-              className="mt-1 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold active:bg-violet-700"
+              className="tp-btn-dark mt-1 px-5 py-2.5 rounded-xl text-sm font-semibold active:scale-95 transition-transform"
             >
               Make something
             </button>
@@ -241,9 +241,8 @@ export function MyThingsPage({
     return (
       <div
         key={creation.id}
-        className={`rounded-2xl px-4 py-3.5 ${
-          isActive ? 'bg-violet-600 shadow-lg shadow-violet-200/50' : 'bg-white border border-gray-100 shadow-sm'
-        }`}
+        className={`rounded-2xl px-4 py-3.5 ${isActive ? 'text-white' : 'tp-card'}`}
+        style={isActive ? { background: '#16150f', boxShadow: '0 12px 30px rgba(22,21,15,0.28)' } : undefined}
       >
         <div className="flex items-start gap-3">
           <button
@@ -266,20 +265,21 @@ export function MyThingsPage({
                   }}
                   onClick={e => e.stopPropagation()}
                   maxLength={100}
-                  className="w-full text-sm font-semibold border border-violet-400 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-gray-900"
+                  className="w-full text-sm font-semibold border border-black/20 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 bg-white text-[#16150f]"
+                  style={{ ['--tw-ring-color' as string]: 'rgba(22,21,15,0.2)' }}
                 />
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`font-bold text-sm truncate max-w-[140px] ${isActive ? 'text-white' : 'text-gray-900'}`}>
+                  <span className={`font-bold text-sm truncate max-w-[140px] ${isActive ? 'text-white' : 'tp-ink'}`}>
                     {creation.title}
                   </span>
                   {creation.version > 1 && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-white/20 text-white/70' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-white/20 text-white/70' : 'tp-ink-3'}`} style={isActive ? undefined : { background: 'rgba(22,21,15,0.05)' }}>
                       v{creation.version}
                     </span>
                   )}
                   {creation.shareSlug && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-white/20 text-white/80' : 'bg-violet-50 text-violet-600'}`}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-white/20 text-white/80' : 'tp-ink-2'}`} style={isActive ? undefined : { background: 'rgba(22,21,15,0.05)' }}>
                       Shared
                     </span>
                   )}
@@ -290,7 +290,7 @@ export function MyThingsPage({
                   )}
                 </div>
               )}
-              <p className={`text-xs mt-0.5 line-clamp-1 ${isActive ? 'text-white/60' : 'text-gray-400'}`}>
+              <p className={`text-xs mt-0.5 line-clamp-1 ${isActive ? 'text-white/60' : 'tp-ink-3'}`}>
                 {typeLabel(creation.creationType)} · {timeAgo(creation.updatedAt)}
               </p>
             </div>
@@ -299,7 +299,7 @@ export function MyThingsPage({
           <div className="flex items-center flex-shrink-0">
             <button
               onClick={e => { e.stopPropagation(); startRename(creation); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-400 active:bg-gray-100'}`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'tp-ink-3 active:bg-black/5'}`}
               aria-label="Rename"
               title="Rename"
             >
@@ -310,7 +310,7 @@ export function MyThingsPage({
             </button>
             <button
               onClick={e => { e.stopPropagation(); onDuplicate(creation.id); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'text-gray-400 active:bg-gray-100'}`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isActive ? 'text-white/50 active:bg-white/10' : 'tp-ink-3 active:bg-black/5'}`}
               aria-label="Duplicate"
               title="Duplicate"
             >
@@ -321,7 +321,7 @@ export function MyThingsPage({
             </button>
             <button
               onClick={e => { e.stopPropagation(); handleDelete(creation.id); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-400 active:bg-red-50' : isActive ? 'text-white/30 active:bg-white/10' : 'text-gray-400 active:bg-gray-100'}`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center ${isConfirming ? 'text-red-500 active:bg-red-50' : isActive ? 'text-white/30 active:bg-white/10' : 'tp-ink-3 active:bg-black/5'}`}
               aria-label={isConfirming ? 'Tap again to confirm delete' : 'Delete'}
               title={isConfirming ? 'Tap again to confirm' : 'Delete'}
             >
@@ -334,7 +334,7 @@ export function MyThingsPage({
         </div>
 
         {isConfirming && (
-          <p className="text-xs text-red-400 mt-1.5 ml-9">Tap delete again to confirm</p>
+          <p className={`text-xs mt-1.5 ml-9 ${isActive ? 'text-red-300' : 'text-red-500'}`}>Tap delete again to confirm</p>
         )}
       </div>
     );
@@ -347,7 +347,7 @@ export function MyThingsPage({
     return (
       <div
         key={tool.id}
-        className="rounded-2xl px-4 py-3.5 bg-white border border-gray-100 shadow-sm"
+        className="tp-card rounded-2xl px-4 py-3.5"
       >
         <div className="flex items-start gap-3">
           <button
@@ -359,20 +359,20 @@ export function MyThingsPage({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-sm text-gray-900 break-words">{tool.title}</span>
-                <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 bg-violet-50 text-violet-600">
+                <span className="font-bold text-sm tp-ink break-words">{tool.title}</span>
+                <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 tp-ink-2" style={{ background: 'rgba(22,21,15,0.05)' }}>
                   {adminToken ? 'Shared' : 'View only'}
                 </span>
               </div>
-              <p className="text-xs mt-0.5 text-gray-400">
+              <p className="text-xs mt-0.5 tp-ink-3">
                 {typeLabel(tool.creation_type)} · {exactDate(updatedMs)}
               </p>
-              <p className="text-[11px] mt-0.5 text-gray-300 font-mono">/s/{tool.share_slug}</p>
+              <p className="text-[11px] mt-0.5 tp-ink-3 font-mono">/s/{tool.share_slug}</p>
             </div>
           </button>
           <button
             onClick={() => openCloudTool(tool)}
-            className="flex-shrink-0 self-center text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-xl active:bg-violet-100 whitespace-nowrap"
+            className="tp-btn-dark flex-shrink-0 self-center text-xs font-semibold px-3 py-1.5 rounded-xl active:scale-95 transition-transform whitespace-nowrap"
           >
             Open →
           </button>

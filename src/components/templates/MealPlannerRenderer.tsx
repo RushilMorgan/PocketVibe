@@ -70,7 +70,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
       {days.map(day => {
         const dayMeals = content.meals.filter(m => m.day === day);
         return (
-          <div key={day} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div key={day} className="tp-card rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-50">
               <h3 className="font-semibold text-gray-700 text-sm">{day}</h3>
             </div>
@@ -143,7 +143,7 @@ export function MealPlannerRenderer({ content, onChange }: MealPlannerRendererPr
 
       {/* Grocery list */}
       {(content.groceryList.length > 0 || editMode) && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="tp-card rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-50">
             <h3 className="font-semibold text-gray-700 text-sm">🛒 Grocery list</h3>
           </div>

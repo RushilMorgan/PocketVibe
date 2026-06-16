@@ -141,7 +141,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
         return (
           <div
             key={habit.id}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+            className="tp-card rounded-2xl shadow-sm overflow-hidden"
           >
             {editMode ? (
               /* ── Edit row ────────────────────────────────────────────────── */
@@ -288,7 +288,7 @@ export function HabitTrackerRenderer({ content, onChange }: HabitTrackerRenderer
 
       {/* Empty state */}
       {content.habits.length === 0 && (
-        <div className="text-center text-gray-400 text-sm py-10 bg-white rounded-2xl border border-gray-100">
+        <div className="text-center text-gray-400 text-sm py-10 tp-card rounded-2xl">
           No habits yet.{' '}
           {editMode ? (
             <button

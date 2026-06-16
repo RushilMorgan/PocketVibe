@@ -121,7 +121,7 @@ export function BudgetCalculatorRenderer({ content, onChange }: BudgetCalculator
 
       {/* Currency selector — edit mode only */}
       {editMode && (
-        <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex items-center gap-3">
+        <div className="tp-card rounded-2xl px-4 py-3 flex items-center gap-3">
           <span className="text-sm text-gray-500 flex-shrink-0">Currency symbol</span>
           <input
             type="text"
@@ -136,7 +136,7 @@ export function BudgetCalculatorRenderer({ content, onChange }: BudgetCalculator
       )}
 
       {/* ── Income section ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="tp-card rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Income</h3>
           {editMode && (
@@ -207,7 +207,7 @@ export function BudgetCalculatorRenderer({ content, onChange }: BudgetCalculator
       </div>
 
       {/* ── Expenses section ────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="tp-card rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Expenses</h3>
           {editMode && (
@@ -297,7 +297,7 @@ export function BudgetCalculatorRenderer({ content, onChange }: BudgetCalculator
 
       {/* ── Notes section ───────────────────────────────────────────────── */}
       {(content.notes || editMode) && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="tp-card rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-50">
             <h3 className="text-sm font-semibold text-gray-700">Notes</h3>
           </div>

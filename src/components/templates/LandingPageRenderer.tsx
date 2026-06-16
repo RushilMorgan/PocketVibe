@@ -99,14 +99,14 @@ export function LandingPageRenderer({ content, onChange }: LandingPageRendererPr
           className="w-full text-sm border border-gray-200 rounded-2xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-pink-400"
         />
       ) : content.description ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className="tp-card rounded-2xl p-4">
           <p className="text-sm text-gray-600 leading-relaxed">{content.description}</p>
         </div>
       ) : null}
 
       {/* Features */}
       {(content.features.length > 0 || editMode) && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="tp-card rounded-2xl overflow-hidden">
           {!editMode && (
             <div className="px-4 py-3 border-b border-gray-50">
               <h3 className="text-sm font-semibold text-gray-700">What we offer</h3>

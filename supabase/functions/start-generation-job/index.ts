@@ -20,10 +20,18 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-pv-user-token',
 };
 
-// Background work ceiling. On the free plan the function's wall-clock is limited;
-// we abort the pipeline call past this and mark the job errored so a stuck job
-// never lingers as 'running' forever (the client also has its own timeout).
-const PIPELINE_TIMEOUT_MS = 140_000;
+// Total background-work budget. On the free plan the function's wall-clock is
+// limited; we stop spending past this so a stuck job never lingers as 'running'
+// (the client also has its own timeout as a backstop).
+const TOTAL_BUDGET_MS = 150_000;
+// Per-attempt ceiling for a single pipeline call.
+const PER_ATTEMPT_MS = 120_000;
+// Max pipeline attempts. The video-watching builder step is intermittently
+// flaky (often succeeds on a retry), so an unattended job retries once rather
+// than giving up — turning most transient 422s into a delivered recipe.
+const MAX_ATTEMPTS = 2;
+// Don't start another attempt unless this much budget remains.
+const MIN_RETRY_BUDGET_MS = 20_000;
 
 // Per-kind notification copy. Add tools here as they adopt background jobs.
 const NOTIFY_COPY: Record<string, { ok: { title: string; body: string }; fail: { title: string; body: string }; path: string }> = {
@@ -95,37 +103,52 @@ Deno.serve(async (req: Request) => {
     let status: 'done' | 'error' = 'error';
     let result: unknown = null;
     let errorText: string | null = null;
+    const startedAt = Date.now();
 
-    try {
+    const callPipeline = async (timeoutMs: number) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), PIPELINE_TIMEOUT_MS);
-      const res = await fetch(`${supabaseUrl}/functions/v1/pocketvibe-generate`, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${anonKey}`,
-          apikey: anonKey,
-          ...(userToken ? { 'x-pv-user-token': userToken } : {}),
-          ...(clientIp ? { 'x-forwarded-for': clientIp } : {}),
-        },
-        // No stream: the pipeline returns a single final JSON response.
-        body: JSON.stringify({ ...request, stream: false }),
-      });
-      clearTimeout(timer);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(`${supabaseUrl}/functions/v1/pocketvibe-generate`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${anonKey}`,
+            apikey: anonKey,
+            ...(userToken ? { 'x-pv-user-token': userToken } : {}),
+            ...(clientIp ? { 'x-forwarded-for': clientIp } : {}),
+          },
+          // No stream: the pipeline returns a single final JSON response.
+          body: JSON.stringify({ ...request, stream: false }),
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
 
-      if (res.ok) {
-        result = await res.json();
-        status = 'done';
-      } else {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+      if (remaining < MIN_RETRY_BUDGET_MS) break; // not enough budget to try again
+      try {
+        const res = await callPipeline(Math.min(PER_ATTEMPT_MS, remaining));
+        if (res.ok) {
+          result = await res.json();
+          status = 'done';
+          errorText = null;
+          break;
+        }
         let detail = '';
         try { detail = await res.text(); } catch { /* ignore */ }
-        errorText = res.status === 429 ? 'quota' : `pipeline_${res.status}`;
-        console.error('[start-generation-job] pipeline error', res.status, detail.slice(0, 300));
+        console.error(`[start-generation-job] pipeline error (attempt ${attempt})`, res.status, detail.slice(0, 300));
+        if (res.status === 429) { errorText = 'quota'; break; } // quota won't change on retry
+        errorText = `pipeline_${res.status}`;
+        // 4xx (non-quota) / 5xx are often transient for the video step — loop to retry.
+      } catch (err: any) {
+        errorText = err?.name === 'AbortError' ? 'timeout' : 'pipeline_exception';
+        console.error(`[start-generation-job] run error (attempt ${attempt})`, err?.message ?? err);
+        if (errorText === 'timeout') break; // a timeout already spent the budget
       }
-    } catch (err: any) {
-      errorText = err?.name === 'AbortError' ? 'timeout' : 'pipeline_exception';
-      console.error('[start-generation-job] run error', err?.message ?? err);
     }
 
     await admin

@@ -259,7 +259,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
                   key={at}
                   data-testid={`log-type-${at}`}
                   onClick={() => setLogActivity(at as ActivityType)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${logActivity === at ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${logActivity === at ? 'tp-btn-dark' : 'bg-gray-100 text-gray-700'}`}
                 >
                   {ACTIVITY_ICON[at] ?? '⭐'} {at}
                 </button>
@@ -423,25 +423,25 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* ── Hero card — dark charcoal + emerald ───────────────────────────── */}
-      <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-1 ring-emerald-400/35">
-        <div className="relative bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-5 overflow-hidden">
+      {/* ── Hero card — light frosted + emerald sport accent ──────────────── */}
+      <div className="relative rounded-3xl overflow-hidden ring-1 ring-emerald-400/30">
+        <div className="relative tp-card p-5 overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(255,255,255,0.92))' }}>
 
           {/* Running track oval arcs */}
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 w-80 h-20 rounded-full border-2 border-white/8 pointer-events-none" />
-          <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-56 h-14 rounded-full border border-white/6 pointer-events-none" />
+          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 w-80 h-20 rounded-full border-2 border-emerald-500/15 pointer-events-none" />
+          <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-56 h-14 rounded-full border border-emerald-500/10 pointer-events-none" />
           {/* 🏃 watermark */}
-          <div className="absolute -right-2 top-1 text-7xl opacity-5 pointer-events-none select-none">🏃</div>
+          <div className="absolute -right-2 top-1 text-7xl opacity-[0.06] pointer-events-none select-none">🏃</div>
 
           {/* Top row: challenge label + manage button */}
           <div className="relative z-10 flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1.5">
-              <span className="text-xs text-white/60 font-semibold tracking-wide uppercase">Partner Challenge</span>
+            <div className="flex items-center gap-1.5 bg-black/[0.04] rounded-full px-3 py-1.5">
+              <span className="text-xs tp-ink-3 font-semibold tracking-wide uppercase">Partner Challenge</span>
             </div>
             <button
               data-testid="edit-challenge-btn"
               onClick={() => setSheetView('manage')}
-              className="bg-emerald-400 text-gray-900 text-xs font-black px-3 py-1.5 rounded-full active:bg-emerald-300"
+              className="bg-emerald-500 text-white text-xs font-black px-3 py-1.5 rounded-full active:bg-emerald-600"
             >
               Manage
             </button>
@@ -449,32 +449,32 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
 
           {/* Challenge name + leader status */}
           <div className="relative z-10 mb-4">
-            <p className="text-emerald-400 text-xs font-semibold tracking-wide uppercase mb-0.5">
+            <p className="text-emerald-600 text-xs font-semibold tracking-wide uppercase mb-0.5">
               {weeklyTarget} sessions/week target
             </p>
-            <h2 className="text-xl font-black text-white leading-tight truncate">{content.planName}</h2>
-            <p className="text-xs text-white/60 mt-0.5">{leaderLabel}</p>
+            <h2 className="text-xl font-black tp-ink leading-tight truncate">{content.planName}</h2>
+            <p className="text-xs tp-ink-3 mt-0.5">{leaderLabel}</p>
           </div>
 
           {/* Frosted glass stat boxes */}
           <div className="relative z-10 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
-              <p className="text-xs text-white/60 truncate">
+            <div className="rounded-xl bg-white/70 border border-black/5 px-3 py-2.5">
+              <p className="text-xs tp-ink-3 truncate">
                 <span>{left?.participant.emoji ?? '🏃'}</span>
                 {' '}
                 <span>{left?.participant.name ?? 'Player 1'}</span>
               </p>
-              <p className="text-base font-black text-emerald-400 mt-0.5">{left?.points ?? 0} pts</p>
-              <p className="text-xs text-white/50">{left?.sessionsThisWeek ?? 0}/{weeklyTarget} this wk</p>
+              <p className="text-base font-black text-emerald-600 mt-0.5">{left?.points ?? 0} pts</p>
+              <p className="text-xs tp-ink-3">{left?.sessionsThisWeek ?? 0}/{weeklyTarget} this wk</p>
             </div>
-            <div className="rounded-xl bg-white/10 border border-white/10 px-3 py-2.5">
-              <p className="text-xs text-white/60 truncate">
+            <div className="rounded-xl bg-white/70 border border-black/5 px-3 py-2.5">
+              <p className="text-xs tp-ink-3 truncate">
                 <span>{right?.participant.emoji ?? '🏃'}</span>
                 {' '}
                 <span>{right?.participant.name ?? 'Player 2'}</span>
               </p>
-              <p className="text-base font-black text-emerald-400 mt-0.5">{right?.points ?? 0} pts</p>
-              <p className="text-xs text-white/50">{right?.sessionsThisWeek ?? 0}/{weeklyTarget} this wk</p>
+              <p className="text-base font-black text-emerald-600 mt-0.5">{right?.points ?? 0} pts</p>
+              <p className="text-xs tp-ink-3">{right?.sessionsThisWeek ?? 0}/{weeklyTarget} this wk</p>
             </div>
           </div>
         </div>
@@ -698,7 +698,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
                           key={`${log.id}-${at}`}
                           data-testid={`edit-log-type-${log.id}-${at}`}
                           onClick={() => setEditLogActivity(at as ActivityType)}
-                          className={`rounded-full px-2.5 py-1 text-xs ${editLogActivity === at ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                          className={`rounded-full px-2.5 py-1 text-xs ${editLogActivity === at ? 'tp-btn-dark' : 'bg-white text-gray-600 border border-gray-200'}`}
                         >
                           {at}
                         </button>
@@ -710,7 +710,7 @@ export function WorkoutTrackerRenderer({ content, onChange, onShare, hasShareLin
                     </div>
                     <input data-testid={`edit-log-note-${log.id}`} value={editLogNote} onChange={e => setEditLogNote(e.target.value)} placeholder="Note" className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs" />
                     <div className="flex gap-2">
-                      <button data-testid={`save-edit-log-${log.id}`} onClick={saveEditLog} className="flex-1 rounded-lg bg-gray-900 py-1.5 text-xs font-semibold text-white">Save</button>
+                      <button data-testid={`save-edit-log-${log.id}`} onClick={saveEditLog} className="flex-1 rounded-lg tp-btn-dark py-1.5 text-xs font-semibold">Save</button>
                       <button data-testid={`delete-log-${log.id}`} onClick={() => deleteLog(log.id)} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">Delete</button>
                     </div>
                   </div>

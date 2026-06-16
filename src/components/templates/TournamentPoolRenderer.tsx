@@ -1148,7 +1148,7 @@ export function TournamentPoolRenderer({ content, onChange, onShare, hasShareLin
                     <button
                       data-testid="rename-participant-save"
                       onClick={commitRenameParticipant}
-                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white"
+                      className="rounded-lg tp-btn-dark px-3 py-1.5 text-sm font-semibold"
                     >
                       Save
                     </button>

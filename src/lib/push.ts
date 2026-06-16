@@ -26,6 +26,22 @@ export function pushPermission(): NotificationPermission | 'unsupported' {
   return Notification.permission;
 }
 
+/**
+ * The endpoint of an already-granted push subscription, or null. Used to target
+ * an anonymous user's device when kicking off a background job (signed-in users
+ * are targeted by user id instead, so they don't need this).
+ */
+export async function getExistingPushEndpoint(): Promise<string | null> {
+  if (!isPushSupported() || Notification.permission !== 'granted') return null;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.getSubscription();
+    return sub?.endpoint ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** VAPID public key (base64url) → Uint8Array, as the PushManager requires. */
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);

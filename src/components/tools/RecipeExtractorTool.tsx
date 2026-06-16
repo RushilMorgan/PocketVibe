@@ -10,6 +10,17 @@ import type { RecipeContent, GenerationStageEvent } from '../../types';
 import type { ToolChip, ToolAccent } from '../../lib/toolPages';
 import { ToolCard, ToolButton, ToolChip as Chip, ToolInput, ToolProgress } from './ui';
 import { PushNudge } from '../PushNudge';
+import {
+  startRecipeJob,
+  getRecipeJob,
+  loadPendingRecipeJob,
+  clearPendingRecipeJob,
+  type PendingRecipeJob,
+} from '../../lib/recipeJob';
+import { getExistingPushEndpoint } from '../../lib/push';
+
+/** Give up on a job that never resolves (well past the server's own ceiling). */
+const MAX_JOB_MS = 240_000;
 
 /** A real, well-known cooking video — pre-filled so the page is never a blank box. */
 const SAMPLE_URL = 'https://www.youtube.com/watch?v=PUP7U5vTMM0';
@@ -29,7 +40,7 @@ interface RecipeExtractorToolProps {
  */
 export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps) {
   const auth = useAuth();
-  const { extractRecipe, saveExtractedRecipe, chatAboutRecipe, quotaNotice, dismissQuotaNotice } = usePocketVibe(auth.user?.id);
+  const { saveExtractedRecipe, chatAboutRecipe, quotaNotice, dismissQuotaNotice } = usePocketVibe(auth.user?.id);
 
   const [url, setUrl] = useState('');
   const [showManual, setShowManual] = useState(false);
@@ -51,50 +62,103 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
 
   const canExtract = !extracting && (url.trim().length > 0 || manualText.trim().length > 0);
 
-  // Core extraction, callable with explicit values (used both by the button and
-  // by the shared-link auto-run below, where React state hasn't flushed yet).
-  async function extractWith(youtubeUrl: string, manual: string) {
-    if (extracting) return;
-    setExtracting(true);
-    setStageEvents([]);
-    setError(null);
-    try {
-      const result = await extractRecipe(
-        { youtubeUrl, manualText: manual },
-        ev => setStageEvents(prev => [...prev, ev]),
-      );
-      if (!result) {
-        setError("Couldn't read that one — try another link, or paste the recipe text instead.");
-        return;
-      }
-      setRecipe(result);
-      if (!celebratedRef.current) {
-        celebrate({ intensity: 'small' });
-        celebratedRef.current = true;
-      }
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setExtracting(false);
+  // ── Background extraction (server-side job) ─────────────────────────────────
+  // The work runs on the server, not in this tab, so the user can leave and come
+  // back to a finished recipe (and get a push). We just poll the job here.
+  const pollRef = useRef<number | null>(null);
+  function stopPolling() {
+    if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+  useEffect(() => () => stopPolling(), []);
+
+  function finishWithError(msg: string) {
+    stopPolling();
+    clearPendingRecipeJob();
+    setExtracting(false);
+    setError(msg);
+  }
+
+  // Check a job once. Returns true when it has resolved (done or error).
+  async function pollOnce(job: PendingRecipeJob): Promise<boolean> {
+    const timedOut = Date.now() - job.startedAt > MAX_JOB_MS;
+    const state = await getRecipeJob(job.jobId, job.token);
+    if (!state) {
+      // Transient fetch miss — keep waiting unless we've waited far too long.
+      if (timedOut) { finishWithError('This took too long — please try again.'); return true; }
+      return false;
     }
+    if (state.status === 'running') {
+      if (timedOut) { finishWithError('This took too long — please try again.'); return true; }
+      return false;
+    }
+    if (state.status === 'done' && state.recipe) {
+      stopPolling();
+      clearPendingRecipeJob();
+      setRecipe(state.recipe);
+      setExtracting(false);
+      if (!celebratedRef.current) { celebrate({ intensity: 'small' }); celebratedRef.current = true; }
+      return true;
+    }
+    finishWithError(
+      state.error === 'quota'
+        ? "You've hit today's limit — please try again later."
+        : "Couldn't read that one — try another link, or paste the recipe text instead.",
+    );
+    return true;
+  }
+
+  function startPolling(job: PendingRecipeJob) {
+    stopPolling();
+    setExtracting(true);
+    void (async () => {
+      if (await pollOnce(job)) return;
+      pollRef.current = window.setInterval(async () => {
+        if (await pollOnce(job)) stopPolling();
+      }, 2500);
+    })();
+  }
+
+  async function beginExtraction(youtubeUrl: string, manual: string) {
+    if (extracting) return;
+    setError(null);
+    setRecipe(null);
+    setExtracting(true);
+    // Anonymous users are notified by their device endpoint; signed-in users by
+    // their user id (resolved server-side at completion).
+    const notifyEndpoint = auth.user ? null : await getExistingPushEndpoint();
+    const job = await startRecipeJob(
+      { youtubeUrl, manualText: manual },
+      { userId: auth.user?.id ?? null, notifyEndpoint },
+    );
+    if (!job) {
+      setExtracting(false);
+      setError('Something went wrong starting that. Please try again.');
+      return;
+    }
+    startPolling(job);
   }
 
   function handleExtract() {
     if (!canExtract) return;
-    void extractWith(url.trim(), manualText.trim());
+    void beginExtraction(url.trim(), manualText.trim());
   }
 
-  // Shared-link auto-run: when reached from the share sheet (/share → here with
-  // ?shared=<link>), prefill the URL and extract immediately so the user lands
-  // straight in the "kitchen theater" without a second tap.
-  const autoRanRef = useRef(false);
+  // On mount: either auto-run a shared link (/share → ?shared=), or resume a
+  // job already in flight (the user left and came back, or tapped the push).
+  const bootedRef = useRef(false);
   useEffect(() => {
-    if (autoRanRef.current) return;
+    if (bootedRef.current) return;
+    bootedRef.current = true;
     const shared = new URLSearchParams(window.location.search).get('shared');
     if (shared && shared.trim()) {
-      autoRanRef.current = true;
       setUrl(shared.trim());
-      void extractWith(shared.trim(), '');
+      void beginExtraction(shared.trim(), '');
+      return;
+    }
+    const pending = loadPendingRecipeJob();
+    if (pending) {
+      if (pending.label) setUrl(pending.label);
+      startPolling(pending);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -168,9 +232,11 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
               stageEvents={stageEvents}
               accent={accent}
               heading="Toolie is in the kitchen"
-              fallback={url.trim().length > 0 ? 'Pulling the recipe out of your video…' : 'Pulling your recipe together…'}
-              labelFor={ev => recipeStageLabel(ev, url.trim().length > 0)}
+              fallback="Pulling your recipe together — you can close this and carry on; we’ll have it waiting (and ping you) when it’s done."
+              labelFor={ev => recipeStageLabel(ev, true)}
             />
+            {/* Surface the push opt-in here so leaving actually gets you a ping */}
+            <PushNudge userId={auth.user?.id} accentColor={accent.accent} />
           </div>
         ) : (
           <ToolButton

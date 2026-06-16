@@ -94,7 +94,7 @@ export function CelebrationLayer() {
           ))}
           {burst.detail.message && (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 animate-fade-in">
-              <div className="px-4 py-2 rounded-full bg-gray-900/90 text-white text-sm font-bold shadow-lg whitespace-nowrap">
+              <div className="px-4 py-2 rounded-full text-white text-sm font-bold shadow-lg whitespace-nowrap" style={{ background: '#16150f' }}>
                 {burst.detail.message}
               </div>
             </div>

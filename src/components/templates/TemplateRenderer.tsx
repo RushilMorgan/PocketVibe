@@ -87,7 +87,7 @@ export function TemplateRenderer({ creation, onContentChange, onShare, pendingLo
         return <TournamentPoolRenderer content={content} onChange={handleChange} onShare={onShare} hasShareLink={hasShareLink} pendingLocalAction={pendingLocalAction} onLocalActionConsumed={onLocalActionConsumed} />;
 
       case 'idea_thinking_board':
-        return <IdeaThinkingBoardRenderer content={content} onChange={handleChange} />;
+        return <IdeaThinkingBoardRenderer content={content} onChange={handleChange} frosted />;
 
       case 'recipe':
         return <RecipeRenderer content={content} onChange={handleChange} onChat={onRecipeChat ? (msg) => onRecipeChat(content, msg) : undefined} frosted />;

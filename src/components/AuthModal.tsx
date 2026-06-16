@@ -70,7 +70,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
           </p>
           <button
             onClick={onClose}
-            className="mt-5 w-full py-3 rounded-xl bg-violet-600 text-white text-sm font-semibold active:bg-violet-700"
+            className="mt-5 w-full py-3 rounded-xl tp-btn-dark text-sm font-semibold active:scale-[0.99] transition-transform"
           >
             Got it
           </button>
@@ -94,7 +94,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
           </p>
           <button
             onClick={onClose}
-            className="mt-5 w-full py-3 rounded-xl bg-violet-600 text-white text-sm font-semibold active:bg-violet-700"
+            className="mt-5 w-full py-3 rounded-xl tp-btn-dark text-sm font-semibold active:scale-[0.99] transition-transform"
           >
             Got it
           </button>
@@ -232,13 +232,13 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
             placeholder="your@email.com"
             value={magicEmail}
             onChange={e => setMagicEmail(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-black/15"
           />
           <button
             data-testid="magic-link-btn"
             type="submit"
             disabled={submitting || !magicEmail.trim()}
-            className="w-full py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold disabled:opacity-50 active:bg-violet-700 transition-colors"
+            className="tp-btn-dark w-full py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 active:scale-[0.99] transition-transform"
           >
             {submitting ? '…' : 'Email me a sign-in link'}
           </button>
@@ -274,7 +274,7 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
                 placeholder="Email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-black/15"
               />
               <input
                 type="password"
@@ -283,12 +283,12 @@ export function AuthModal({ variant, auth, onSuccess, onSkip, onClose }: AuthMod
                 placeholder="Password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-black/15"
               />
               <button
                 type="submit"
                 disabled={submitting || !email || !password}
-                className="w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-50 active:bg-gray-800 transition-colors"
+                className="tp-btn-dark w-full py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 active:scale-[0.99] transition-transform"
               >
                 {submitting ? '…' : mode === 'signup' ? 'Create account' : 'Sign in'}
               </button>

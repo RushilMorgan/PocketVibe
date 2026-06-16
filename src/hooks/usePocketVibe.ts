@@ -668,21 +668,23 @@ export function usePocketVibe(userId?: string) {
     }
   }, [isBlockedByQuota]);
 
-  // Persist an already-extracted recipe (from the standalone extractor) as a
-  // saved `recipe` creation, set it active, and return its id. Writes to
-  // localStorage synchronously so a full-page navigation immediately after save
-  // can't race the async persistence effects. Signed-in cloud backup happens on
-  // the next app load via the on-mount sync. Anonymous saves persist locally and
-  // the save-nudge then prompts an account.
-  const saveExtractedRecipe = useCallback((recipe: RecipeContent): string => {
+  // Persist an extracted recipe (from the standalone extractor) as a saved
+  // COOKBOOK (`recipe_book`) containing that one recipe, set it active, and
+  // return its id. Saving as a cookbook (not a bare `recipe`) means opening it
+  // from My Things shows the cookbook UI — you can paste more links to add
+  // recipes, instead of being locked into a single editable recipe. `title` is
+  // the cookbook name the user just chose. Writes to localStorage synchronously
+  // so a full-page navigation immediately after save can't race the async
+  // persistence effects; signed-in cloud backup happens on the next app load.
+  const saveExtractedRecipe = useCallback((recipe: RecipeContent, title?: string): string => {
     const now = Date.now();
     const creationId = `c-${now}`;
-    const title = (recipe.title?.trim() || 'Saved recipe').slice(0, 100);
-    trackCreationStarted('recipe', title);
+    const cookbookTitle = (title?.trim() || 'My Cookbook').slice(0, 100);
+    trackCreationStarted('recipe_book', cookbookTitle);
     const creation: Creation = {
       id: creationId,
-      title,
-      creationType: 'recipe',
+      title: cookbookTitle,
+      creationType: 'recipe_book',
       description: '',
       summary: '',
       originalRequest: recipe.sourceUrl || 'Extracted recipe',
@@ -691,14 +693,19 @@ export function usePocketVibe(userId?: string) {
       createdAt: now,
       updatedAt: now,
       ownerUserId: userIdRef.current,
-      content: recipe,
+      content: {
+        type: 'recipe_book',
+        title: cookbookTitle,
+        preferences: { dietary: 'none', units: 'metric' },
+        recipes: [recipe],
+      },
     };
     dispatch({ type: 'UPSERT_CREATION', payload: creation });
     dispatch({ type: 'SET_ACTIVE_CREATION', payload: creationId });
     // Synchronous persist — see note above.
     saveCreations(upsertCreation(stateRef.current.creations, creation));
     saveActiveCreationId(creationId);
-    trackCreationCompleted('recipe', 1);
+    trackCreationCompleted('recipe_book', 1);
     return creationId;
   }, []);
 

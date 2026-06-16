@@ -39,7 +39,15 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
   const [error, setError] = useState<string | null>(null);
   const [recipe, setRecipe] = useState<RecipeContent | null>(null);
   const [busyChip, setBusyChip] = useState<string | null>(null);
+  const [showSave, setShowSave] = useState(false);
+  const [cookbookName, setCookbookName] = useState('');
   const celebratedRef = useRef(false);
+
+  function confirmSave() {
+    if (!recipe) return;
+    saveExtractedRecipe(recipe, cookbookName);
+    window.location.href = '/';
+  }
 
   const canExtract = !extracting && (url.trim().length > 0 || manualText.trim().length > 0);
 
@@ -212,17 +220,13 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
           <PushNudge userId={auth.user?.id} accentColor={accent.accent} />
 
 
-          {/* Save the extracted recipe, then open it in the app. Signed-in users
-              get cloud backup on next load; anonymous saves persist locally and
-              the app's save-nudge then prompts an account. */}
+          {/* Save into a named cookbook (recipe_book) so My Things opens the
+              cookbook — where you can add more recipes — not a locked single
+              recipe. Signed-in users get cloud backup on next load. */}
           <button
             type="button"
             data-testid="extract-save-cta"
-            onClick={() => {
-              if (!recipe) return;
-              saveExtractedRecipe(recipe);
-              window.location.href = '/';
-            }}
+            onClick={() => { if (recipe) { setCookbookName(''); setShowSave(true); } }}
             className="mt-4 w-full text-left flex items-center gap-3 tp-card rounded-[20px] px-4 py-3.5 active:scale-[0.99] transition-transform"
           >
             <span className="w-10 h-10 rounded-[14px] flex items-center justify-center text-xl flex-shrink-0" style={{ background: accent.accentSoft }}>📖</span>
@@ -242,6 +246,36 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
           Paste a link above (or tap <span className="font-semibold" style={{ color: accent.accent }}>Try a sample video</span>) and your
           editable recipe appears right here.
         </p>
+      )}
+
+      {/* ── Name-your-cookbook step (before saving) ───────────────────────────── */}
+      {showSave && recipe && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSave(false)} />
+          <div className="relative bg-white rounded-[24px] p-6 shadow-2xl max-w-xs w-full">
+            <div className="w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl mb-3" style={{ background: accent.accentSoft }}>📖</div>
+            <h3 className="font-extrabold tp-ink text-base mb-1">Name your cookbook</h3>
+            <p className="text-sm tp-ink-2 mb-4 leading-snug">
+              We'll save <span className="font-semibold tp-ink">“{recipe.title}”</span> into a cookbook — then you can paste more links to add recipes to it.
+            </p>
+            <input
+              autoFocus
+              data-testid="tool-cookbook-name"
+              value={cookbookName}
+              onChange={e => setCookbookName(e.target.value.slice(0, 100))}
+              onKeyDown={e => { if (e.key === 'Enter') confirmSave(); }}
+              placeholder="My Cookbook"
+              className="tp-input w-full rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 mb-3"
+              style={{ ['--tw-ring-color' as string]: accent.accent }}
+            />
+            <ToolButton shape="block" full onClick={confirmSave} testId="tool-cookbook-save" className="font-bold">
+              ✨ Save to cookbook
+            </ToolButton>
+            <button onClick={() => setShowSave(false)} className="w-full mt-2 text-xs font-semibold tp-ink-3 py-2 active:opacity-70">
+              Maybe later
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Daily-limit notice ────────────────────────────────────────────────── */}

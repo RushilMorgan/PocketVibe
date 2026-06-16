@@ -29,7 +29,7 @@ interface RecipeExtractorToolProps {
  */
 export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps) {
   const auth = useAuth();
-  const { extractRecipe, chatAboutRecipe, quotaNotice, dismissQuotaNotice } = usePocketVibe(auth.user?.id);
+  const { extractRecipe, saveExtractedRecipe, chatAboutRecipe, quotaNotice, dismissQuotaNotice } = usePocketVibe(auth.user?.id);
 
   const [url, setUrl] = useState('');
   const [showManual, setShowManual] = useState(false);
@@ -212,19 +212,30 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
           <PushNudge userId={auth.user?.id} accentColor={accent.accent} />
 
 
-          {/* Gentle save nudge — extracting is free, saving prompts an account */}
-          <a
-            href="/"
+          {/* Save the extracted recipe, then open it in the app. Signed-in users
+              get cloud backup on next load; anonymous saves persist locally and
+              the app's save-nudge then prompts an account. */}
+          <button
+            type="button"
             data-testid="extract-save-cta"
-            className="mt-4 flex items-center gap-3 tp-card rounded-[20px] px-4 py-3.5 active:scale-[0.99] transition-transform"
+            onClick={() => {
+              if (!recipe) return;
+              saveExtractedRecipe(recipe);
+              window.location.href = '/';
+            }}
+            className="mt-4 w-full text-left flex items-center gap-3 tp-card rounded-[20px] px-4 py-3.5 active:scale-[0.99] transition-transform"
           >
             <span className="w-10 h-10 rounded-[14px] flex items-center justify-center text-xl flex-shrink-0" style={{ background: accent.accentSoft }}>📖</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold tp-ink leading-tight">Love it? Save to your cookbook</p>
-              <p className="text-xs tp-ink-2 mt-0.5">Create a free account to keep it on any device.</p>
+              <p className="text-sm font-bold tp-ink leading-tight">
+                {auth.user ? 'Save to your cookbook' : 'Love it? Save it'}
+              </p>
+              <p className="text-xs tp-ink-2 mt-0.5">
+                {auth.user ? 'Keep it in My Things, synced to every device.' : 'We’ll keep it — sign in to sync it across devices.'}
+              </p>
             </div>
             <span className="text-sm flex-shrink-0" style={{ color: accent.accent }}>→</span>
-          </a>
+          </button>
         </div>
       ) : (
         <p className="text-center text-xs tp-ink-3 mt-5 px-6">

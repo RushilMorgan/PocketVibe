@@ -35,6 +35,7 @@ import {
   saveCreations,
   loadActiveCreationId,
   saveActiveCreationId,
+  upsertCreation,
 } from '../lib/creationStore';
 import { INITIAL_STATE, pocketVibeReducer } from '../lib/pocketVibeReducer';
 import {
@@ -667,6 +668,40 @@ export function usePocketVibe(userId?: string) {
     }
   }, [isBlockedByQuota]);
 
+  // Persist an already-extracted recipe (from the standalone extractor) as a
+  // saved `recipe` creation, set it active, and return its id. Writes to
+  // localStorage synchronously so a full-page navigation immediately after save
+  // can't race the async persistence effects. Signed-in cloud backup happens on
+  // the next app load via the on-mount sync. Anonymous saves persist locally and
+  // the save-nudge then prompts an account.
+  const saveExtractedRecipe = useCallback((recipe: RecipeContent): string => {
+    const now = Date.now();
+    const creationId = `c-${now}`;
+    const title = (recipe.title?.trim() || 'Saved recipe').slice(0, 100);
+    trackCreationStarted('recipe', title);
+    const creation: Creation = {
+      id: creationId,
+      title,
+      creationType: 'recipe',
+      description: '',
+      summary: '',
+      originalRequest: recipe.sourceUrl || 'Extracted recipe',
+      status: 'ready',
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      ownerUserId: userIdRef.current,
+      content: recipe,
+    };
+    dispatch({ type: 'UPSERT_CREATION', payload: creation });
+    dispatch({ type: 'SET_ACTIVE_CREATION', payload: creationId });
+    // Synchronous persist — see note above.
+    saveCreations(upsertCreation(stateRef.current.creations, creation));
+    saveActiveCreationId(creationId);
+    trackCreationCompleted('recipe', 1);
+    return creationId;
+  }, []);
+
   // Generate an Idea Board from a rough idea + intent, RETURNED for a standalone
   // page to render (no view navigation). Reuses the deployed `idea_thinking_board`
   // generation; quota-guarded; returns null on failure. Mirrors extractRecipe.
@@ -1152,6 +1187,7 @@ export function usePocketVibe(userId?: string) {
     customizeMealPlan,
     createRecipeBook,
     extractRecipe,
+    saveExtractedRecipe,
     chatAboutRecipe,
     quotaNotice,
     dismissQuotaNotice,

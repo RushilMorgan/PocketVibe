@@ -54,6 +54,29 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// PostHog server-side capture. Public project key (same one the client bundle
+// uses — safe to embed). This is the ground-truth completed/failed event: it
+// fires whether or not the user is still on the page.
+const POSTHOG_KEY = 'phc_zTwjCNMorG8XaXpgHqhZNkufHT8tcAb3Z63NYfCp5pdY';
+const POSTHOG_HOST = 'https://us.i.posthog.com';
+
+async function capturePostHog(distinctId: string, event: string, properties: Record<string, unknown>) {
+  try {
+    await fetch(`${POSTHOG_HOST}/capture/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: POSTHOG_KEY,
+        event,
+        distinct_id: distinctId,
+        properties: { ...properties, captured_server_side: true },
+      }),
+    });
+  } catch (err) {
+    console.error('[start-generation-job] posthog capture failed', err);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -63,6 +86,7 @@ Deno.serve(async (req: Request) => {
     request?: Record<string, unknown>;
     clientToken?: string;
     notify?: { userId?: string | null; endpoint?: string | null };
+    analytics?: { distinctId?: string | null; source?: string | null };
   };
   try {
     payload = await req.json();
@@ -82,6 +106,7 @@ Deno.serve(async (req: Request) => {
 
   const notifyUserId = payload.notify?.userId ?? null;
   const notifyEndpoint = payload.notify?.endpoint ?? null;
+  const analyticsSource = payload.analytics?.source ?? 'paste';
 
   // Insert the job and return its id straight away — the browser is now free.
   const { data: jobRow, error: insertErr } = await admin
@@ -92,6 +117,9 @@ Deno.serve(async (req: Request) => {
   if (insertErr || !jobRow) return json({ error: 'db_error', detail: insertErr?.message }, 500);
 
   const jobId = jobRow.id as string;
+  // Attribute the server-side event to the same person as the client's start
+  // event. Fall back to the user id, then a job-scoped id.
+  const analyticsDistinctId = payload.analytics?.distinctId || notifyUserId || `anon-job-${jobId}`;
 
   // Forward the caller's identity so the pipeline attributes quota correctly:
   // x-pv-user-token (signed-in) else the real client IP for anonymous quota.
@@ -127,9 +155,11 @@ Deno.serve(async (req: Request) => {
       }
     };
 
+    let attemptsUsed = 0;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
       if (remaining < MIN_RETRY_BUDGET_MS) break; // not enough budget to try again
+      attemptsUsed = attempt;
       try {
         const res = await callPipeline(Math.min(PER_ATTEMPT_MS, remaining));
         if (res.ok) {
@@ -155,6 +185,21 @@ Deno.serve(async (req: Request) => {
       .from('generation_jobs')
       .update({ status, result, error: errorText, updated_at: new Date().toISOString() })
       .eq('id', jobId);
+
+    // Ground-truth analytics: fires regardless of whether the user is still on
+    // the page. Shares the client's distinct id so the funnel (started → here)
+    // connects. event name is recipe-specific for kind 'recipe'.
+    const event = kind === 'recipe'
+      ? (status === 'done' ? 'recipe_extraction_completed' : 'recipe_extraction_failed')
+      : (status === 'done' ? 'generation_job_completed' : 'generation_job_failed');
+    await capturePostHog(analyticsDistinctId, event, {
+      kind,
+      source: analyticsSource,
+      duration_ms: Date.now() - startedAt,
+      attempts: attemptsUsed,
+      ...(status === 'error' ? { reason: errorText } : {}),
+      signed_in: Boolean(notifyUserId),
+    });
 
     // Notify (best-effort). Signed-in users are targeted by user_id so a
     // subscription enabled any time before completion is found; anonymous users

@@ -11,6 +11,7 @@
  */
 import { supabase } from './supabaseClient';
 import { buildRecipePrompt } from './recipePrompt';
+import { getAnalyticsDistinctId, type RecipeExtractionSource } from './analytics';
 import type { RecipeContent, GenerateRequest } from '../types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -30,6 +31,8 @@ export interface PendingRecipeJob {
   startedAt: number;
   /** Echoed back so the working UI can show what's being worked on. */
   label?: string;
+  /** How the extraction was kicked off — carried through for analytics. */
+  source?: RecipeExtractionSource;
 }
 
 // ── localStorage handoff ────────────────────────────────────────────────────
@@ -62,7 +65,7 @@ function buildRecipeRequest(input: RecipeExtractInput): GenerateRequest {
  */
 export async function startRecipeJob(
   input: RecipeExtractInput,
-  opts: { userId?: string | null; notifyEndpoint?: string | null } = {},
+  opts: { userId?: string | null; notifyEndpoint?: string | null; source?: RecipeExtractionSource } = {},
 ): Promise<PendingRecipeJob | null> {
   if (!SUPABASE_URL || !ANON) return null;
   const token = crypto.randomUUID();
@@ -70,6 +73,9 @@ export async function startRecipeJob(
 
   // Forward the session token so the pipeline attributes quota to the user.
   const userToken = (await supabase?.auth.getSession())?.data.session?.access_token;
+  // Pass our PostHog distinct id + source so the server-side completed/failed
+  // events attribute to the same person and keep the funnel intact.
+  const distinctId = getAnalyticsDistinctId();
 
   let res: Response;
   try {
@@ -86,6 +92,7 @@ export async function startRecipeJob(
         request,
         clientToken: token,
         notify: { userId: opts.userId ?? null, endpoint: opts.notifyEndpoint ?? null },
+        analytics: { distinctId, source: opts.source ?? 'paste' },
       }),
     });
   } catch {
@@ -100,6 +107,7 @@ export async function startRecipeJob(
     token,
     startedAt: Date.now(),
     label: input.youtubeUrl.trim() || 'your recipe',
+    source: opts.source ?? 'paste',
   };
   savePendingRecipeJob(job);
   return job;

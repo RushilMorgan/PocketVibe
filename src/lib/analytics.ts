@@ -111,3 +111,32 @@ export function trackElementEdit(elementKind: string) {
 export function trackCreationDeleted(creationType: string) {
   posthog.capture('creation_deleted', { creation_type: creationType });
 }
+
+// ── Recipe extraction funnel ──────────────────────────────────────────────────
+// Client emits the *start*; the server (start-generation-job) emits the
+// completed/failed truth so walk-aways are still counted. They share a
+// distinct_id (see getAnalyticsDistinctId) so the funnel connects across both.
+
+export type RecipeExtractionSource = 'paste' | 'sample' | 'shared';
+
+/** A background recipe extraction was kicked off. */
+export function trackRecipeExtractionStarted(source: RecipeExtractionSource) {
+  posthog.capture('recipe_extraction_started', { source });
+}
+
+/** A previously-started extraction was picked back up on return (leave & come back). */
+export function trackRecipeExtractionResumed() {
+  posthog.capture('recipe_extraction_resumed');
+}
+
+/**
+ * The current PostHog distinct id, so a server-side event can be attributed to
+ * the same person and keep funnels intact. Null when PostHog isn't ready.
+ */
+export function getAnalyticsDistinctId(): string | null {
+  try {
+    return posthog.get_distinct_id?.() ?? null;
+  } catch {
+    return null;
+  }
+}

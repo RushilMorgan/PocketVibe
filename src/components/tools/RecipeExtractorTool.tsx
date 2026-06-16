@@ -18,6 +18,11 @@ import {
   type PendingRecipeJob,
 } from '../../lib/recipeJob';
 import { getExistingPushEndpoint } from '../../lib/push';
+import {
+  trackRecipeExtractionStarted,
+  trackRecipeExtractionResumed,
+  type RecipeExtractionSource,
+} from '../../lib/analytics';
 
 /** Give up on a job that never resolves (well past the server's own ceiling). */
 const MAX_JOB_MS = 240_000;
@@ -118,17 +123,18 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
     })();
   }
 
-  async function beginExtraction(youtubeUrl: string, manual: string) {
+  async function beginExtraction(youtubeUrl: string, manual: string, source: RecipeExtractionSource) {
     if (extracting) return;
     setError(null);
     setRecipe(null);
     setExtracting(true);
+    trackRecipeExtractionStarted(source);
     // Anonymous users are notified by their device endpoint; signed-in users by
     // their user id (resolved server-side at completion).
     const notifyEndpoint = auth.user ? null : await getExistingPushEndpoint();
     const job = await startRecipeJob(
       { youtubeUrl, manualText: manual },
-      { userId: auth.user?.id ?? null, notifyEndpoint },
+      { userId: auth.user?.id ?? null, notifyEndpoint, source },
     );
     if (!job) {
       setExtracting(false);
@@ -140,7 +146,8 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
 
   function handleExtract() {
     if (!canExtract) return;
-    void beginExtraction(url.trim(), manualText.trim());
+    const source: RecipeExtractionSource = url.trim() === SAMPLE_URL ? 'sample' : 'paste';
+    void beginExtraction(url.trim(), manualText.trim(), source);
   }
 
   // On mount: either auto-run a shared link (/share → ?shared=), or resume a
@@ -152,12 +159,13 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
     const shared = new URLSearchParams(window.location.search).get('shared');
     if (shared && shared.trim()) {
       setUrl(shared.trim());
-      void beginExtraction(shared.trim(), '');
+      void beginExtraction(shared.trim(), '', 'shared');
       return;
     }
     const pending = loadPendingRecipeJob();
     if (pending) {
       if (pending.label) setUrl(pending.label);
+      trackRecipeExtractionResumed();
       startPolling(pending);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

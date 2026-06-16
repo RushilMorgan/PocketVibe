@@ -27,6 +27,14 @@ import {
 /** Give up on a job that never resolves (well past the server's own ceiling). */
 const MAX_JOB_MS = 240_000;
 
+/**
+ * How long a left-behind job is worth resuming on return. Inside this window we
+ * pick the job back up (a finished one shows its recipe; one still cooking keeps
+ * polling). Past it, a stale handle is cleared silently rather than greeting a
+ * returning visitor with an old "couldn't finish" / "took too long" error.
+ */
+const RESUME_WINDOW_MS = 30 * 60_000;
+
 /** A real, well-known cooking video — pre-filled so the page is never a blank box. */
 const SAMPLE_URL = 'https://www.youtube.com/watch?v=PUP7U5vTMM0';
 
@@ -164,9 +172,14 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
     }
     const pending = loadPendingRecipeJob();
     if (pending) {
-      if (pending.label) setUrl(pending.label);
-      trackRecipeExtractionResumed();
-      startPolling(pending);
+      if (Date.now() - pending.startedAt > RESUME_WINDOW_MS) {
+        // Ancient handle — don't resurface an old error/recipe on a fresh visit.
+        clearPendingRecipeJob();
+      } else {
+        if (pending.label) setUrl(pending.label);
+        trackRecipeExtractionResumed();
+        startPolling(pending);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

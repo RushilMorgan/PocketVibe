@@ -1157,13 +1157,15 @@ const handleRequest = async (req: Request): Promise<Response> => {
     const builderMessage = buildBuilderMessage(body, intent, uxPlan);
 
     // For recipe extraction, pass the cooking video to Gemini as a multimodal part
-    // so it can actually "watch" it. Guarded to YouTube hosts; on any video error
-    // the existing try/catch repair chain falls back to text-only (never 500s).
+    // so it can actually "watch" it. Guarded to YouTube hosts. If the video call
+    // fails (Gemini 422 on fileData is intermittent), we flip useVideo=false and
+    // retry text-only in the same attempt — avoiding the full pipeline timeout.
     const recipeVideoUrl = intent.creationType === 'recipe' && userRequest ? extractYouTubeUrl(userRequest) : null;
-    emit({ event: 'stage', stage: 'build', detail: { watchingVideo: Boolean(recipeVideoUrl) } });
+    let useVideo = Boolean(recipeVideoUrl);
+    emit({ event: 'stage', stage: 'build', detail: { watchingVideo: useVideo } });
     const callBuilder = (message: string) =>
       builderModel.generateContent(
-        recipeVideoUrl
+        useVideo
           ? [{ text: message }, { fileData: { fileUri: recipeVideoUrl, mimeType: 'video/*' } }]
           : message,
       );
@@ -1175,15 +1177,29 @@ const handleRequest = async (req: Request): Promise<Response> => {
       const raw = result.response.text();
       parsed = parseJson(raw) as Record<string, unknown>;
     } catch {
-      // ── Step 6 (early repair): parse failure on first attempt ───────────────
-      emit({ event: 'stage', stage: 'repair' });
-      try {
-        const retry = await callBuilder(
-          `${builderMessage}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no explanation.`,
-        );
-        parsed = parseJson(retry.response.text()) as Record<string, unknown>;
-      } catch {
-        return fail('Could not generate a valid response. Please try again.');
+      if (useVideo) {
+        // Video-watching failed — fall back to text-only extraction immediately.
+        // This covers Gemini's intermittent fileData 422s without burning the
+        // outer retry budget in start-generation-job.
+        useVideo = false;
+        emit({ event: 'stage', stage: 'repair' });
+        try {
+          const retry = await callBuilder(builderMessage);
+          parsed = parseJson(retry.response.text()) as Record<string, unknown>;
+        } catch {
+          return fail('Could not generate a valid response. Please try again.');
+        }
+      } else {
+        // ── Step 6 (early repair): parse failure on first attempt ─────────────
+        emit({ event: 'stage', stage: 'repair' });
+        try {
+          const retry = await callBuilder(
+            `${builderMessage}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no explanation.`,
+          );
+          parsed = parseJson(retry.response.text()) as Record<string, unknown>;
+        } catch {
+          return fail('Could not generate a valid response. Please try again.');
+        }
       }
     }
 

@@ -67,10 +67,10 @@ export function ToolPage({ toolKey }: ToolPageProps) {
 
         <div className="flex-1 overflow-y-auto">
           <Hero config={config} accent={accent} emoji={identity.emoji} />
-          <HowItWorks config={config} accent={accent} />
           {BespokeTool
             ? <BespokeTool chips={config.chips} accent={accent} />
             : <GenericTool engine={engine!} chips={config.chips} accent={accent} />}
+          <HowItWorks config={config} accent={accent} />
           <Customize config={config} accent={accent} />
           <WhereNext config={config} accent={accent} />
           <Footer canonicalPath={config.canonicalPath} title={config.h1} />
@@ -84,17 +84,15 @@ export function ToolPage({ toolKey }: ToolPageProps) {
 
 function Hero({ config, accent, emoji }: { config: ToolPageConfig; accent: ToolAccent; emoji: string }) {
   return (
-    <div className="px-5 pt-4 pb-2">
-      <div className="mb-4"><HeroTile accent={accent} emoji={emoji} /></div>
-      <AccentEyebrow accent={accent}>{config.eyebrow}</AccentEyebrow>
-      <h1 className="tp-ink text-[34px] font-extrabold tracking-tight leading-[1.04] mt-1.5">{config.h1}</h1>
-      <p className="tp-ink-2 text-[15px] mt-2.5 leading-relaxed max-w-xs">{config.tagline}</p>
-      <p className="tp-ink-3 text-xs mt-3 leading-relaxed max-w-sm">{config.intro}</p>
-
-      <div className="flex items-center gap-2.5 mt-5">
-        <ToolButton href="#try-it" testId="hero-try-cta">Try it now <span>→</span></ToolButton>
-        <ToolButton href="#how-it-works" variant="ghost">How it works</ToolButton>
+    <div className="px-5 pt-4 pb-3">
+      <div className="flex items-center gap-3 mb-3">
+        <HeroTile accent={accent} emoji={emoji} size="sm" />
+        <div>
+          <AccentEyebrow accent={accent}>{config.eyebrow}</AccentEyebrow>
+          <h1 className="tp-ink text-[28px] font-extrabold tracking-tight leading-[1.1] mt-0.5">{config.h1}</h1>
+        </div>
       </div>
+      <p className="tp-ink-2 text-[15px] leading-relaxed max-w-xs">{config.tagline}</p>
     </div>
   );
 }

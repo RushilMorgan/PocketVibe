@@ -199,14 +199,7 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
   }
 
   return (
-    <section id="try-it" className="px-5 py-6 scroll-mt-4">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accent.accent }}>Try it now</span>
-        <span className="tp-ink-3">·</span>
-        <span className="text-[10px] tp-ink-3">No sign-up needed</span>
-      </div>
-      <h2 className="text-lg font-extrabold tp-ink tracking-tight mb-3">Paste a recipe to extract</h2>
-
+    <section id="try-it" className="px-5 pt-2 pb-6 scroll-mt-4">
       {/* ── Extract input ─────────────────────────────────────────────────────── */}
       <ToolCard>
         <ToolInput
@@ -218,16 +211,19 @@ export function RecipeExtractorTool({ chips, accent }: RecipeExtractorToolProps)
           placeholder="Paste a cooking video link…"
         />
 
-        <div className="flex items-center justify-between mt-2.5">
-          <button
-            data-testid="extract-sample-btn"
-            onClick={() => { setUrl(SAMPLE_URL); setShowManual(false); setManualText(''); setError(null); }}
-            className="text-[13px] font-semibold active:opacity-70"
-            style={{ color: accent.accent }}
-          >
-            ✨ Try a sample video
-          </button>
-          <button onClick={() => setShowManual(s => !s)} className="text-[13px] font-semibold tp-ink-3 active:opacity-70">
+        {/* Sample video — prominent secondary button so it gets seen and tapped */}
+        <button
+          data-testid="extract-sample-btn"
+          onClick={() => { setUrl(SAMPLE_URL); setShowManual(false); setManualText(''); setError(null); }}
+          className="mt-2.5 w-full py-2.5 rounded-2xl text-[14px] font-bold text-center active:scale-[0.98] transition-transform border-2"
+          style={{ borderColor: accent.accent, color: accent.accent }}
+        >
+          ✨ Try a sample video
+        </button>
+
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[11px] tp-ink-3">No sign-up needed</span>
+          <button onClick={() => setShowManual(s => !s)} className="text-[12px] font-semibold tp-ink-3 active:opacity-70">
             {showManual ? '− Hide text' : '✎ Paste text'}
           </button>
         </div>

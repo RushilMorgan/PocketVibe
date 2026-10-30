@@ -38,6 +38,23 @@ export async function generateText(parts: Part[], opts: GenerateOptions = {}): P
   return text;
 }
 
+export interface ChatTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
+/** Streams a multi-turn answer as plain text chunks. */
+export async function* streamText(system: string, turns: ChatTurn[], opts: { model?: Model } = {}): AsyncGenerator<string> {
+  const stream = await ai().models.generateContentStream({
+    model: modelId(opts.model ?? 'fast'),
+    contents: turns.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+    config: { systemInstruction: system },
+  });
+  for await (const chunk of stream) {
+    if (chunk.text) yield chunk.text;
+  }
+}
+
 /** Matches the vector(768) columns. */
 const EMBED_DIMS = 768;
 const EMBED_BATCH = 100;

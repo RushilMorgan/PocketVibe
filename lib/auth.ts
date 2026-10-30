@@ -1,4 +1,5 @@
 import 'server-only';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { env } from '@/lib/env';
 import { HttpError } from '@/lib/http';
@@ -80,4 +81,11 @@ export async function requireUser(): Promise<UserRow> {
 /** Only allow same-site relative redirects (no `//evil.com`). */
 export function safeNext(next: string | null | undefined): string {
   return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+}
+
+/** For pages: the current user, or a redirect to sign in that returns to `path`. */
+export async function pageUser(path: string): Promise<UserRow> {
+  const user = await getCurrentUser();
+  if (!user) redirect(path === '/' ? '/login' : `/login?next=${encodeURIComponent(path)}`);
+  return user;
 }

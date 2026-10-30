@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
+import { pageUser } from '@/lib/auth';
 import { Home } from './home';
 
 const NOTICES: Record<string, string> = {
@@ -8,7 +7,7 @@ const NOTICES: Record<string, string> = {
 };
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  if (!(await getCurrentUser())) redirect('/login');
-  const { share } = await searchParams;
-  return <Home notice={share ? NOTICES[share] : undefined} />;
+  await pageUser('/');
+  const { share, topic } = await searchParams;
+  return <Home notice={share ? NOTICES[share] : undefined} initialTopic={topic ?? null} />;
 }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/components/api';
+import { EnablePush } from '@/components/enable-push';
 import type { ItemRow } from '@/lib/supabase/database.types';
 
 /** Phase 1 shell: paste box + plain list. The real feed lands in a later step. */
@@ -49,6 +50,7 @@ export function Home({ notice }: { notice?: string }) {
         <button className="rounded-xl bg-accent px-4 py-3 font-medium text-white">Save</button>
       </form>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+      <EnablePush />
 
       <ul className="mt-8 flex flex-col gap-2">
         {items?.map((item) => (

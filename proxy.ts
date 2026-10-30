@@ -30,5 +30,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Skip static assets and the Inngest endpoint (signed by Inngest, no cookies).
-  matcher: ['/((?!_next/static|_next/image|api/inngest|favicon|icon|logo|manifest|robots|.*\\.png$).*)'],
+  matcher: ['/((?!_next/static|_next/image|api/inngest|favicon|icon|logo|manifest|robots|sw\\.js|.*\\.png$).*)'],
 };

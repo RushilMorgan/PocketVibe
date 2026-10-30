@@ -44,6 +44,12 @@ export function youtubeWatchUrl(url: string): string | null {
   return id && /^[\w-]{6,}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : null;
 }
 
+/** Reads `"lengthSeconds":"123"` out of a YouTube watch page. */
+export function parseLengthSeconds(html: string): number | null {
+  const match = html.match(/"lengthSeconds":"(\d+)"/);
+  return match ? Number(match[1]) : null;
+}
+
 export function detectSource(url: string): ItemSource {
   const host = new URL(url).hostname;
   if (YOUTUBE.test(host)) return 'youtube';

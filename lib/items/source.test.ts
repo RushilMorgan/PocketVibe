@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectSource, extractUrl, normalizeUrl, youtubeWatchUrl } from './source';
+import { detectSource, extractUrl, normalizeUrl, parseLengthSeconds, youtubeWatchUrl } from './source';
 
 describe('extractUrl', () => {
   it('prefers the url field', () => {
@@ -39,6 +39,16 @@ describe('youtubeWatchUrl', () => {
 
   it('returns null for a channel page', () => {
     expect(youtubeWatchUrl('https://www.youtube.com/@somechannel')).toBeNull();
+  });
+});
+
+describe('parseLengthSeconds', () => {
+  it('reads the player length', () => {
+    expect(parseLengthSeconds('..."videoId":"x","lengthSeconds":"1385","keywords"...')).toBe(1385);
+  });
+
+  it('returns null when absent', () => {
+    expect(parseLengthSeconds('<html></html>')).toBeNull();
   });
 });
 

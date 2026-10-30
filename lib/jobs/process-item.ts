@@ -1,18 +1,21 @@
 import 'server-only';
 import { NonRetriableError } from 'inngest';
 import { classify } from '@/lib/ai/classify';
+import { explain } from '@/lib/handlers/explainer';
+import { extractRecipe } from '@/lib/handlers/recipe';
+import { indexItem } from '@/lib/index/index-item';
 import { fetchContent, UnreadableError } from '@/lib/items/fetch';
-import { markFailed } from '@/lib/items/service';
-import { getPromptContext } from '@/lib/profile';
+import { markFailed, saveOutput } from '@/lib/items/service';
+import { notifyUser } from '@/lib/notify';
+import { getPromptContext, recordItemTopics } from '@/lib/profile';
+import type { ItemRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
 import { inngest, itemQueued } from './client';
 
 /**
- * Shared link → useful version. Each step is retried on its own by Inngest, so
- * a flaky Gemini call doesn't redo the fetch.
- *
- * Phase 1 pipeline: fetch → classify → handle → index → notify.
- * Handle/index/notify land in the next build step.
+ * Shared link → useful version: fetch → classify → handle → index → notify.
+ * Each step is retried on its own by Inngest, so a flaky Gemini call doesn't
+ * redo the work before it, and every step is safe to re-run.
  */
 export const processItem = inngest.createFunction(
   {
@@ -29,6 +32,10 @@ export const processItem = inngest.createFunction(
   async ({ event, step }) => {
     const { itemId, userId } = event.data;
     const db = adminClient();
+    const update = async (fields: Partial<ItemRow>) => {
+      const { error } = await db.from('items').update(fields).eq('id', itemId).eq('user_id', userId);
+      if (error) throw error;
+    };
 
     const item = await step.run('start', async () => {
       const { data, error } = await db
@@ -43,11 +50,10 @@ export const processItem = inngest.createFunction(
     });
 
     const rawText = await step.run('fetch', async () => {
-      if (item.raw_text) return item.raw_text; // retry after a later step failed
+      if (item.raw_text) return item.raw_text; // Retry after a later step failed.
       try {
         const text = await fetchContent(item.url, item.source);
-        const { error } = await db.from('items').update({ raw_text: text }).eq('id', itemId);
-        if (error) throw error;
+        await update({ raw_text: text });
         return text;
       } catch (err) {
         if (err instanceof UnreadableError) throw new NonRetriableError(err.message);
@@ -57,15 +63,38 @@ export const processItem = inngest.createFunction(
 
     const meta = await step.run('classify', async () => {
       const result = await classify(rawText, await getPromptContext(userId));
-      const { error } = await db.from('items').update({ kind: result.kind, title: result.title }).eq('id', itemId);
-      if (error) throw error;
+      await update({ kind: result.kind, title: result.title });
       return result;
     });
 
-    await step.run('finish', async () => {
-      const { error } = await db.from('items').update({ status: 'done' }).eq('id', itemId);
-      if (error) throw error;
+    await step.run('handle', async () => {
+      const ctx = await getPromptContext(userId);
+      if (meta.kind === 'recipe') {
+        const recipe = await extractRecipe({
+          url: item.source === 'youtube' ? item.url : undefined,
+          text: rawText,
+          tone: ctx.tone,
+        });
+        await saveOutput(userId, itemId, 'recipe', recipe);
+        await update({ summary: recipe.description });
+      } else {
+        const explainer = await explain(rawText, ctx);
+        await saveOutput(userId, itemId, 'explainer', explainer);
+        await update({ summary: explainer.lines.join('\n') });
+      }
     });
+
+    await step.run('index', () => indexItem({ id: itemId, user_id: userId, title: meta.title, text: rawText }));
+    await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
+    await step.run('finish', () => update({ status: 'done' }));
+
+    await step.run('notify', () =>
+      notifyUser(userId, {
+        title: meta.kind === 'recipe' ? 'Your recipe is ready 🍳' : 'Your explainer is ready',
+        body: meta.title,
+        url: `/items/${itemId}`,
+      }),
+    );
 
     return { itemId, kind: meta.kind, tags: meta.tags };
   },

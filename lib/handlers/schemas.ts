@@ -1,0 +1,50 @@
+import { z } from 'zod';
+
+/**
+ * Output shapes for item_outputs.content. Shared by server (validation of AI
+ * output) and client (rendering), so no server-only imports here.
+ */
+
+export const recipe = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().max(200).describe('One plain sentence: what the dish is and why it is good'),
+  servings: z.number().int().min(1).max(50),
+  prepTime: z.string().max(30).describe('e.g. "10 min"'),
+  cookTime: z.string().max(30),
+  ingredients: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        quantity: z.string().describe('Plain text, e.g. "1/2", "a pinch". Empty if unknown'),
+        unit: z.string().describe('e.g. "cup", "g". Empty if none'),
+        emoji: z.string().max(8),
+      }),
+    )
+    .min(1),
+  steps: z
+    .array(
+      z.object({
+        text: z.string().min(1),
+        time: z.string().describe('How long this step takes, e.g. "5 min". Empty if instant'),
+        emoji: z.string().max(8),
+      }),
+    )
+    .min(1),
+  tags: z.array(z.string()).max(6),
+});
+
+export type Recipe = z.infer<typeof recipe>;
+
+export const explainer = z.object({
+  lines: z.array(z.string().min(1)).min(1).max(5).describe('The explanation: at most 5 short lines'),
+  why_it_matters: z.string().min(1),
+  explore_next: z.array(z.string().min(1)).length(3),
+  hype_check: z
+    .string()
+    .nullable()
+    .describe('Which claims are hype vs established, in plain words. null if the content makes no claims'),
+});
+
+export type Explainer = z.infer<typeof explainer>;
+
+export type ExplainMode = 'normal' | 'simpler' | 'deeper';

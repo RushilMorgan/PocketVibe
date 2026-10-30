@@ -4,7 +4,7 @@ import { logEvent } from '@/lib/events';
 import { HttpError } from '@/lib/http';
 import { inngest, itemQueued } from '@/lib/jobs/client';
 import { adminClient } from '@/lib/supabase/server';
-import type { ItemOutputRow, ItemRow } from '@/lib/supabase/database.types';
+import type { ItemOutputRow, ItemRow, OutputType } from '@/lib/supabase/database.types';
 import { detectSource, normalizeUrl } from './source';
 
 export type ItemWithOutputs = ItemRow & {
@@ -98,6 +98,25 @@ export async function markFailed(itemId: string, message: string): Promise<ItemR
 }
 
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+/** Stores a generated output, replacing any earlier one of the same type. */
+export async function saveOutput(
+  userId: string,
+  itemId: string,
+  type: OutputType,
+  content: ItemOutputRow['content'],
+): Promise<void> {
+  const db = adminClient();
+  const { error: deleteError } = await db
+    .from('item_outputs')
+    .delete()
+    .eq('item_id', itemId)
+    .eq('user_id', userId)
+    .eq('type', type);
+  if (deleteError) throw deleteError;
+  const { error } = await db.from('item_outputs').insert({ item_id: itemId, user_id: userId, type, content });
+  if (error) throw error;
+}
 
 export async function getItem(userId: string, itemId: string): Promise<ItemWithOutputs> {
   if (!isUuid(itemId)) throw new HttpError(404, 'Item not found.');

@@ -15,6 +15,7 @@ const schema = z.object({
   GEMINI_MODEL_FAST: z.string().default('gemini-2.5-flash'),
   GEMINI_MODEL_PRO: z.string().default('gemini-2.5-pro'),
   GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
+  PUBLIC_TOOL_DAILY_LIMIT: z.coerce.number().int().positive().default(5),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -24,4 +25,10 @@ let cached: Env | undefined;
 export function env(): Env {
   cached ??= schema.parse(process.env);
   return cached;
+}
+
+/** Web Push config, or null when it isn't set up (push is then skipped). */
+export function pushEnv(): { publicKey: string; privateKey: string; subject: string } | null {
+  const { NEXT_PUBLIC_VAPID_PUBLIC_KEY: publicKey, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: subject } = process.env;
+  return publicKey && privateKey && subject ? { publicKey, privateKey, subject } : null;
 }

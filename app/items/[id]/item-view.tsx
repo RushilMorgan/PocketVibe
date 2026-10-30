@@ -3,15 +3,31 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/components/api';
+import { ExplainerCard } from '@/components/explainer-card';
+import { RecipeCard } from '@/components/recipe-card';
+import type { Explainer, Recipe } from '@/lib/handlers/schemas';
 import type { ItemOutputRow, ItemRow } from '@/lib/supabase/database.types';
 
 type Item = ItemRow & { outputs: ItemOutputRow[] };
 
 const POLL_MS = 2500;
 
+function Outputs({ item }: { item: Item }) {
+  const recipe = item.outputs.find((o) => o.type === 'recipe');
+  const explainer = item.outputs.find((o) => o.type === 'explainer');
+  if (recipe) return <RecipeCard recipe={recipe.content as unknown as Recipe} />;
+  return (
+    <>
+      <p className="text-sm uppercase tracking-wide text-muted">{item.kind}</p>
+      <h1 className="mt-1 mb-4 text-xl font-semibold">{item.title}</h1>
+      {explainer && <ExplainerCard explainer={explainer.content as unknown as Explainer} />}
+    </>
+  );
+}
+
 /**
  * Phase 1 shell: shows "Got it, working on it…" immediately, polls until the
- * job settles, and offers Retry on failure. Outputs render in a later step.
+ * job settles, offers Retry on failure, then renders the recipe or explainer.
  */
 export function ItemView({ id }: { id: string }) {
   const [item, setItem] = useState<Item | null>(null);
@@ -60,12 +76,7 @@ export function ItemView({ id }: { id: string }) {
               </button>
             </>
           )}
-          {item?.status === 'done' && (
-            <>
-              <p className="text-sm uppercase tracking-wide text-muted">{item.kind}</p>
-              <h1 className="mt-1 text-xl font-semibold">{item.title}</h1>
-            </>
-          )}
+          {item?.status === 'done' && <Outputs item={item} />}
           {item && (
             <a href={item.url} target="_blank" rel="noreferrer" className="mt-4 block truncate text-sm text-accent">
               {item.url}

@@ -1,7 +1,9 @@
 /**
- * Database types for the reboot schema (supabase/migrations/20261030120000_reboot_phase1.sql).
- * Hand-written until the migration is applied; then regenerate with:
- *   npx supabase gen types typescript --linked > lib/supabase/database.types.ts
+ * Database types for the HeyToolie tables. Hand-written (checked column-for-
+ * column against `supabase gen types` on 2026-10-30) because the generator
+ * types CHECK-constrained columns as plain string; these keep the literal
+ * unions. Legacy tables from the old site are deliberately left out.
+ * When a migration changes a table, update the matching Row type here.
  */
 
 export type ItemSource = 'youtube' | 'article' | 'tiktok' | 'other';
@@ -130,6 +132,14 @@ export interface Database {
       };
       adjust_topic_weight: {
         Args: { p_topic_id: string; p_delta: number };
+        Returns: undefined;
+      };
+      take_public_tool_use: {
+        Args: { p_visitor: string; p_tool: string; p_day: string; p_limit: number };
+        Returns: boolean;
+      };
+      refund_public_tool_use: {
+        Args: { p_visitor: string; p_tool: string; p_day: string };
         Returns: undefined;
       };
     };

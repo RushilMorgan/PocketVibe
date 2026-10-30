@@ -18,10 +18,11 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;   -- weekly topic decay
 
 -- Shared trigger: keep updated_at honest.
 CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;

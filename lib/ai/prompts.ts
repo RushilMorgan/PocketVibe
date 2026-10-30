@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fillTemplate } from './template';
 
-export type PromptName = 'classifier' | 'video-digest';
+export type PromptName = 'classifier' | 'video-digest' | 'recipe' | 'explainer';
 
 const cache = new Map<PromptName, string>();
 

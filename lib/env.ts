@@ -1,0 +1,27 @@
+import 'server-only';
+import { z } from 'zod';
+
+/**
+ * Server-side environment, validated on first use (not at import) so `next
+ * build` works without secrets present. See .env.example for what each does.
+ */
+const schema = z.object({
+  NEXT_PUBLIC_SITE_URL: z.url(),
+  NEXT_PUBLIC_SUPABASE_URL: z.url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  DAILY_ITEM_CAP: z.coerce.number().int().positive().default(50),
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL_FAST: z.string().default('gemini-2.5-flash'),
+  GEMINI_MODEL_PRO: z.string().default('gemini-2.5-pro'),
+  GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
+});
+
+export type Env = z.infer<typeof schema>;
+
+let cached: Env | undefined;
+
+export function env(): Env {
+  cached ??= schema.parse(process.env);
+  return cached;
+}

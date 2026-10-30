@@ -1,292 +1,40 @@
-# Hey Toolie — Tech Stack & Rules
+# HeyToolie — Rules
 
-> ⚠️ **WE ARE LIVE IN PRODUCTION WITH REAL CLIENT DATA.** The rules in the
-> "Data Safety" section below override convenience, speed, and any other goal.
-> When in doubt, stop and ask.
+What we're building lives in [SPEC.md](SPEC.md). This file is how we build it.
 
-## 🔒 Data Safety (non-negotiable)
+## Stack
 
-These rules apply to **production data** — the Supabase database (`shared_creations`,
-`shared_participants`, `daily_usage`, etc.), users' localStorage creations, auth
-accounts, and anything else holding real user data.
+- **Next.js 16** (App Router, Turbopack) on Vercel — site and API in one codebase.
+  Next 16 renamed middleware to `proxy.ts`; route `params`/`searchParams` are Promises.
+- **Supabase** — Auth (magic link), Postgres + pgvector, Storage. Migrations in `supabase/migrations/`.
+- **Gemini** via `@google/genai` — Flash by default, Pro for lessons, `gemini-embedding-001` at 768 dims.
+- **Inngest** for background jobs (`/api/inngest`). Run `npm run dev:inngest` next to `npm run dev`.
+- **Tailwind 4**, **Zod 4**, **Vitest**. TypeScript is pinned to 6.x (Next's build uses the TS API).
 
-1. **Never delete or remove user data.** No `DROP TABLE`, `DROP COLUMN`,
-   `TRUNCATE`, `DELETE FROM`, destructive `UPDATE`, or removing/renaming columns
-   that hold data. This includes "cleanup" of rows that look unused.
-2. **Never run a destructive or schema-altering migration without explicit
-   approval.** New additive migrations (new tables, new nullable columns, new
-   functions/indexes) are fine; anything that changes or removes existing
-   columns/tables/data must be confirmed first.
-3. **Stop and check with the user BEFORE doing anything that could touch, alter,
-   or risk user data — even indirectly.** If a change *might* affect production
-   data, describe exactly what it would do and wait for a clear "yes" before
-   acting. Err on the side of asking.
-4. **Prefer reversible, additive changes.** Add new fields/tables rather than
-   modifying existing ones. Keep old data intact alongside new structures.
-5. **Migrations are forward-only in prod.** Never roll back or reset the remote
-   database. To fix a mistake, write a new additive migration.
-6. **Backfills and data transforms** (any bulk write to existing rows) require
-   explicit approval and, where possible, a dry-run/preview of affected rows first.
+## Architecture
 
-If a task seems to require any of the above, do **not** proceed silently — surface
-it to the user, explain the data impact, and ask how they want to handle it.
+- All business logic lives in `/lib`. Route handlers in `app/api/**` parse input, call `/lib`, return JSON.
+- Pages only call the API (via `components/api.ts`). Server components may call `lib/auth` to gate
+  access, nothing else.
+- `lib/supabase/server.ts` has two clients: `createSessionClient()` (user's session, RLS applies) and
+  `adminClient()` (service role, bypasses RLS — **always filter by `user_id`**).
+- Wrap route handlers in `route()` from `lib/http.ts`; throw `HttpError` for user-facing failures.
+- Prompts live in `/prompts/*.md` and are loaded with `prompt(name, vars)`. Every prompt can use
+  `{level}`, `{tone}`, `{top_topics}` (from `lib/profile.ts`). Unknown placeholders throw.
+- Every AI JSON response goes through a Zod schema (`generateJson`).
+- Nothing fails silently: a job that gives up sets `items.status = 'failed'` with a user-readable `error`.
 
----
+## Data
 
-## Hosting & Deployment
+- Every table has `user_id` and RLS `user_id = auth.uid()`.
+- Sign-up is locked by `allowed_emails` + the `hook_before_user_created` auth hook, and `lib/auth.ts`
+  re-checks the allowlist on every request.
+- Migrations are forward-only and additive. Anything destructive (drop, rename, bulk update) needs an
+  explicit yes first. Never reset the remote database.
+- After a migration is applied, regenerate types:
+  `npx supabase gen types typescript --linked > lib/supabase/database.types.ts`
 
-### Vercel
-- **Production** auto-deploys from `main` branch on every push
-- **QA / staging** work is done on the `qa` branch — merge to `main` only when ready to go live
-- SPA routing handled via `vercel.json` rewrite: all paths serve `index.html`
-- Shared tool pages route as `/s/:slug` client-side
-- **Standalone tool pages** route as `/tools/:key` and are **prerendered** HTML
-  entries (multi-page Vite build) served via explicit `vercel.json` rewrites
-  placed *above* the SPA catch-all. `robots.txt` + `sitemap.xml` live in
-  `public/`. See **Standalone Tool Pages (SEO)** below.
+## Deploy
 
----
-
-## Frontend
-
-### React 19 + TypeScript
-- Strict TypeScript (`~6.0.2`) — no `any` shortcuts, all types explicit
-- Functional components and hooks only
-- File structure: `src/components/`, `src/hooks/`, `src/lib/`, `src/services/`, `src/types/`
-
-### Vite 8
-- Dev server: `npm run dev`
-- Production build: `npm run build` (runs `tsc` first, then Vite)
-
-### Tailwind CSS v4
-- Utility-first styling via `@tailwindcss/vite` plugin
-- **Design system — "Velix" (light/frosted, monochrome-primary). READ
-  [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) before styling anything new** — it is
-  the single source for tokens, primitives, and patterns.
-  - **Light & frosted everywhere.** Pearlescent canvas, translucent white cards,
-    hairline borders, soft shadows. The old dark `gray-950` Toolie chrome is gone
-    — every surface (home, header, FAB + chat sheet, tool pages, idea board,
-    intake sheets, `/s/:slug`) is light Velix.
-  - **Near-black `#16150f` is primary** (buttons, FAB, send, active pills); each
-    type's identity colour is a **soft pastel accent** only. Data-viz colours
-    (ICE ring, SWOT, score bars) are kept.
-  - **Compose, don't hand-roll:** the scoped `.tp-*` layer (`index.css`), the
-    primitives in `src/components/tools/ui.tsx`, and the per-type identity in
-    `src/lib/templateIdentity.ts`. Never re-declare colours/emoji/per-type maps.
-
-### Lucide React
-- Icon library — use existing icons before adding new ones
-
----
-
-## 📦 Modularity — no mega-files (mandatory)
-
-We learned this the hard way: 1,000+ line files (`usePocketVibe.ts`,
-`pocketvibe-generate/index.ts`, the big renderers) made changes slow and let a
-half-registered creation type ship to production. **All new code is modular,
-and big files get smaller every time they're touched — never bigger.**
-
-### Size limits
-- **New files: aim for ≤300 lines; hard stop at ~500.** If a file needs more,
-  that's the signal to split it *before* writing more code.
-- **Existing oversized files** (`usePocketVibe.ts`, the 1,000+ line renderers,
-  `pocketvibe-generate/index.ts`): never add a new feature *into* them. Put the
-  new logic in its own module and import it. Opportunistically extract when
-  touching nearby code (boy-scout rule).
-
-### How to split (the patterns already in the repo — copy these)
-- **Pure logic out of components/hooks** → `src/lib/` as side-effect-free,
-  unit-tested modules. Examples: `pocketVibeReducer.ts` (state machine out of
-  the hook), `mergeThings.ts`, `creationSync.ts`, `recipeIcons.ts`,
-  `drawEngine.ts`.
-- **Pure logic out of edge functions** → a sibling dependency-free file the
-  function imports (e.g. `pocketvibe-generate/pure.ts`). No Deno/npm imports in
-  it, so vitest can test it directly from `src/__tests__/`.
-- **Shared UI** → `src/components/shared/` (e.g. `BottomSheet.tsx`,
-  `ElementChatSheet.tsx`). Never copy-paste sheet/modal/row scaffolding — if
-  you're about to paste JSX from another component, extract it instead.
-- **Single source of truth for per-type identity** →
-  `src/lib/templateIdentity.ts` holds the full palette (emoji, label, tagline,
-  accent + soft/border, gradient) as an exhaustive `Record<CreationType, …>` so
-  the compiler flags a missing entry. `src/lib/creationTypeMeta.ts` **derives**
-  its `TYPE_EMOJI` / `TYPE_LABEL` / `TYPE_ACCENT` (and `ALL_CREATION_TYPES`) from
-  it — so the list, header, hero and canvas can never drift apart. To change a
-  type's look, edit `templateIdentity.ts` only; never re-declare a per-type map
-  (emoji/label/accent/colour) anywhere else, and don't hardcode a per-type hex
-  in a renderer — read the accent or use the `tpl-*` utilities.
-- **Big renderers**: split by section into sub-components in the same folder
-  (header / list / sheet views), keeping the `content`-in, `onChange`-out
-  contract at the top level.
-
-### Registration & drift (new creation types)
-- A new creation type touches many registries by design. The **drift test**
-  (`src/__tests__/typeRegistry.test.ts`) fails the build until the type is
-  registered in: both edge functions' `SUPPORTED_TYPES`, the system-prompt
-  content formats, the client validator, `TemplateRenderer`'s switch, the
-  capability registry, and `creationTypeMeta`. Keep that test green — never
-  weaken it to make a build pass.
-- Code-splitting is in place (`React.lazy` per renderer + per route in
-  `main.tsx`). New renderers must be added as lazy chunks, not eager imports.
-
-### DOMPurify
-- Sanitise any AI-generated HTML before rendering — mandatory, never skip
-
----
-
-## Template Design Standard — "AI baked into the canvas" (tap-to-talk)
-
-**The AI is the brain; the app is the canvas.** Every template should let the user
-*talk to the thing they're looking at*, not just edit a static artifact through a
-separate chat. This is the standard for **all templates going forward**, and existing
-templates should adopt it as they're meaningfully touched.
-
-### The hybrid model (required for new templates)
-- **Inline (tap-to-talk):** tapping any element (a card, row, score, section) summons an
-  anchored sheet with **2–3 AI-chosen actions + a free-text line**. The result reshapes
-  *that element only*, in place, with a brief highlight so the change is seen landing.
-- **FAB (board-wide):** the floating Toolie stays for whole-tool asks ("turn this into a
-  launch plan", "compare two versions"). Inline = local; FAB = global.
-
-### The magic-vs-noise guardrail (non-negotiable)
-- **AI is summoned, not always-on.** The canvas stays calm until touched.
-- **One gesture, one entry point per element. ≤3 actions.** Actions are chosen from the
-  element's current state so it feels like Toolie read your mind, never a generic menu.
-
-### Architecture (reuse these — do not rebuild per template)
-- **Surgical patches, never full-board regen.** Inline edits use the edge function
-  `mode: 'element_edit'`, which returns only the changed/added element(s) as a small patch,
-  merged deterministically by `kind` + `id` so unrelated content stays frozen. This is what
-  makes it feel instant and in-place.
-- **The reusable pattern** (built first on the Idea Board, generalise outward):
-  - `src/lib/ideaElements.ts` — element kinds + `ElementPatch` shape (model new templates on this).
-  - `src/lib/ideaElementActions.ts` — per-element contextual action engine (mirrors
-    `buildIdeaBoardSuggestions` in `CreationComposer.tsx`).
-  - `src/lib/applyElementPatch.ts` — pure, defensive merge (replace-by-id, scalar, clamp,
-    append linked follow-ups). Never mutates input.
-  - `src/components/shared/ElementChatSheet.tsx` — the anchored sheet (reuse as-is).
-  - `editIdeaElement` + `buildElementEditPrompt` in `src/services/aiService.ts` — the scoped
-    AI call; keep the client prompt and the edge-function prompt **in sync**.
-- **Quota:** inline element edits count against the lighter **`chat`** quota, not `generation`.
-- **Persistence:** apply the merged content through the renderer's existing `onChange`
-  (→ `updateCreationContent`) — no new persistence path.
-
-### Required when adding/generalising a template
-1. Define the template's element kinds + patch shape (model on `ideaElements.ts`).
-2. Add a per-element action engine and `applyElementPatch` cases for it.
-3. Make cards tappable in **view mode only** (edit mode keeps manual controls).
-4. Add the `element_edit` prompt branch for the new kinds (keep client/edge prompts in sync)
-   and **deploy the edge function**.
-5. Cover it with tests mirroring `src/__tests__/tapToTalk.test.tsx`.
-
----
-
-## Standalone Tool Pages (SEO)
-
-Any tool can have its own **shareable, crawlable** landing page at `/tools/:key`
-(first one: `/tools/recipe-extractor`). The page **reuses the existing tool
-components** and works **anonymously**, so a visitor arriving from search can use
-it immediately (sign-in is only prompted to save/share). This is the pattern for
-promoting individual tools for SEO going forward.
-
-### Architecture (reuse — do not fork the tool UI)
-- `src/lib/toolPages.ts` — pure-data registry (`TOOL_PAGES`): per-tool hero copy,
-  how-it-works steps, customize chips, where-next, identity key, canonical path.
-  No React imports, so it's testable and readable by build/SEO tooling.
-- `src/components/ToolPage.tsx` — generic shell (hero → how-it-works → live tool →
-  customize → where-next → footer). Maps `key → live component` via `LIVE_TOOLS`
-  and **redirects unknown keys home**.
-- `src/components/tools/<Tool>.tsx` — the live, anonymous interactive body. Reuses
-  the **deployed** generation paths (e.g. `extractRecipe` / `chatAboutRecipe`) and
-  the existing renderer — never a re-implementation. Customize chips + the
-  renderer's built-in tap-to-talk sheet are the Toolie surface (no separate FAB).
-- Route: `/tools/:key` matched in `main.tsx`, **lazy-loaded** (code-split, like
-  `/s/:slug`).
-- SEO: a prerendered HTML entry at repo root (`<key>.html`) with hardcoded
-  `<title>` / description / canonical / OG / Twitter + JSON-LD; registered as a
-  Vite multi-page `build.rollupOptions.input`; served at the pretty URL via a
-  `vercel.json` rewrite **above** the `/(.*)` SPA fallback. Use **absolute**
-  `https://heytoolie.com` URLs in the prerendered head.
-
-### Required when adding a new tool page
-1. Add a `TOOL_PAGES` entry in `src/lib/toolPages.ts` **and** a `LIVE_TOOLS`
-   component mapping in `ToolPage.tsx`.
-2. Build the live component from existing tool logic / renderers — **reuse, don't
-   fork**. It must work without a signed-in session.
-3. Add the prerendered `<key>.html` (real meta + canonical + OG + JSON-LD,
-   absolute URLs) — keep its visible copy in sync with the `TOOL_PAGES` config.
-4. Register it as a Vite input (`vite.config.ts`) **and** add the `vercel.json`
-   rewrite above the SPA catch-all.
-5. **Add the URL to `public/sitemap.xml`** (keep `robots.txt` pointing at the
-   sitemap). ← easy to forget; the page won't be discovered without it.
-6. Verify: `npm run build`, confirm `dist/<key>.html` carries the meta + JSON-LD
-   and `dist/sitemap.xml` lists the URL, then confirm the page renders and the
-   tool works **anonymously** in the browser.
-
----
-
-## Backend & Data
-
-### Supabase
-- **Auth** — Google OAuth (primary), email magic link, email+password
-  - Apple OAuth configured but hidden in UI until fully set up
-  - Row-level security (RLS) enforced on all tables
-- **Database** — PostgreSQL via Supabase
-  - `shared_creations` — shared tool records, versioned, admin-token protected
-  - `world_cup_teams` + `world_cup_matches` — canonical WC 2026 data
-- **Edge Functions** (Deno, in `supabase/functions/`)
-  - `pocketvibe-generate` — AI generation pipeline (proxies Gemini, keeps API key server-side)
-  - `create-shared-creation` — creates a share record, returns slug + admin token
-  - `get-shared-creation` — fetches a share by slug with access-mode resolution
-  - `update-shared-creation` — versioned PATCH (optimistic concurrency via `expected_version`)
-  - `apply-creation-action` — approve/decline change requests, lock draws, etc.
-  - `create-participant-link` — generates participant tokens for shared tools
-  - `sync-world-cup-results` — syncs canonical WC match results into the DB
-- **Environment variables** (set in Vercel + local `.env.local`)
-  - `VITE_SUPABASE_URL` — public, safe in browser bundle
-  - `VITE_SUPABASE_ANON_KEY` — public anon key, safe in browser bundle
-  - `VITE_GEMINI_API_KEY` — **DEV only**, never in production builds
-
-### Google Gemini AI (`@google/generative-ai`)
-- In production: Gemini is called via the `pocketvibe-generate` Edge Function (API key stays server-side)
-- In local dev: can call Gemini directly if `VITE_GEMINI_API_KEY` is set
-- Never expose the Gemini API key in client-side production code
-
----
-
-## Analytics
-
-### PostHog
-- **Region: US Cloud** (`https://us.i.posthog.com`)
-- Project token stored in `src/lib/analytics.ts`
-- Autocapture enabled (clicks, page views, session recordings)
-- Admin/participant tokens are stripped from `$current_url` before sending
-- **Events tracked:** `creation_started`, `creation_completed`, `creation_improved`, `world_cup_pool_created`, `creation_deleted`, `share_panel_opened`, `share_link_created`, `shared_page_viewed`, `remix_clicked`, `sign_in`, `sign_out`
-- Events are **suppressed in dev** (`import.meta.env.DEV`) to keep analytics clean
-- All PostHog calls go through `src/lib/analytics.ts` — never import `posthog-js` directly elsewhere
-
----
-
-## Testing
-
-### Vitest + Testing Library
-- Run: `npm test` (single run) or `npm run test:watch`
-- Coverage: `npm run test:coverage`
-- Tests live in `src/__tests__/`
-- **690+ tests** covering scoring mechanics, sharing logic, auth, UI components,
-  the app reducer, edge-function pure logic (incl. client/edge signature parity),
-  and the creation-type drift guard (`typeRegistry.test.ts`)
-- All tests must pass before merging to `main`
-- Mock Supabase and external services in tests — never hit real APIs
-
----
-
-## Key Conventions
-
-- **Branch strategy:** `qa` for active work → merge to `main` for production
-- **Creation types:** 14 types — the canonical list lives in
-  `src/lib/creationTypeMeta.ts` (`ALL_CREATION_TYPES`); never hand-maintain type
-  lists elsewhere
-- **Local storage:** Creations stored in `localStorage` — tagged with `ownerUserId` when signed in, stripped on sign-out
-- **Shared links:** `/s/:slug` — viewer/participant/admin access modes, 30-second auto-refresh
-- **Versioning:** All shared creation updates use `expected_version` for optimistic concurrency — never overwrite without checking
-- **No secrets in client bundle** — Gemini key server-side only, Supabase keys are public anon keys only
+- `main` auto-deploys to production on Vercel. Work on a branch; merge when it's ready to ship.
+- Set env vars from `.env.example` in Vercel. `NEXT_PUBLIC_*` is browser-visible; nothing else is.

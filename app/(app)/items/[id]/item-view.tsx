@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/components/api';
 import { Chat } from '@/components/chat';
@@ -17,8 +18,8 @@ type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, file
 
 /**
  * One saved item: "Got it, working on it…" while queued, Retry on failure,
- * then the output with Explain simpler · Go deeper · Diagram · Similar · 👍/👎
- * and a chat box about this item.
+ * then the output with Play, Explain simpler · Go deeper · Diagram · Similar ·
+ * 👍/👎 and a chat box about this item.
  */
 export function ItemView({ id }: { id: string }) {
   const [item, setItem] = useState<Item | null>(null);
@@ -95,7 +96,7 @@ export function ItemView({ id }: { id: string }) {
           <>
             <p className="text-lg font-medium">Couldn&apos;t read that one</p>
             {item.error && <p className="mt-1 text-sm text-muted">{item.error}</p>}
-            <button onClick={retry} className="mt-4 rounded-xl bg-accent px-4 py-2 font-medium text-white">
+            <button onClick={retry} className="mt-4 rounded-xl bg-accent px-4 py-2 font-medium text-on-accent">
               Retry
             </button>
           </>
@@ -159,6 +160,8 @@ function Actions({
 }) {
   const [explaining, setExplaining] = useState<ExplainMode | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const router = useRouter();
   const [similar, setSimilar] = useState<SimilarItem[] | null>(null);
   const [showSimilar, setShowSimilar] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,6 +196,19 @@ function Actions({
     }
   }
 
+  /** Opens an unplayed lesson (usually pre-written by the pipeline) or writes one. */
+  async function play() {
+    setPlaying(true);
+    setError(null);
+    try {
+      const { lessonId } = await api<{ lessonId: string }>('/api/lessons', { body: { itemId: item.id } });
+      router.push(`/play/${lessonId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setPlaying(false);
+    }
+  }
+
   async function toggleSimilar() {
     setShowSimilar((s) => !s);
     if (similar) return;
@@ -216,6 +232,16 @@ function Actions({
   const button = 'rounded-full border border-line bg-surface px-3.5 py-2 text-sm disabled:opacity-50';
   return (
     <div className="mt-4">
+      {isExplainer && (
+        <button
+          onClick={play}
+          disabled={playing}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3.5 font-semibold text-on-accent disabled:opacity-70"
+        >
+          <span aria-hidden>▶</span>
+          {playing ? 'Getting your lesson ready…' : 'Play · 2-minute lesson'}
+        </button>
+      )}
       <div className="flex flex-wrap gap-2">
         {isExplainer && (
           <>
@@ -236,7 +262,7 @@ function Actions({
           Similar
         </button>
         <button
-          className={`${button} ${thumbs === 1 ? 'border-accent bg-accent text-white' : ''}`}
+          className={`${button} ${thumbs === 1 ? 'border-accent bg-accent text-on-accent' : ''}`}
           aria-pressed={thumbs === 1}
           aria-label="Thumbs up"
           onClick={() => vote(1)}
@@ -244,7 +270,7 @@ function Actions({
           👍
         </button>
         <button
-          className={`${button} ${thumbs === -1 ? 'border-danger bg-danger text-white' : ''}`}
+          className={`${button} ${thumbs === -1 ? 'border-danger bg-danger text-on-accent' : ''}`}
           aria-pressed={thumbs === -1}
           aria-label="Thumbs down"
           onClick={() => vote(-1)}

@@ -71,7 +71,7 @@ export function TopicList() {
                   onChange={(e) => setDraft(e.target.value)}
                   className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-1.5 outline-none focus:border-accent"
                 />
-                <button className="rounded-lg bg-accent px-3 text-sm text-white">Save</button>
+                <button className="rounded-lg bg-accent px-3 text-sm text-on-accent">Save</button>
                 <button type="button" onClick={() => setEditing(null)} className="px-2 text-sm text-muted">
                   Cancel
                 </button>

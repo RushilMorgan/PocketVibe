@@ -9,7 +9,7 @@ export type PromptContext = {
 };
 
 /** How much each signal moves a topic's weight (SPEC → Profile). */
-export const WEIGHT = { save: 1, thumbsUp: 2, thumbsDown: -2 } as const;
+export const WEIGHT = { save: 1, thumbsUp: 2, thumbsDown: -2, play: 1 } as const;
 
 /** A tag joins an existing topic when its embedding is at least this close. */
 const SAME_TOPIC = 0.8;

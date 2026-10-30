@@ -56,7 +56,7 @@ export function RecipeExtractor({ initialUrl }: { initialUrl: string }) {
         )}
         <button
           disabled={busy || (!url.trim() && !text.trim())}
-          className="rounded-xl bg-accent px-4 py-3 font-medium text-white disabled:opacity-60"
+          className="rounded-xl bg-accent px-4 py-3 font-medium text-on-accent disabled:opacity-60"
         >
           {busy ? 'Reading the recipe… (up to a minute for videos)' : 'Get the recipe'}
         </button>

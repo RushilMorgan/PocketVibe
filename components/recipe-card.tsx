@@ -25,7 +25,7 @@ export function RecipeCard({ recipe }: { recipe: Recipe }) {
       <ol className="mt-2 flex flex-col gap-3">
         {recipe.steps.map((step, i) => (
           <li key={i} className="flex gap-3">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-medium text-white">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-medium text-on-accent">
               {i + 1}
             </span>
             <span>

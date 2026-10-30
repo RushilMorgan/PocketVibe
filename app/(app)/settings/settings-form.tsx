@@ -74,7 +74,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             <button
               key={t}
               onClick={() => save({ tone: t })}
-              className={`rounded-full border px-3 py-1.5 text-sm ${settings.tone === t ? 'border-accent bg-accent text-white' : 'border-line bg-surface'}`}
+              className={`rounded-full border px-3 py-1.5 text-sm ${settings.tone === t ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface'}`}
             >
               {t}
             </button>

@@ -88,7 +88,7 @@ export function Home({ notice, initialTopic }: { notice?: string; initialTopic: 
           onChange={(e) => setUrl(e.target.value)}
           className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
         />
-        <button disabled={saving} className="rounded-xl bg-accent px-4 py-3 font-medium text-white disabled:opacity-60">
+        <button disabled={saving} className="rounded-xl bg-accent px-4 py-3 font-medium text-on-accent disabled:opacity-60">
           Save
         </button>
       </form>
@@ -139,7 +139,7 @@ function Chip({ active, onClick, children }: { active?: boolean; onClick?: () =>
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${active ? 'border-accent bg-accent text-white' : 'border-line bg-surface'}`}
+      className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${active ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface'}`}
     >
       {children}
     </button>

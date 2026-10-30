@@ -38,7 +38,7 @@ export function LoginForm({ next }: { next: string }) {
       />
       <button
         disabled={state === 'sending'}
-        className="rounded-xl bg-accent px-4 py-3 font-medium text-white disabled:opacity-60"
+        className="rounded-xl bg-accent px-4 py-3 font-medium text-on-accent disabled:opacity-60"
       >
         {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
       </button>

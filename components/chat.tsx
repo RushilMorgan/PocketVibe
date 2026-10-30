@@ -66,7 +66,7 @@ export function Chat({ itemId, placeholder, empty }: { itemId?: string; placehol
       <ol className="flex flex-col gap-4">
         {messages.map((m, i) =>
           m.role === 'user' ? (
-            <li key={i} className="self-end rounded-2xl rounded-br-sm bg-accent px-4 py-2.5 text-white">
+            <li key={i} className="self-end rounded-2xl rounded-br-sm bg-accent px-4 py-2.5 text-on-accent">
               {m.content}
             </li>
           ) : (
@@ -83,7 +83,7 @@ export function Chat({ itemId, placeholder, empty }: { itemId?: string; placehol
           placeholder={placeholder}
           className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
         />
-        <button disabled={busy || !input.trim()} className="rounded-xl bg-accent px-4 py-3 font-medium text-white disabled:opacity-60">
+        <button disabled={busy || !input.trim()} className="rounded-xl bg-accent px-4 py-3 font-medium text-on-accent disabled:opacity-60">
           {busy ? '…' : 'Ask'}
         </button>
       </form>

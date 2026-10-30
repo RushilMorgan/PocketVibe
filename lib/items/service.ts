@@ -99,6 +99,22 @@ export async function markFailed(itemId: string, message: string): Promise<ItemR
 
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
+/** Adds an output alongside any existing ones (lessons accumulate). Returns its id. */
+export async function insertOutput(
+  userId: string,
+  itemId: string,
+  type: OutputType,
+  content: ItemOutputRow['content'],
+): Promise<string> {
+  const { data, error } = await adminClient()
+    .from('item_outputs')
+    .insert({ item_id: itemId, user_id: userId, type, content })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
 /** Stores a generated output, replacing any earlier one of the same type. */
 export async function saveOutput(
   userId: string,

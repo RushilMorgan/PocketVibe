@@ -2,6 +2,7 @@ import 'server-only';
 import { NonRetriableError } from 'inngest';
 import { classify } from '@/lib/ai/classify';
 import { createDiagram } from '@/lib/diagrams/generate';
+import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
 import { indexItem } from '@/lib/index/index-item';
@@ -14,7 +15,8 @@ import { adminClient } from '@/lib/supabase/server';
 import { inngest, itemQueued } from './client';
 
 /**
- * Shared link → useful version: fetch → classify → handle → (diagram) → index → notify.
+ * Shared link → useful version: fetch → classify → handle → (diagram) → index
+ * → notify → (lesson).
  * Each step is retried on its own by Inngest, so a flaky Gemini call doesn't
  * redo the work before it, and every step is safe to re-run.
  */
@@ -109,6 +111,20 @@ export const processItem = inngest.createFunction(
         url: `/items/${itemId}`,
       }),
     );
+
+    // Pre-write a lesson so Play opens instantly. After notify, so it never
+    // delays the explainer; best-effort, Play can still generate on demand.
+    if (meta.kind !== 'recipe') {
+      await step.run('lesson', async () => {
+        try {
+          if (await unplayedLesson(userId, itemId)) return null;
+          return await createLesson(userId, itemId);
+        } catch (err) {
+          console.error('lesson pre-generation failed', err);
+          return null;
+        }
+      });
+    }
 
     return { itemId, kind: meta.kind, tags: meta.tags };
   },

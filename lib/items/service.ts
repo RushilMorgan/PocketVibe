@@ -105,6 +105,7 @@ export async function saveOutput(
   itemId: string,
   type: OutputType,
   content: ItemOutputRow['content'],
+  fileUrl: string | null = null,
 ): Promise<void> {
   const db = adminClient();
   const { error: deleteError } = await db
@@ -114,7 +115,7 @@ export async function saveOutput(
     .eq('user_id', userId)
     .eq('type', type);
   if (deleteError) throw deleteError;
-  const { error } = await db.from('item_outputs').insert({ item_id: itemId, user_id: userId, type, content });
+  const { error } = await db.from('item_outputs').insert({ item_id: itemId, user_id: userId, type, content, file_url: fileUrl });
   if (error) throw error;
 }
 

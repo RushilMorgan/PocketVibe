@@ -1,7 +1,8 @@
 import 'server-only';
 import { logEvent } from '@/lib/events';
 import { explain } from '@/lib/handlers/explainer';
-import type { ExplainMode, Explainer } from '@/lib/handlers/schemas';
+import { createDiagram } from '@/lib/diagrams/generate';
+import type { Diagram, ExplainMode, Explainer } from '@/lib/handlers/schemas';
 import { HttpError } from '@/lib/http';
 import { adjustItemTopics, getPromptContext, WEIGHT } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
@@ -16,6 +17,16 @@ export async function reExplain(userId: string, itemId: string, mode: ExplainMod
   const explainer = await explain(item.raw_text, await getPromptContext(userId), mode);
   await saveOutput(userId, itemId, 'explainer', explainer);
   return explainer;
+}
+
+/** The Diagram button. 422 if no valid diagram came out after the retry. */
+export async function makeDiagram(userId: string, itemId: string): Promise<{ content: Diagram; fileUrl: string }> {
+  const item = await getItem(userId, itemId);
+  if (!item.raw_text) throw new HttpError(409, "This one hasn't been read yet.");
+  if (item.kind === 'recipe') throw new HttpError(400, 'Recipes have no diagram.');
+  const result = await createDiagram(userId, itemId, item.raw_text, await getPromptContext(userId));
+  if (!result) throw new HttpError(422, "Couldn't draw a clear diagram for this one.");
+  return result;
 }
 
 export type SimilarItem = Pick<ItemRow, 'id' | 'title' | 'kind' | 'url'> & { similarity: number };

@@ -3,6 +3,9 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // Prompts are read from /prompts at runtime; make sure Vercel bundles them.
   outputFileTracingIncludes: { '/api/**': ['./prompts/**'] },
+  // Diagram validation runs mermaid under jsdom; both load files dynamically
+  // and break when bundled, so Node requires them at runtime instead.
+  serverExternalPackages: ['mermaid', 'jsdom', 'sharp'],
   async headers() {
     return [
       {

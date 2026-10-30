@@ -1,6 +1,7 @@
 import 'server-only';
 import { NonRetriableError } from 'inngest';
 import { classify } from '@/lib/ai/classify';
+import { createDiagram } from '@/lib/diagrams/generate';
 import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
 import { indexItem } from '@/lib/index/index-item';
@@ -13,7 +14,7 @@ import { adminClient } from '@/lib/supabase/server';
 import { inngest, itemQueued } from './client';
 
 /**
- * Shared link → useful version: fetch → classify → handle → index → notify.
+ * Shared link → useful version: fetch → classify → handle → (diagram) → index → notify.
  * Each step is retried on its own by Inngest, so a flaky Gemini call doesn't
  * redo the work before it, and every step is safe to re-run.
  */
@@ -84,7 +85,20 @@ export const processItem = inngest.createFunction(
       }
     });
 
-    await step.run('index', () => indexItem({ id: itemId, user_id: userId, title: meta.title, text: rawText }));
+    // SPEC Phase 2: tech items that explain a system get a diagram automatically.
+    // Best-effort — a diagram that won't render leaves the item text-only.
+    if (meta.kind === 'tech' && meta.has_structure) {
+      await step.run('diagram', async () => {
+        try {
+          return Boolean(await createDiagram(userId, itemId, rawText, await getPromptContext(userId)));
+        } catch (err) {
+          console.error('diagram failed, staying text-only', err);
+          return false;
+        }
+      });
+    }
+
+    await step.run('index',() => indexItem({ id: itemId, user_id: userId, title: meta.title, text: rawText }));
     await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
     await step.run('finish', () => update({ status: 'done' }));
 

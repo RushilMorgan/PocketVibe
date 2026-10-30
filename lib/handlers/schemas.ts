@@ -48,3 +48,11 @@ export const explainer = z.object({
 export type Explainer = z.infer<typeof explainer>;
 
 export type ExplainMode = 'normal' | 'simpler' | 'deeper';
+
+/** item_outputs.content for type 'diagram'; the PNG lives in file_url. */
+export const diagram = z.object({
+  mermaid: z.string().min(1).describe('Mermaid code only, no code fences'),
+  caption: z.string().min(1).max(160).describe('One plain sentence on what the diagram shows'),
+});
+
+export type Diagram = z.infer<typeof diagram>;

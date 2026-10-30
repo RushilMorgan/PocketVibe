@@ -6,15 +6,19 @@ import { api } from '@/components/api';
 import { Chat } from '@/components/chat';
 import { ExplainerCard } from '@/components/explainer-card';
 import { RecipeCard } from '@/components/recipe-card';
+import { DiagramCard } from '@/components/diagram-card';
 import { KIND_LABEL, type Item, type SimilarItem } from '@/components/types';
-import type { ExplainMode, Explainer, Recipe } from '@/lib/handlers/schemas';
+import type { Diagram, ExplainMode, Explainer, Recipe } from '@/lib/handlers/schemas';
 
 const POLL_MS = 2500;
 
+type Output = Item['outputs'][number];
+type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, fileUrl?: string | null) => void;
+
 /**
  * One saved item: "Got it, working on it…" while queued, Retry on failure,
- * then the output with Explain simpler · Go deeper · Similar · 👍/👎 and a
- * chat box about this item.
+ * then the output with Explain simpler · Go deeper · Diagram · Similar · 👍/👎
+ * and a chat box about this item.
  */
 export function ItemView({ id }: { id: string }) {
   const [item, setItem] = useState<Item | null>(null);
@@ -55,13 +59,18 @@ export function ItemView({ id }: { id: string }) {
     await load();
   }
 
-  /** Swap in a regenerated explainer without a refetch. */
-  function replaceExplainer(explainer: Explainer) {
-    const content = explainer as unknown as Item['outputs'][number]['content'];
-    setItem((prev) =>
-      prev && { ...prev, outputs: prev.outputs.map((o) => (o.type === 'explainer' ? { ...o, content } : o)) },
-    );
-  }
+  /** Swap in a regenerated explainer or new diagram without a refetch. */
+  const putOutput: OnOutput = (type, value, fileUrl = null) => {
+    const content = value as unknown as Output['content'];
+    setItem((prev) => {
+      if (!prev) return prev;
+      const existing = prev.outputs.find((o) => o.type === type);
+      const next: Output = existing
+        ? { ...existing, content, file_url: fileUrl }
+        : { id: type, item_id: prev.id, user_id: prev.user_id, type, content, file_url: fileUrl, created_at: new Date().toISOString() };
+      return { ...prev, outputs: [...prev.outputs.filter((o) => o.type !== type), next] };
+    });
+  };
 
   if (error) {
     return (
@@ -101,7 +110,7 @@ export function ItemView({ id }: { id: string }) {
 
       {item?.status === 'done' && (
         <>
-          <Actions item={item} thumbs={thumbs} setThumbs={setThumbs} onExplainer={replaceExplainer} />
+          <Actions item={item} thumbs={thumbs} setThumbs={setThumbs} onOutput={putOutput} />
           <section className="mt-8">
             <h2 className="mb-3 font-semibold">Ask about this</h2>
             <Chat itemId={item.id} placeholder="e.g. what's the catch?" />
@@ -123,12 +132,16 @@ function BackLink() {
 function Done({ item }: { item: Item }) {
   const recipe = item.outputs.find((o) => o.type === 'recipe');
   const explainer = item.outputs.find((o) => o.type === 'explainer');
+  const diagram = item.outputs.find((o) => o.type === 'diagram');
   if (recipe) return <RecipeCard recipe={recipe.content as unknown as Recipe} />;
   return (
     <>
       {item.kind && <p className="text-xs text-muted">{KIND_LABEL[item.kind]}</p>}
       <h1 className="mt-1 mb-4 text-xl font-semibold leading-snug">{item.title}</h1>
       {explainer && <ExplainerCard explainer={explainer.content as unknown as Explainer} />}
+      {diagram?.file_url && (
+        <DiagramCard src={diagram.file_url} caption={(diagram.content as unknown as Diagram).caption} />
+      )}
     </>
   );
 }
@@ -137,29 +150,46 @@ function Actions({
   item,
   thumbs,
   setThumbs,
-  onExplainer,
+  onOutput,
 }: {
   item: Item;
   thumbs: number;
   setThumbs: (v: number) => void;
-  onExplainer: (e: Explainer) => void;
+  onOutput: OnOutput;
 }) {
   const [explaining, setExplaining] = useState<ExplainMode | null>(null);
+  const [drawing, setDrawing] = useState(false);
   const [similar, setSimilar] = useState<SimilarItem[] | null>(null);
   const [showSimilar, setShowSimilar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isExplainer = item.outputs.some((o) => o.type === 'explainer');
+  const hasDiagram = item.outputs.some((o) => o.type === 'diagram');
 
   async function reExplain(mode: ExplainMode) {
     setExplaining(mode);
     setError(null);
     try {
       const { explainer } = await api<{ explainer: Explainer }>(`/api/items/${item.id}/explain`, { body: { mode } });
-      onExplainer(explainer);
+      onOutput('explainer', explainer);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setExplaining(null);
+    }
+  }
+
+  async function drawDiagram() {
+    setDrawing(true);
+    setError(null);
+    try {
+      const { diagram } = await api<{ diagram: { content: Diagram; fileUrl: string } }>(`/api/items/${item.id}/diagram`, {
+        method: 'POST',
+      });
+      onOutput('diagram', diagram.content, diagram.fileUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setDrawing(false);
     }
   }
 
@@ -195,6 +225,11 @@ function Actions({
             <button className={button} disabled={!!explaining} onClick={() => reExplain('deeper')}>
               {explaining === 'deeper' ? 'Digging in…' : 'Go deeper'}
             </button>
+            {!hasDiagram && (
+              <button className={button} disabled={drawing} onClick={drawDiagram}>
+                {drawing ? 'Drawing…' : 'Diagram'}
+              </button>
+            )}
           </>
         )}
         <button className={button} aria-expanded={showSimilar} onClick={toggleSimilar}>

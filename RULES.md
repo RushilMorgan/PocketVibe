@@ -10,8 +10,12 @@ changing code.
   database. Next 16 renamed middleware to `proxy.ts`; route `params`/`searchParams` are Promises.
 - **Supabase** (project `trxmbkkxfafrommyhwkl`, eu-west-1) — Auth (magic link), Postgres + pgvector,
   Storage (`diagrams` bucket), pg_cron.
-- **Gemini** via `@google/genai` — Flash by default, Pro for lessons, `gemini-embedding-001` at 768
-  dims, Google Search grounding for digest finds.
+- **Gemini** via `@google/genai`, two tiers (benchmarked on real saves, Nov 2026):
+  - `fast` = **Gemini 3.8 Flash** (thinks low) — watching videos, recipes, classifying, picks, search.
+  - `pro` = **Gemini 4 Argon** (thinks medium; lessons high, chat low) — explainers, lessons,
+    diagrams, chat.
+  - `gemini-embedding-001` at 768 dims. Models are env vars (`GEMINI_MODEL_FAST/PRO`); thinking
+    levels are only sent to models that support them, so a 2.5 model still works.
 - **Inngest** for background jobs, served at `/api/inngest` (Vercel Marketplace integration in prod).
 - **Web Push** (`web-push`, VAPID) and optional **Resend** email. **Kroki** renders Mermaid to PNG.
 - **Tailwind 4**, **Zod 4**, **Vitest**. TypeScript is pinned to **6.x** — `npm i -D typescript`
@@ -24,7 +28,7 @@ changing code.
 | `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/ask`, `/topics`, `/settings`, `/digest/[id]` |
 | `app/play/[lessonId]` | Full-screen lesson player (no tab bar) |
 | `app/share`, `app/auth/callback`, `app/d/[id]` | Share target (POST), magic-link landing, signed digest-link tracker |
-| `app/tools/recipe-extractor` | Public, no-login recipe tool kept at the old URL for ad links |
+| `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
 | `app/api/**` | Route handlers: parse input → call `/lib` → JSON |
 | `lib/items` | Saving links, source detection, fetching (Gemini video / Jina Reader), item actions |
 | `lib/ai` | Gemini client (`generateJson`, `streamText`, `embed`, `generateGrounded`), prompt loader |
@@ -70,9 +74,14 @@ changing code.
 
 ## Data
 
-- Every table has `user_id` and RLS `user_id = auth.uid()`.
+- Every table has `user_id` and RLS `user_id = auth.uid() AND is_allowlisted()` — a signed-in account
+  whose email isn't in `allowed_emails` sees nothing, even through Supabase's public API.
 - Sign-up is locked by `allowed_emails` + the `hook_before_user_created` auth hook, and `lib/auth.ts`
-  re-checks the allowlist on every request. Opening to strangers = disable the hook.
+  re-checks the allowlist on every request. Opening to strangers = disable the hook and relax the
+  `is_allowlisted()` policies.
+- Nothing is public: no page or API works without an allowlisted session (`robots.txt` disallows
+  all). The old site's tables and functions have no `anon`/`authenticated` grants; its edge
+  functions are deleted.
 - Migrations are forward-only and additive. Anything destructive (drop, rename, bulk update or
   delete) needs an explicit yes first. Never reset the remote database.
 - `lib/supabase/database.types.ts` is **hand-written on purpose**: `supabase gen types` types CHECK

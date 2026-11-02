@@ -1,5 +1,5 @@
 import 'server-only';
-import { GoogleGenAI, MediaResolution, type Part } from '@google/genai';
+import { GoogleGenAI, MediaResolution, ThinkingLevel, type GenerateContentConfig, type Part } from '@google/genai';
 import { z } from 'zod';
 import { env } from '@/lib/env';
 
@@ -10,10 +10,32 @@ function ai(): GoogleGenAI {
   return client;
 }
 
+/**
+ * Two tiers (models set in lib/env.ts; benchmarked 2026-11-02 on real saves):
+ * - fast: big inputs and plumbing — watching videos, recipes, classifying, picking.
+ * - pro:  where intelligence shows — explainers, lessons, diagrams, chat.
+ */
 export type Model = 'fast' | 'pro';
+export type Thinking = 'low' | 'medium' | 'high';
 
 function modelId(model: Model): string {
   return model === 'pro' ? env().GEMINI_MODEL_PRO : env().GEMINI_MODEL_FAST;
+}
+
+const LEVEL: Record<Thinking, ThinkingLevel> = {
+  low: ThinkingLevel.LOW,
+  medium: ThinkingLevel.MEDIUM,
+  high: ThinkingLevel.HIGH,
+};
+
+/**
+ * Thinking depth per call: fast models think lightly, pro models medium. Only
+ * sent to models that take a thinking *level* (Gemini 3.5+ / 4); older ones
+ * reject it, so swapping the env back to a 2.5 model still works.
+ */
+function thinkingConfig(id: string, model: Model, thinking?: Thinking): Pick<GenerateContentConfig, 'thinkingConfig'> {
+  if (!/^gemini-(?:[4-9]|3\.[5-9])/.test(id)) return {};
+  return { thinkingConfig: { thinkingLevel: LEVEL[thinking ?? (model === 'pro' ? 'medium' : 'low')] } };
 }
 
 /** A public YouTube video passed to Gemini by URL (no download needed). */
@@ -23,16 +45,27 @@ export function youtubePart(watchUrl: string): Part {
 
 interface GenerateOptions {
   model?: Model;
+  thinking?: Thinking;
   /** Lower resolution ≈ 1/4 the video tokens; plenty for speech-heavy Shorts. */
   lowMediaResolution?: boolean;
 }
 
+/** Shared per-call config: thinking depth and video resolution. */
+function baseConfig(opts: GenerateOptions): { model: string; config: GenerateContentConfig } {
+  const tier = opts.model ?? 'fast';
+  const model = modelId(tier);
+  return {
+    model,
+    config: {
+      ...thinkingConfig(model, tier, opts.thinking),
+      ...(opts.lowMediaResolution ? { mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW } : {}),
+    },
+  };
+}
+
 export async function generateText(parts: Part[], opts: GenerateOptions = {}): Promise<string> {
-  const res = await ai().models.generateContent({
-    model: modelId(opts.model ?? 'fast'),
-    contents: [{ role: 'user', parts }],
-    config: opts.lowMediaResolution ? { mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW } : undefined,
-  });
+  const { model, config } = baseConfig(opts);
+  const res = await ai().models.generateContent({ model, contents: [{ role: 'user', parts }], config });
   const text = res.text?.trim();
   if (!text) throw new Error('Gemini returned no text');
   return text;
@@ -54,10 +87,11 @@ export async function generateGrounded(
   text: string,
   opts: GenerateOptions = {},
 ): Promise<{ text: string; sources: GroundingSource[] }> {
+  const { model, config } = baseConfig(opts);
   const res = await ai().models.generateContent({
-    model: modelId(opts.model ?? 'fast'),
+    model,
     contents: [{ role: 'user', parts: [{ text }] }],
-    config: { tools: [{ googleSearch: {} }] },
+    config: { ...config, tools: [{ googleSearch: {} }] },
   });
   const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
   const sources = chunks.flatMap((c) => (c.web?.uri ? [{ uri: c.web.uri, title: c.web.title ?? '' }] : []));
@@ -70,11 +104,12 @@ export interface ChatTurn {
 }
 
 /** Streams a multi-turn answer as plain text chunks. */
-export async function* streamText(system: string, turns: ChatTurn[], opts: { model?: Model } = {}): AsyncGenerator<string> {
+export async function* streamText(system: string, turns: ChatTurn[], opts: GenerateOptions = {}): AsyncGenerator<string> {
+  const { model, config } = baseConfig(opts);
   const stream = await ai().models.generateContentStream({
-    model: modelId(opts.model ?? 'fast'),
+    model,
     contents: turns.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-    config: { systemInstruction: system },
+    config: { ...config, systemInstruction: system },
   });
   for await (const chunk of stream) {
     if (chunk.text) yield chunk.text;
@@ -107,14 +142,11 @@ export async function embed(texts: string[], taskType: EmbedTask): Promise<strin
 
 /** JSON-mode call validated against a Zod schema; throws if the model strays. */
 export async function generateJson<T>(schema: z.ZodType<T>, parts: Part[], opts: GenerateOptions = {}): Promise<T> {
+  const { model, config } = baseConfig(opts);
   const res = await ai().models.generateContent({
-    model: modelId(opts.model ?? 'fast'),
+    model,
     contents: [{ role: 'user', parts }],
-    config: {
-      responseMimeType: 'application/json',
-      responseJsonSchema: z.toJSONSchema(schema),
-      ...(opts.lowMediaResolution ? { mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW } : {}),
-    },
+    config: { ...config, responseMimeType: 'application/json', responseJsonSchema: z.toJSONSchema(schema) },
   });
   // Not a ZodError: route() would report that as the caller's bad request.
   let json: unknown;

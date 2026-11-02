@@ -12,10 +12,9 @@ const schema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   DAILY_ITEM_CAP: z.coerce.number().int().positive().default(50),
   GEMINI_API_KEY: z.string().min(1),
-  GEMINI_MODEL_FAST: z.string().default('gemini-2.5-flash'),
-  GEMINI_MODEL_PRO: z.string().default('gemini-2.5-pro'),
+  GEMINI_MODEL_FAST: z.string().default('gemini-3.8-flash'),
+  GEMINI_MODEL_PRO: z.string().default('gemini-4-argon'),
   GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
-  PUBLIC_TOOL_DAILY_LIMIT: z.coerce.number().int().positive().default(5),
 });
 
 export type Env = z.infer<typeof schema>;

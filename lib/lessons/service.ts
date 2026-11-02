@@ -55,7 +55,7 @@ export async function createLesson(userId: string, itemId: string, chosen?: Temp
   let content: Lesson | undefined;
   for (let attempt = 0; attempt < 2 && !content; attempt++) {
     try {
-      content = await generateJson(schema, [{ text: instructions }, source], { model: 'pro' });
+      content = await generateJson(schema, [{ text: instructions }, source], { model: 'pro', thinking: 'high' });
     } catch (err) {
       console.warn('lesson: attempt', attempt + 1, 'invalid', template, err);
     }

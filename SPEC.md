@@ -234,7 +234,7 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 - Extra tables: `item_topics` (filter the feed by topic), `push_devices` (one row per device instead
   of `users.push_subscription`), `allowed_emails` (the sign-up allowlist, enforced by an auth hook),
   `digests` (the weekly digest and when it was first opened — the day-30 test counts digests, not
-  taps), `public_tool_usage` (daily limit on the public recipe tool), `chat_messages` (chat
+  taps), `public_tool_usage` (daily limit for the recipe tool while it was public; now unused), `chat_messages` (chat
   history, so answers survive leaving the page).
 - `items.status` also has `processing`, and items have an `error` for the "Couldn't read that one"
   card. The `score` event stores the fraction right, so all lesson templates compare.
@@ -270,6 +270,12 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   confirm it's live and a real article/video, then Flash picks up to 3 per topic, varied across topics.
 - Every digest link goes through a signed tracker (`/d/…`), so taps from email count without a login.
 
-**Kept from the old site**
-- The public recipe extractor stays at `/tools/recipe-extractor` for existing ad links, limited to
-  5 free runs per visitor per day.
+**Models and access**
+- Instead of 2.5 Flash/Pro: Gemini 3.8 Flash for videos, recipes and plumbing; Gemini 4 Argon for
+  explainers, lessons, diagrams and chat (benchmarked on real saves — Argon's explainers and quizzes
+  were clearly sharper and more personal; on big inputs Flash matched it at a third of the cost).
+- Chat answers from the saves first (cited), then adds the model's own knowledge under
+  "Beyond your saves:" instead of refusing.
+- Single-user lockdown: RLS also requires an allowlisted email, the old site's tables, functions and
+  edge functions are closed or deleted, and `/tools/recipe-extractor` (kept at its old URL) now
+  requires sign-in.

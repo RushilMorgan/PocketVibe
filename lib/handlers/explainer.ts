@@ -14,5 +14,5 @@ const MODE_INSTRUCTIONS: Record<ExplainMode, string> = {
 /** The tech / news / other handler: 5-line summary, why it matters, explore next. */
 export async function explain(text: string, ctx: PromptContext, mode: ExplainMode = 'normal'): Promise<Explainer> {
   const instructions = await prompt('explainer', { ...ctx, mode_instruction: MODE_INSTRUCTIONS[mode] });
-  return generateJson(explainer, [{ text: instructions }, { text: `Content:\n${text}` }]);
+  return generateJson(explainer, [{ text: instructions }, { text: `Content:\n${text}` }], { model: 'pro' });
 }

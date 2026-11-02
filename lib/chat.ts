@@ -147,7 +147,8 @@ export async function answer(
   ];
   return {
     sources,
-    stream: streamText(system, turns),
+    // Pro model, light thinking: smart answers that still start streaming quickly.
+    stream: streamText(system, turns, { model: 'pro', thinking: 'low' }),
     finish: (text) => (text.trim() ? saveMessage(userId, req.itemId, 'assistant', text, sources) : Promise.resolve()),
   };
 }

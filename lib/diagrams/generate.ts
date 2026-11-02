@@ -26,7 +26,7 @@ export async function draftDiagram(text: string, ctx: PromptContext): Promise<Di
   for (let attempt = 0; attempt < 2; attempt++) {
     const parts = [{ text: instructions }, content];
     if (feedback) parts.push({ text: feedback });
-    const draft = await generateJson(diagram, parts);
+    const draft = await generateJson(diagram, parts, { model: 'pro' });
     const code = cleanMermaid(draft.mermaid);
     const problems = lintMermaid(code);
     const error = problems.length ? problems.join(' ') : await parseError(code);

@@ -1,8 +1,3 @@
+# HeyToolie is a private, invite-only app — nothing here to index.
 User-agent: *
-Allow: /
-
-# Shared tools are personal (family pools, cookbooks, trackers) —
-# reachable by link, but kept out of search results.
-Disallow: /s/
-
-Sitemap: https://heytoolie.com/sitemap.xml
+Disallow: /

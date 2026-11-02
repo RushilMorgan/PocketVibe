@@ -19,6 +19,11 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      // White-on-transparent silhouettes. Android uses these for the installed
+      // app's status-bar notification icon; without them the colour icon shows
+      // as a solid square.
+      { src: '/icon-monochrome-192.png', sizes: '192x192', type: 'image/png', purpose: 'monochrome' },
+      { src: '/icon-monochrome-512.png', sizes: '512x512', type: 'image/png', purpose: 'monochrome' },
     ],
     share_target: {
       action: '/share',

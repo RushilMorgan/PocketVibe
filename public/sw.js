@@ -4,7 +4,7 @@
  * Other navigations and API calls always go to the network, and the /share
  * POST from the share sheet is never intercepted. */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const STATIC_CACHE = `static-${VERSION}`;
 /** Lesson pages + their JSON, so a lesson opened once can be played offline. */
 const LESSON_CACHE = `lessons-${VERSION}`;

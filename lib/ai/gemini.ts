@@ -45,6 +45,8 @@ export function youtubePart(watchUrl: string): Part {
 
 interface GenerateOptions {
   model?: Model;
+  /** An exact model id overriding the tier's default (the user's Settings choice). */
+  modelId?: string;
   thinking?: Thinking;
   /** Lower resolution ≈ 1/4 the video tokens; plenty for speech-heavy Shorts. */
   lowMediaResolution?: boolean;
@@ -53,7 +55,7 @@ interface GenerateOptions {
 /** Shared per-call config: thinking depth and video resolution. */
 function baseConfig(opts: GenerateOptions): { model: string; config: GenerateContentConfig } {
   const tier = opts.model ?? 'fast';
-  const model = modelId(tier);
+  const model = opts.modelId ?? modelId(tier);
   return {
     model,
     config: {

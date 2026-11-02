@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { api } from '@/components/api';
+import { SMART_MODELS } from '@/lib/ai/models';
 import type { Level } from '@/lib/supabase/database.types';
 
 const LEVELS: { value: Level; label: string; hint: string }[] = [
@@ -17,9 +18,11 @@ interface Settings {
   level: Level;
   tone: string;
   display_name: string | null;
+  /** null = the server default (`defaultModel`). */
+  smart_model: string | null;
 }
 
-export function SettingsForm({ initial }: { initial: Settings }) {
+export function SettingsForm({ initial, defaultModel }: { initial: Settings; defaultModel: string }) {
   const [settings, setSettings] = useState(initial);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -76,6 +79,39 @@ export function SettingsForm({ initial }: { initial: Settings }) {
               </span>
             </label>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-semibold">AI model</h2>
+        <p className="mt-1 text-sm text-muted">
+          Writes your explanations, lessons, diagrams and chat answers. Watching videos and reading recipes always
+          uses Gemini 3.8 Flash.
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          {SMART_MODELS.map((m) => {
+            const selected = (settings.smart_model ?? defaultModel) === m.id;
+            return (
+              <label
+                key={m.id}
+                className={`flex cursor-pointer gap-3 rounded-xl border bg-surface p-3 ${selected ? 'border-accent' : 'border-line'}`}
+              >
+                <input
+                  type="radio"
+                  name="smart_model"
+                  checked={selected}
+                  onChange={() => save({ smart_model: m.id })}
+                  className="mt-1 accent-[var(--accent)]"
+                />
+                <span>
+                  <span className="font-medium">{m.label}</span>
+                  {m.id === defaultModel && <span className="ml-2 text-xs text-muted">default</span>}
+                  <span className="block text-sm text-muted">{m.blurb}</span>
+                  <span className="block text-xs text-muted">{m.cost}</span>
+                </span>
+              </label>
+            );
+          })}
         </div>
       </section>
 

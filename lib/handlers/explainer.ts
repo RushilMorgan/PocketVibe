@@ -11,8 +11,16 @@ const MODE_INSTRUCTIONS: Record<ExplainMode, string> = {
     'Go one level deeper than you normally would: name the key mechanism and the trade-offs, still in plain words.',
 };
 
-/** The tech / news / other handler: 5-line summary, why it matters, explore next. */
-export async function explain(text: string, ctx: PromptContext, mode: ExplainMode = 'normal'): Promise<Explainer> {
+/**
+ * The tech / news / other handler: 5-line summary, why it matters, explore
+ * next. `modelId` is the user's Settings choice (undefined = the pro default).
+ */
+export async function explain(
+  text: string,
+  ctx: PromptContext,
+  mode: ExplainMode = 'normal',
+  modelId?: string,
+): Promise<Explainer> {
   const instructions = await prompt('explainer', { ...ctx, mode_instruction: MODE_INSTRUCTIONS[mode] });
-  return generateJson(explainer, [{ text: instructions }, { text: `Content:\n${text}` }], { model: 'pro' });
+  return generateJson(explainer, [{ text: instructions }, { text: `Content:\n${text}` }], { model: 'pro', modelId });
 }

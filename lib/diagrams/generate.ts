@@ -6,6 +6,7 @@ import { diagram, type Diagram } from '@/lib/handlers/schemas';
 import { saveOutput } from '@/lib/items/service';
 import type { PromptContext } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
+import { getSmartModel } from '@/lib/users';
 import { cleanMermaid, lintMermaid } from './clean';
 import { parseError } from './parse';
 import { renderPng } from './render';
@@ -18,7 +19,7 @@ const CONTEXT_CHARS = 20_000;
  * once with the error attached. Null if it's still invalid: the item then
  * stays text-only rather than failing.
  */
-export async function draftDiagram(text: string, ctx: PromptContext): Promise<Diagram | null> {
+export async function draftDiagram(text: string, ctx: PromptContext, modelId?: string): Promise<Diagram | null> {
   const instructions = await prompt('diagram', ctx);
   const content = { text: `Content:\n${text.slice(0, CONTEXT_CHARS)}` };
 
@@ -26,7 +27,7 @@ export async function draftDiagram(text: string, ctx: PromptContext): Promise<Di
   for (let attempt = 0; attempt < 2; attempt++) {
     const parts = [{ text: instructions }, content];
     if (feedback) parts.push({ text: feedback });
-    const draft = await generateJson(diagram, parts, { model: 'pro' });
+    const draft = await generateJson(diagram, parts, { model: 'pro', modelId });
     const code = cleanMermaid(draft.mermaid);
     const problems = lintMermaid(code);
     const error = problems.length ? problems.join(' ') : await parseError(code);
@@ -47,7 +48,7 @@ export async function createDiagram(
   text: string,
   ctx: PromptContext,
 ): Promise<{ content: Diagram; fileUrl: string } | null> {
-  const draft = await draftDiagram(text, ctx);
+  const draft = await draftDiagram(text, ctx, await getSmartModel(userId));
   if (!draft) return null;
 
   const png = await renderPng(draft.mermaid);

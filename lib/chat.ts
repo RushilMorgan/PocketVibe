@@ -6,6 +6,7 @@ import { getItem } from '@/lib/items/service';
 import { getPromptContext } from '@/lib/profile';
 import type { ChatMessageRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
+import { getSmartModel } from '@/lib/users';
 
 export const chatRequest = z.object({
   /** The new question. Earlier turns come from the saved thread, not the client. */
@@ -148,7 +149,7 @@ export async function answer(
   return {
     sources,
     // Pro model, light thinking: smart answers that still start streaming quickly.
-    stream: streamText(system, turns, { model: 'pro', thinking: 'low' }),
+    stream: streamText(system, turns, { model: 'pro', modelId: await getSmartModel(userId), thinking: 'low' }),
     finish: (text) => (text.trim() ? saveMessage(userId, req.itemId, 'assistant', text, sources) : Promise.resolve()),
   };
 }

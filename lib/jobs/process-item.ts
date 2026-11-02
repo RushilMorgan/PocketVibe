@@ -13,6 +13,7 @@ import { notifyUser } from '@/lib/notify';
 import { getPromptContext, recordItemTopics } from '@/lib/profile';
 import type { ItemRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
+import { getSmartModel } from '@/lib/users';
 import { inngest, itemQueued } from './client';
 
 /**
@@ -84,7 +85,7 @@ export const processItem = inngest.createFunction(
         await update({ summary: recipe.description });
         return recipeText(recipe);
       }
-      const explainer = await explain(rawText, ctx);
+      const explainer = await explain(rawText, ctx, 'normal', await getSmartModel(userId));
       await saveOutput(userId, itemId, 'explainer', explainer);
       await update({ summary: explainer.lines.join('\n') });
       return rawText;

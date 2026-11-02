@@ -14,6 +14,9 @@ changing code.
   - `fast` = **Gemini 3.8 Flash** (thinks low) — watching videos, recipes, classifying, picks, search.
   - `pro` = **Gemini 4 Argon** (thinks medium; lessons high, chat low) — explainers, lessons,
     diagrams, chat.
+  - Each user can pick the `pro` model in Settings (`users.smart_model`, choices in
+    `lib/ai/models.ts`: Argon, 3.1 Pro, 3.8 Flash); null = `GEMINI_MODEL_PRO`. Smart jobs pass it as
+    `modelId` (looked up with `getSmartModel()`); the fast tier is not user-selectable.
   - `gemini-embedding-001` at 768 dims. Models are env vars (`GEMINI_MODEL_FAST/PRO`); thinking
     levels are only sent to models that support them, so a 2.5 model still works.
 - **Inngest** for background jobs, served at `/api/inngest` (Vercel Marketplace integration in prod).

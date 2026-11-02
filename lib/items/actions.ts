@@ -6,6 +6,7 @@ import type { Diagram, ExplainMode, Explainer } from '@/lib/handlers/schemas';
 import { HttpError } from '@/lib/http';
 import { adjustItemTopics, getPromptContext, WEIGHT } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
+import { getSmartModel } from '@/lib/users';
 import type { ItemRow } from '@/lib/supabase/database.types';
 import { getItem, saveOutput } from './service';
 
@@ -14,7 +15,7 @@ export async function reExplain(userId: string, itemId: string, mode: ExplainMod
   const item = await getItem(userId, itemId);
   if (!item.raw_text) throw new HttpError(409, "This one hasn't been read yet.");
   if (item.kind === 'recipe') throw new HttpError(400, 'Recipes have no explainer.');
-  const explainer = await explain(item.raw_text, await getPromptContext(userId), mode);
+  const explainer = await explain(item.raw_text, await getPromptContext(userId), mode, await getSmartModel(userId));
   await saveOutput(userId, itemId, 'explainer', explainer);
   return explainer;
 }

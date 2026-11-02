@@ -274,6 +274,8 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 - Instead of 2.5 Flash/Pro: Gemini 3.8 Flash for videos, recipes and plumbing; Gemini 4 Argon for
   explainers, lessons, diagrams and chat (benchmarked on real saves — Argon's explainers and quizzes
   were clearly sharper and more personal; on big inputs Flash matched it at a third of the cost).
+- Settings has a model picker for those jobs (Argon / 3.1 Pro / 3.8 Flash) with rough cost per
+  save; video and recipe reading always use 3.8 Flash.
 - Chat answers from the saves first (cited), then adds the model's own knowledge under
   "Beyond your saves:" instead of refusing.
 - Single-user lockdown: RLS also requires an allowlisted email, the old site's tables, functions and

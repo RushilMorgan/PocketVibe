@@ -29,6 +29,8 @@ export type UserRow = {
   display_name: string | null;
   level: Level;
   tone: string;
+  /** Model for explainers, lessons, diagrams, chat; null = GEMINI_MODEL_PRO. */
+  smart_model: string | null;
   created_at: string;
   updated_at: string;
 }

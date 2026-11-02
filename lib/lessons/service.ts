@@ -7,6 +7,7 @@ import { HttpError } from '@/lib/http';
 import { getItem, insertOutput } from '@/lib/items/service';
 import { adjustItemTopics, getPromptContext, WEIGHT } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
+import { getSmartModel } from '@/lib/users';
 import { lesson, maxScore, shuffleAnswers, templateSchema, TEMPLATES, type Lesson, type Template } from './schema';
 
 const CONTEXT_CHARS = 20_000;
@@ -51,11 +52,12 @@ export async function createLesson(userId: string, itemId: string, chosen?: Temp
     avoid,
   });
   const schema = templateSchema[template] as unknown as z.ZodType<Lesson>;
+  const modelId = await getSmartModel(userId);
 
   let content: Lesson | undefined;
   for (let attempt = 0; attempt < 2 && !content; attempt++) {
     try {
-      content = await generateJson(schema, [{ text: instructions }, source], { model: 'pro', thinking: 'high' });
+      content = await generateJson(schema, [{ text: instructions }, source], { model: 'pro', modelId, thinking: 'high' });
     } catch (err) {
       console.warn('lesson: attempt', attempt + 1, 'invalid', template, err);
     }

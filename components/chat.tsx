@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { api } from './api';
 import type { ChatSource } from './types';
 
 interface Message {
@@ -12,32 +13,46 @@ interface Message {
 
 /**
  * Streaming chat box. With `itemId` it asks about one item; without, it asks
- * the whole library. Citations like [2] link to the cited item.
+ * the whole library. The conversation is saved server-side and reloaded here,
+ * so answers survive leaving the page. Citations like [2] link to the item.
  */
 export function Chat({ itemId, placeholder, empty }: { itemId?: string; placeholder: string; empty?: React.ReactNode }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[] | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const thread = itemId ? `?itemId=${itemId}` : '';
+
+  useEffect(() => {
+    api<{ messages: Message[] }>(`/api/chat${thread}`).then(
+      (r) => setMessages(r.messages),
+      () => setMessages([]),
+    );
+  }, [thread]);
+
+  async function clear() {
+    if (!confirm('Clear this conversation?')) return;
+    await api(`/api/chat${thread}`, { method: 'DELETE' });
+    setMessages([]);
+  }
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const question = input.trim();
     if (!question || busy) return;
-    const history: Message[] = [...messages, { role: 'user', content: question }];
-    setMessages([...history, { role: 'assistant', content: '' }]);
+    setMessages((prev) => [...(prev ?? []), { role: 'user', content: question }, { role: 'assistant', content: '' }]);
     setInput('');
     setBusy(true);
     abort.current = new AbortController();
 
     const update = (patch: Partial<Message>) =>
-      setMessages((prev) => [...prev.slice(0, -1), { ...prev.at(-1)!, ...patch }]);
+      setMessages((prev) => (prev ? [...prev.slice(0, -1), { ...prev.at(-1)!, ...patch }] : prev));
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId, messages: history.map(({ role, content }) => ({ role, content })) }),
+        body: JSON.stringify({ itemId, question }),
         signal: abort.current.signal,
       });
       if (!res.ok || !res.body) {
@@ -62,9 +77,10 @@ export function Chat({ itemId, placeholder, empty }: { itemId?: string; placehol
 
   return (
     <div>
-      {messages.length === 0 && empty}
+      {messages === null && <p className="text-sm text-muted">Loading the conversation…</p>}
+      {messages?.length === 0 && empty}
       <ol className="flex flex-col gap-4">
-        {messages.map((m, i) =>
+        {messages?.map((m, i) =>
           m.role === 'user' ? (
             <li key={i} className="self-end rounded-2xl rounded-br-sm bg-accent px-4 py-2.5 text-on-accent">
               {m.content}
@@ -87,6 +103,11 @@ export function Chat({ itemId, placeholder, empty }: { itemId?: string; placehol
           {busy ? '…' : 'Ask'}
         </button>
       </form>
+      {!!messages?.length && !busy && (
+        <button onClick={clear} className="mt-2 text-xs text-muted hover:text-danger">
+          Clear chat
+        </button>
+      )}
     </div>
   );
 }
@@ -97,13 +118,15 @@ function Answer({ message, hideSources }: { message: Message; hideSources: boole
   const cited = new Set([...message.content.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   if (!message.content) return <p className="text-muted">Thinking…</p>;
 
+  // On an item page there's only one source, so "[1]" is noise: drop it and the space before it.
+  const text = hideSources ? message.content.replace(/\s*\[\d+\]/g, '') : message.content;
+
   return (
     <div>
       <p className="whitespace-pre-wrap leading-relaxed">
-        {message.content.split(/(\[\d+\])/g).map((part, i) => {
+        {text.split(/(\[\d+\])/g).map((part, i) => {
           const source = byN.get(Number(part.match(/^\[(\d+)\]$/)?.[1]));
           if (!source) return part;
-          if (hideSources) return null; // Only one source on an item page; the marker is noise.
           return (
             <Link key={i} href={`/items/${source.itemId}`} className="mx-0.5 align-super text-xs font-semibold text-accent">
               {source.n}

@@ -4,13 +4,12 @@ import { embed, streamText, type ChatTurn } from '@/lib/ai/gemini';
 import { prompt } from '@/lib/ai/prompts';
 import { getItem } from '@/lib/items/service';
 import { getPromptContext } from '@/lib/profile';
+import type { ChatMessageRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
 
 export const chatRequest = z.object({
-  messages: z
-    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(4000) }))
-    .min(1)
-    .max(20),
+  /** The new question. Earlier turns come from the saved thread, not the client. */
+  question: z.string().trim().min(1).max(4000),
   /** Set to chat about one item; omit to ask the whole library. */
   itemId: z.uuid().optional(),
 });
@@ -80,16 +79,77 @@ export function diversify<T extends { item_id: string }>(ranked: T[], limit: num
 const ITEM_CONTEXT_CHARS = 30_000;
 const HISTORY_TURNS = 8;
 
-/** Retrieves context, then streams a cited answer. Sources are known up front. */
-export async function answer(userId: string, req: ChatRequest): Promise<{ sources: ChatSource[]; stream: AsyncGenerator<string> }> {
-  const question = req.messages.at(-1)!.content;
-  const { sources, context } = req.itemId ? await itemContext(userId, req.itemId) : await libraryContext(userId, question);
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources: ChatSource[];
+  createdAt: string;
+}
 
+/** Most messages a thread shows; older ones stay saved but aren't loaded. */
+const THREAD_LIMIT = 100;
+
+/** The saved conversation, oldest first. No itemId = the library-wide Ask thread. */
+export async function listChat(userId: string, itemId?: string): Promise<ChatMessage[]> {
+  const query = adminClient().from('chat_messages').select('id, role, content, sources, created_at').eq('user_id', userId);
+  const { data, error } = await (itemId ? query.eq('item_id', itemId) : query.is('item_id', null))
+    .order('created_at', { ascending: false })
+    .limit(THREAD_LIMIT);
+  if (error) throw error;
+  return (data ?? []).reverse().map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    sources: (m.sources ?? []) as unknown as ChatSource[],
+    createdAt: m.created_at,
+  }));
+}
+
+export async function clearChat(userId: string, itemId?: string): Promise<void> {
+  const query = adminClient().from('chat_messages').delete().eq('user_id', userId);
+  const { error } = await (itemId ? query.eq('item_id', itemId) : query.is('item_id', null));
+  if (error) throw error;
+}
+
+async function saveMessage(
+  userId: string,
+  itemId: string | undefined,
+  role: 'user' | 'assistant',
+  content: string,
+  sources: ChatSource[] = [],
+): Promise<void> {
+  const { error } = await adminClient()
+    .from('chat_messages')
+    .insert({ user_id: userId, item_id: itemId ?? null, role, content, sources: sources as unknown as ChatMessageRow['sources'] });
+  if (error) throw error;
+}
+
+/**
+ * Saves the question, retrieves context, and streams a cited answer. Earlier
+ * turns come from the saved thread. Call `finish` with the full answer text
+ * once the stream ends — that's what makes it survive a reload.
+ */
+export async function answer(
+  userId: string,
+  req: ChatRequest,
+): Promise<{ sources: ChatSource[]; stream: AsyncGenerator<string>; finish: (text: string) => Promise<void> }> {
+  const history = (await listChat(userId, req.itemId)).slice(-HISTORY_TURNS);
+  await saveMessage(userId, req.itemId, 'user', req.question);
+
+  const { sources, context } = req.itemId
+    ? await itemContext(userId, req.itemId)
+    : await libraryContext(userId, req.question);
   const system = await prompt('chat', { ...(await getPromptContext(userId)), sources: context || '(none found)' });
-  const turns: ChatTurn[] = req.messages
-    .slice(-HISTORY_TURNS)
-    .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', text: m.content }));
-  return { sources, stream: streamText(system, turns) };
+  const turns: ChatTurn[] = [
+    ...history.map((m): ChatTurn => ({ role: m.role === 'assistant' ? 'model' : 'user', text: m.content })),
+    { role: 'user', text: req.question },
+  ];
+  return {
+    sources,
+    stream: streamText(system, turns),
+    finish: (text) => (text.trim() ? saveMessage(userId, req.itemId, 'assistant', text, sources) : Promise.resolve()),
+  };
 }
 
 async function itemContext(userId: string, itemId: string) {

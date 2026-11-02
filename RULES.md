@@ -32,7 +32,7 @@ changing code.
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
 | `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results |
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights) |
-| `lib/chat.ts` | "Ask" retrieval + streaming answers with citations |
+| `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
 | `lib/digest` | Weekly digest: your week, Search-grounded finds, suggested lesson, email, tracking links |
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest` (registered in `functions.ts`) |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell |
@@ -53,6 +53,9 @@ changing code.
   template at a time: Flash picks the template, Pro writes JSON for just that schema.
 - Nothing fails silently: a job that gives up sets `items.status = 'failed'` with a user-readable
   `error`. Best-effort extras (diagram, lesson pre-write, push) catch and log instead of failing the item.
+- Chat threads are server-owned: the client sends only the new question; `lib/chat.ts` loads earlier
+  turns from `chat_messages`, saves the question, and saves the answer when the stream ends (or
+  whatever arrived, if it breaks). An item's thread has its `item_id`; the Ask tab's is `null`.
 - Job steps must be safe to re-run (Inngest retries each step): replace outputs/chunks rather than
   append, and guard weight changes (`recordItemTopics` skips already-linked items).
 

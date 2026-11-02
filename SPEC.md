@@ -234,7 +234,8 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 - Extra tables: `item_topics` (filter the feed by topic), `push_devices` (one row per device instead
   of `users.push_subscription`), `allowed_emails` (the sign-up allowlist, enforced by an auth hook),
   `digests` (the weekly digest and when it was first opened — the day-30 test counts digests, not
-  taps), `public_tool_usage` (daily limit on the public recipe tool).
+  taps), `public_tool_usage` (daily limit on the public recipe tool), `chat_messages` (chat
+  history, so answers survive leaving the page).
 - `items.status` also has `processing`, and items have an `error` for the "Couldn't read that one"
   card. The `score` event stores the fraction right, so all lesson templates compare.
 
@@ -246,6 +247,9 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 **Fetching and handlers**
 - Videos over 20 minutes are skipped with a clear message rather than summarised from captions.
 - A recipe is indexed from its extracted card, not the raw page (cleaner chat answers).
+- The explainer keeps the 5-line summary but adds a full `list` whenever the content is a list,
+  ranking, top-N, comparison or set of steps — every entry with its score and reason. Five lines
+  can't hold a "top 9" video.
 - "Ask" searches each clause of a compound question separately and takes at most 3 of the top 8
   chunks from any one save, so one long article can't crowd out the rest.
 

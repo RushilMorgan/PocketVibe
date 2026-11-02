@@ -112,6 +112,17 @@ export type DigestRow = {
   opened_at: string | null;
 }
 
+export type ChatMessageRow = {
+  id: string;
+  user_id: string;
+  /** null = the library-wide Ask thread. */
+  item_id: string | null;
+  role: 'user' | 'assistant';
+  content: string;
+  sources: Json;
+  created_at: string;
+}
+
 export type AllowedEmailRow = {
   email: string;
   created_at: string;
@@ -130,6 +141,7 @@ export interface Database {
       push_devices: Table<PushDeviceRow, 'endpoint' | 'user_id' | 'p256dh' | 'auth'>;
       allowed_emails: Table<AllowedEmailRow, 'email'>;
       digests: Table<DigestRow, 'user_id' | 'week_start' | 'content'>;
+      chat_messages: Table<ChatMessageRow, 'user_id' | 'role' | 'content'>;
     };
     Views: { [_ in never]: never };
     Functions: {

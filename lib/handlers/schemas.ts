@@ -56,9 +56,29 @@ export const explainer = z.object({
     .string()
     .nullable()
     .describe('Which claims are hype vs established, in plain words. null if the content makes no claims'),
+  list: z
+    .object({
+      title: z.string().min(1).max(80).describe('e.g. "The full ranking" or "All 7 steps"'),
+      ordered: z.boolean().describe('true for rankings, steps or any order that matters'),
+      items: z
+        .array(
+          z.object({
+            label: z.string().min(1).max(120).describe('The entry, e.g. "Magnesium"'),
+            value: z.string().max(40).describe('Its score, rank, price or amount exactly as given, e.g. "10/10". Empty if none'),
+            note: z.string().max(240).describe('One plain line on why, as the content says. Empty if none'),
+          }),
+        )
+        .min(2)
+        .max(50),
+    })
+    .nullable()
+    .describe(
+      'EVERY entry when the content is a list, ranking, top-N, comparison or set of steps, in the order to present it; null otherwise',
+    ),
 });
 
-export type Explainer = z.infer<typeof explainer>;
+/** Saved explainers from before `list` existed have no such key. */
+export type Explainer = Omit<z.infer<typeof explainer>, 'list'> & { list?: z.infer<typeof explainer>['list'] };
 
 export type ExplainMode = 'normal' | 'simpler' | 'deeper';
 

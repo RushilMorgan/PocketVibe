@@ -10,6 +10,7 @@ import { RecipeCard } from '@/components/recipe-card';
 import { DiagramCard } from '@/components/diagram-card';
 import { KIND_LABEL, type Item, type SimilarItem } from '@/components/types';
 import type { Diagram, ExplainMode, Explainer, Recipe } from '@/lib/handlers/schemas';
+import { TEMPLATE_LABEL, TEMPLATES, type Template } from '@/lib/lessons/schema';
 
 const POLL_MS = 2500;
 
@@ -197,11 +198,11 @@ function Actions({
   }
 
   /** Opens an unplayed lesson (usually pre-written by the pipeline) or writes one. */
-  async function play() {
+  async function play(template?: Template) {
     setPlaying(true);
     setError(null);
     try {
-      const { lessonId } = await api<{ lessonId: string }>('/api/lessons', { body: { itemId: item.id } });
+      const { lessonId } = await api<{ lessonId: string }>('/api/lessons', { body: { itemId: item.id, template } });
       router.push(`/play/${lessonId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -233,14 +234,27 @@ function Actions({
   return (
     <div className="mt-4">
       {isExplainer && (
-        <button
-          onClick={play}
-          disabled={playing}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3.5 font-semibold text-on-accent disabled:opacity-70"
-        >
-          <span aria-hidden>▶</span>
-          {playing ? 'Getting your lesson ready…' : 'Play · 2-minute lesson'}
-        </button>
+        <div className="mb-3">
+          <button
+            onClick={() => play()}
+            disabled={playing}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3.5 font-semibold text-on-accent disabled:opacity-70"
+          >
+            <span aria-hidden>▶</span>
+            {playing ? 'Getting your lesson ready…' : 'Play · 2-minute lesson'}
+          </button>
+          <p className="mt-1.5 text-center text-xs text-muted">
+            or play as{' '}
+            {TEMPLATES.filter((t) => t !== 'spot_bug' || item.kind === 'tech').map((t, i) => (
+              <span key={t}>
+                {i > 0 && ' · '}
+                <button onClick={() => play(t)} disabled={playing} className="text-accent disabled:opacity-50">
+                  {TEMPLATE_LABEL[t].toLowerCase()}
+                </button>
+              </span>
+            ))}
+          </p>
+        </div>
       )}
       <div className="flex flex-wrap gap-2">
         {isExplainer && (

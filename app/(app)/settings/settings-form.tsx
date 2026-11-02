@@ -36,6 +36,18 @@ export function SettingsForm({ initial }: { initial: Settings }) {
     }
   }
 
+  const [digest, setDigest] = useState<'idle' | 'sending' | 'queued' | 'failed'>('idle');
+
+  async function sendDigest() {
+    setDigest('sending');
+    try {
+      await api('/api/digests', { method: 'POST' });
+      setDigest('queued');
+    } catch {
+      setDigest('failed');
+    }
+  }
+
   async function signOut() {
     await api('/api/auth/sign-out', { method: 'POST' });
     window.location.href = '/login';
@@ -91,6 +103,21 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           </Link>{' '}
           tab.
         </p>
+      </section>
+
+      <section>
+        <h2 className="font-semibold">Weekly digest</h2>
+        <p className="mt-1 text-sm text-muted">
+          Sundays at 18:00 by notification and email: what you saved, 3 new finds per top topic, and a lesson to play.
+        </p>
+        <button
+          onClick={sendDigest}
+          disabled={digest === 'sending' || digest === 'queued'}
+          className="mt-3 rounded-xl border border-line bg-surface px-4 py-2 text-sm disabled:opacity-60"
+        >
+          {digest === 'sending' ? 'Starting…' : digest === 'queued' ? 'On its way — about a minute' : 'Send me this week’s digest now'}
+        </button>
+        {digest === 'failed' && <p className="mt-2 text-sm text-danger">Couldn&apos;t start it — try again.</p>}
       </section>
 
       {status && <p className="text-sm text-muted">{status}</p>}

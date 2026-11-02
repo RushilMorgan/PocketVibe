@@ -1,44 +1,18 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { Quiz } from '@/lib/lessons/schema';
+import { BigButton, EndScreen, haptic, Intro, LessonShell, Verdict, type PlayerProps } from './shell';
 
 type Stage = { kind: 'intro' } | { kind: 'question'; index: number; picked: number | null } | { kind: 'end' };
 
 const LETTERS = ['A', 'B', 'C'];
 
-/** A light tap on each answer, where the device supports it. */
-function haptic() {
-  try {
-    navigator.vibrate?.(20);
-  } catch {}
-}
-
-function verdict(score: number, total: number): string {
-  if (score === total) return 'Perfect. You’ve got this one.';
-  if (score >= total - 1) return 'Nearly flawless.';
-  if (score >= Math.ceil(total / 2)) return 'Solid — the why notes fill the gaps.';
-  return 'Tricky one. Worth another go.';
-}
-
 /**
- * The fixed quiz template: intro → one question per screen with instant
+ * The quiz template: intro → one question per screen with instant
  * right/wrong and the why → score + takeaway. Renders any valid Quiz JSON.
  */
-export function QuizPlayer({
-  quiz,
-  itemHref,
-  onFinish,
-  onAnother,
-  anotherState,
-}: {
-  quiz: Quiz;
-  itemHref: string;
-  onFinish: (score: number) => void;
-  onAnother: () => void;
-  anotherState: 'idle' | 'working' | 'failed';
-}) {
+export function QuizPlayer({ lesson: quiz, itemHref, itemKind, onFinish, onAnother, anotherState }: PlayerProps<Quiz>) {
   const [stage, setStage] = useState<Stage>({ kind: 'intro' });
   const [score, setScore] = useState(0);
   const total = quiz.questions.length;
@@ -66,78 +40,51 @@ export function QuizPlayer({
     }
   }
 
-  const step = stage.kind === 'intro' ? -1 : stage.kind === 'end' ? total : stage.index;
+  const done =
+    stage.kind === 'intro' ? 0 : stage.kind === 'end' ? total : stage.index + (stage.picked !== null ? 1 : 0);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-bg pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      <header className="mx-auto flex w-full max-w-xl items-center gap-3 px-4 py-3">
-        <Link href={itemHref} aria-label="Close lesson" className="-ml-2 p-2 text-xl leading-none text-muted">
-          ✕
-        </Link>
-        <ol className="flex flex-1 gap-1.5" aria-label={`Progress: ${Math.max(step, 0)} of ${total}`}>
-          {quiz.questions.map((_, i) => (
-            <li key={i} className={`h-1.5 flex-1 rounded-full ${i < step || (i === step && stage.kind === 'question' && stage.picked !== null) ? 'bg-accent' : 'bg-line'}`} />
-          ))}
-        </ol>
-      </header>
+    <LessonShell itemHref={itemHref} done={done} total={total}>
+      {stage.kind === 'intro' && (
+        <Intro
+          kicker="2-minute quiz"
+          concept={quiz.concept}
+          intro={quiz.intro}
+          start={`Start · ${total} questions`}
+          onStart={() => setStage({ kind: 'question', index: 0, picked: null })}
+        />
+      )}
 
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col overflow-y-auto px-5 pb-4">
-        {stage.kind === 'intro' && (
-          <>
-            <div className="flex flex-1 flex-col justify-center">
-              <p className="text-sm font-medium uppercase tracking-wide text-accent">2-minute lesson</p>
-              <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight">{quiz.concept}</h1>
-              <p className="mt-4 text-lg leading-relaxed text-muted">{quiz.intro}</p>
-            </div>
-            <BigButton onClick={() => setStage({ kind: 'question', index: 0, picked: null })} autoFocus>
-              Start · {total} questions
+      {stage.kind === 'question' && (
+        <Question
+          key={stage.index}
+          question={quiz.questions[stage.index]}
+          number={stage.index + 1}
+          total={total}
+          picked={stage.picked}
+          onPick={pick}
+        >
+          {stage.picked !== null && (
+            <BigButton ref={nextRef} onClick={next}>
+              {stage.index + 1 < total ? 'Next' : 'See how you did'}
             </BigButton>
-          </>
-        )}
+          )}
+        </Question>
+      )}
 
-        {stage.kind === 'question' && (
-          <Question
-            key={stage.index}
-            question={quiz.questions[stage.index]}
-            number={stage.index + 1}
-            total={total}
-            picked={stage.picked}
-            onPick={pick}
-          >
-            {stage.picked !== null && (
-              <BigButton ref={nextRef} onClick={next}>
-                {stage.index + 1 < total ? 'Next' : 'See how you did'}
-              </BigButton>
-            )}
-          </Question>
-        )}
-
-        {stage.kind === 'end' && (
-          <>
-            <div className="flex flex-1 flex-col justify-center text-center">
-              <p className="text-6xl font-semibold tracking-tight">
-                {score}
-                <span className="text-muted">/{total}</span>
-              </p>
-              <p className="mt-2 text-lg">{verdict(score, total)}</p>
-              <div className="mt-8 rounded-2xl border border-line bg-surface p-5 text-left">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted">Remember this</p>
-                <p className="mt-1.5 text-lg leading-snug">{quiz.takeaway}</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <BigButton onClick={onAnother} disabled={anotherState === 'working'}>
-                {anotherState === 'working' ? 'Writing a new one…' : 'Another on this topic'}
-              </BigButton>
-              {anotherState === 'failed' && <p className="text-center text-sm text-danger">Couldn&apos;t write another one — try again.</p>}
-              <Link href={itemHref} className="rounded-2xl py-4 text-center font-medium text-muted">
-                Back to item
-              </Link>
-            </div>
-          </>
-        )}
-      </main>
-    </div>
+      {stage.kind === 'end' && (
+        <EndScreen
+          score={score}
+          total={total}
+          takeaway={quiz.takeaway}
+          current="quiz"
+          itemHref={itemHref}
+          itemKind={itemKind}
+          onAnother={onAnother}
+          anotherState={anotherState}
+        />
+      )}
+    </LessonShell>
   );
 }
 
@@ -157,7 +104,6 @@ function Question({
   children: React.ReactNode;
 }) {
   const answered = picked !== null;
-  const right = picked === question.answer;
 
   return (
     <>
@@ -201,30 +147,9 @@ function Question({
           })}
         </ul>
 
-        {answered && (
-          <div role="status" className="mt-5 rounded-2xl bg-surface p-4">
-            <p className={`font-semibold ${right ? 'text-success' : 'text-danger'}`}>{right ? 'Right!' : 'Not quite.'}</p>
-            <p className="mt-1 leading-relaxed">{question.why}</p>
-          </div>
-        )}
+        {answered && <Verdict right={picked === question.answer}>{question.why}</Verdict>}
       </div>
       <div className="pt-4">{children}</div>
     </>
-  );
-}
-
-function BigButton({
-  ref,
-  children,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> }) {
-  return (
-    <button
-      ref={ref}
-      {...props}
-      className="w-full rounded-2xl bg-accent py-4 text-lg font-semibold text-on-accent active:scale-[0.99] disabled:opacity-60"
-    >
-      {children}
-    </button>
   );
 }

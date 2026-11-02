@@ -4,13 +4,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/components/api';
+import { OrderPlayer } from '@/components/lessons/order-player';
 import { QuizPlayer } from '@/components/lessons/quiz-player';
-import type { Lesson } from '@/lib/lessons/schema';
+import { SimulatorPlayer } from '@/components/lessons/simulator-player';
+import { SpotBugPlayer } from '@/components/lessons/spot-bug-player';
+import type { Lesson, Template } from '@/lib/lessons/schema';
 
 interface LessonView {
   id: string;
   itemId: string;
   itemTitle: string;
+  itemKind: string | null;
   content: Lesson;
 }
 
@@ -41,7 +45,7 @@ async function sendResult(lessonId: string, score: number): Promise<boolean> {
   }
 }
 
-/** Loads the lesson and hands it to the right template (only quiz until Phase 4). */
+/** Loads the lesson and hands it to the player for its template. */
 export function LessonPlayer({ lessonId }: { lessonId: string }) {
   const router = useRouter();
   const [lesson, setLesson] = useState<LessonView | null>(null);
@@ -65,11 +69,13 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
     if (!(await sendResult(lessonId, score))) writePending([...readPending(), { lessonId, score }]);
   }
 
-  async function playAnother() {
+  async function playAnother(template?: Template) {
     if (!lesson) return;
     setAnother('working');
     try {
-      const { lessonId: next } = await api<{ lessonId: string }>('/api/lessons', { body: { itemId: lesson.itemId, fresh: true } });
+      const { lessonId: next } = await api<{ lessonId: string }>('/api/lessons', {
+        body: { itemId: lesson.itemId, fresh: true, template },
+      });
       router.replace(`/play/${next}`);
     } catch {
       setAnother('failed');
@@ -96,16 +102,24 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
     );
   }
 
-  return (
-    <QuizPlayer
-      key={lesson.id}
-      quiz={lesson.content}
-      itemHref={`/items/${lesson.itemId}`}
-      onFinish={finish}
-      onAnother={playAnother}
-      anotherState={another}
-    />
-  );
+  const shared = {
+    itemHref: `/items/${lesson.itemId}`,
+    itemKind: lesson.itemKind,
+    onFinish: finish,
+    onAnother: playAnother,
+    anotherState: another,
+  };
+  const content = lesson.content;
+  switch (content.template) {
+    case 'quiz':
+      return <QuizPlayer key={lesson.id} lesson={content} {...shared} />;
+    case 'simulator':
+      return <SimulatorPlayer key={lesson.id} lesson={content} {...shared} />;
+    case 'order':
+      return <OrderPlayer key={lesson.id} lesson={content} {...shared} />;
+    case 'spot_bug':
+      return <SpotBugPlayer key={lesson.id} lesson={content} {...shared} />;
+  }
 }
 
 function Screen({ children }: { children: React.ReactNode }) {

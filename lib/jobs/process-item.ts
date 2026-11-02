@@ -129,5 +129,3 @@ export const processItem = inngest.createFunction(
     return { itemId, kind: meta.kind, tags: meta.tags };
   },
 );
-
-export const functions = [processItem];

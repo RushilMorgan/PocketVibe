@@ -22,6 +22,7 @@ export function Home({ notice, initialTopic }: { notice?: string; initialTopic: 
   const [url, setUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [digestId, setDigestId] = useState<string | null>(null);
 
   const load = useCallback(async (topicId: string | null, before?: string) => {
     const params = new URLSearchParams({ limit: String(PAGE) });
@@ -36,6 +37,13 @@ export function Home({ notice, initialTopic }: { notice?: string; initialTopic: 
     setItems(null);
     load(topic).catch(() => setItems([]));
   }, [topic, load]);
+
+  useEffect(() => {
+    api<{ id: string | null }>('/api/digests/latest').then(
+      (r) => setDigestId(r.id),
+      () => {},
+    );
+  }, []);
 
   useEffect(() => {
     api<{ topics: Topic[] }>('/api/topics').then(
@@ -94,6 +102,14 @@ export function Home({ notice, initialTopic }: { notice?: string; initialTopic: 
       </form>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
       <EnablePush />
+      {digestId && (
+        <Link href={`/digest/${digestId}`} className="mt-4 flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3">
+          <span aria-hidden className="text-xl">📬</span>
+          <span className="text-sm">
+            <span className="font-semibold">Your week is ready</span> — what you saved, new finds and a 2-minute lesson.
+          </span>
+        </Link>
+      )}
 
       {chips.length > 0 && (
         <div className="-mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-1">

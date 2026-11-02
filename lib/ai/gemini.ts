@@ -38,6 +38,19 @@ export async function generateText(parts: Part[], opts: GenerateOptions = {}): P
   return text;
 }
 
+/**
+ * A call grounded in live Google Search results. JSON mode can't be combined
+ * with tools, so callers parse the text themselves.
+ */
+export async function generateGrounded(text: string, opts: GenerateOptions = {}): Promise<string> {
+  const res = await ai().models.generateContent({
+    model: modelId(opts.model ?? 'fast'),
+    contents: [{ role: 'user', parts: [{ text }] }],
+    config: { tools: [{ googleSearch: {} }] },
+  });
+  return res.text?.trim() ?? '';
+}
+
 export interface ChatTurn {
   role: 'user' | 'model';
   text: string;

@@ -102,6 +102,16 @@ export type PushDeviceRow = {
   created_at: string;
 }
 
+export type DigestRow = {
+  id: string;
+  user_id: string;
+  week_start: string;
+  content: Json;
+  created_at: string;
+  sent_at: string | null;
+  opened_at: string | null;
+}
+
 export type AllowedEmailRow = {
   email: string;
   created_at: string;
@@ -119,6 +129,7 @@ export interface Database {
       events: Table<EventRow, 'user_id' | 'type'>;
       push_devices: Table<PushDeviceRow, 'endpoint' | 'user_id' | 'p256dh' | 'auth'>;
       allowed_emails: Table<AllowedEmailRow, 'email'>;
+      digests: Table<DigestRow, 'user_id' | 'week_start' | 'content'>;
     };
     Views: { [_ in never]: never };
     Functions: {

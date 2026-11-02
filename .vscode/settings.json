@@ -1,7 +1,4 @@
 {
-  "deno.enablePaths": ["supabase/functions"],
-  "deno.importMap": "./supabase/functions/deno.json",
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }

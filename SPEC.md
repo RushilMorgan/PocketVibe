@@ -44,6 +44,8 @@ heytoolie.com is an installable PWA. On Android it registers as a share target, 
 
 ### Rules for Claude Code
 
+(The full, current working rules live in [RULES.md](RULES.md); these are the originals.)
+
 - Keep all business logic in `/lib` and the API routes. Pages only call the API.
 - Every table has a `user_id` from day one.
 - Reuse the existing HeyToolie recipe extractor as the recipe handler.
@@ -217,6 +219,53 @@ Test understanding, not recall of the video. Plain words, level {level}.
 - A native app (a TWA can put the PWA in the Play Store later)
 - TikTok/Instagram video understanding beyond the caption
 
-## Build order (Phase 1)
+## Build status
 
-Schema migration + `.env.example` → `/share` + queue + classifier → handlers → PWA manifest with `share_target` (POST) → feed, item and Ask pages. Stop and review after each step.
+All four phases are built and live on heytoolie.com (November 2026). The day-30 test runs from the
+first real use. Email for the weekly digest is wired up but waits on a Resend key; until then the
+digest is delivered by push.
+
+## Implementation notes — where the build differs from this spec
+
+Deliberate changes, each made for a measured or practical reason. How the code works day to day is in
+[RULES.md](RULES.md).
+
+**Data model**
+- Extra tables: `item_topics` (filter the feed by topic), `push_devices` (one row per device instead
+  of `users.push_subscription`), `allowed_emails` (the sign-up allowlist, enforced by an auth hook),
+  `digests` (the weekly digest and when it was first opened — the day-30 test counts digests, not
+  taps), `public_tool_usage` (daily limit on the public recipe tool).
+- `items.status` also has `processing`, and items have an `error` for the "Couldn't read that one"
+  card. The `score` event stores the fraction right, so all lesson templates compare.
+
+**Profile**
+- A tag joins an existing topic at cosine **≥ 0.9**, not 0.8. With `gemini-embedding-001` unrelated
+  tags already score 0.75–0.82 ("javascript" vs "sourdough" = 0.816), so 0.8 merged everything.
+- Plays add +1 to the item's topics (the spec mentions plays raising weight without a number).
+
+**Fetching and handlers**
+- Videos over 20 minutes are skipped with a clear message rather than summarised from captions.
+- A recipe is indexed from its extracted card, not the raw page (cleaner chat answers).
+- "Ask" searches each clause of a compound question separately and takes at most 3 of the top 8
+  chunks from any one save, so one long article can't crowd out the rest.
+
+**Diagrams**
+- `mermaid.parse()` runs on the server under jsdom. Rendering goes through Kroki at a large font and
+  is only scaled down/padded to 1080 px with sharp — Vercel's functions have almost no fonts.
+- Long chains are drawn top-down rather than left-to-right so they stay readable on a phone.
+
+**Lessons**
+- A cheap Flash call picks the template, then Gemini Pro writes JSON for that one template's schema
+  (simpler and more reliable than one union schema). Quiz answers are shuffled server-side.
+- A lesson is pre-written in the background after each non-recipe save so Play opens instantly.
+
+**Digest**
+- Vercel Cron triggers it, but the work runs as an Inngest job with one step per topic (each topic's
+  search takes 30–70 s).
+- "New for you" only uses pages Google Search actually read (grounding sources), each fetched to
+  confirm it's live and a real article/video, then Flash picks up to 3 per topic, varied across topics.
+- Every digest link goes through a signed tracker (`/d/…`), so taps from email count without a login.
+
+**Kept from the old site**
+- The public recipe extractor stays at `/tools/recipe-extractor` for existing ad links, limited to
+  5 free runs per visitor per day.

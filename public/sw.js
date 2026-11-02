@@ -76,8 +76,11 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'HeyToolie', {
       body: data.body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      // icon: the full-colour app logo shown in the notification.
+      // badge: Android draws this from its alpha channel only (status bar and
+      // header), so it must be a white silhouette — a colour image becomes a blob.
+      icon: new URL('/icon-192.png', self.location.origin).href,
+      badge: new URL('/badge-96.png', self.location.origin).href,
       tag: data.url,
       data: { url: data.url || '/' },
     }),

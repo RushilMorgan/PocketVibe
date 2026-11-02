@@ -16,6 +16,7 @@ const VARS: Record<string, string[]> = {
   diagram: CTX,
   lesson: [...CTX, 'template', 'template_rules', 'avoid'],
   finds: [...CTX, 'topic', 'exclude'],
+  'finds-pick': [...CTX, 'topic', 'already'],
   recipe: ['tone'],
 };
 

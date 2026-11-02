@@ -3,7 +3,7 @@ import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { getPromptContext } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
 import { findsFor } from './finds';
-import { groupByTopic, weekStart, type DigestContent } from './schema';
+import { groupByTopic, weekStart, type DigestContent, type Find } from './schema';
 
 const DAY = 86_400_000;
 const LINE_CHARS = 140;
@@ -52,8 +52,8 @@ export async function yourWeek(userId: string, now: Date): Promise<Pick<DigestCo
   };
 }
 
-/** "New for you": up to 3 finds for each of the top 3 topics, nothing already saved. */
-export async function newForYou(userId: string): Promise<DigestContent['finds']> {
+/** "New for you" setup: the top 3 topics, and every URL already saved (never suggested). */
+export async function findsPlan(userId: string): Promise<{ topics: string[]; saved: string[] }> {
   const db = adminClient();
   const [{ data: topics, error }, { data: saved, error: savedError }] = await Promise.all([
     db.from('topics').select('name').eq('user_id', userId).gt('weight', 0).order('weight', { ascending: false }).limit(TOP_TOPICS),
@@ -61,19 +61,28 @@ export async function newForYou(userId: string): Promise<DigestContent['finds']>
   ]);
   if (error) throw error;
   if (savedError) throw savedError;
+  return { topics: (topics ?? []).map((t) => t.name), saved: (saved ?? []).map((s) => s.url) };
+}
 
-  const seen = new Set((saved ?? []).map((s) => s.url));
-  const ctx = await getPromptContext(userId);
-  const out: DigestContent['finds'] = [];
-  for (const { name } of topics ?? []) {
-    try {
-      const items = await findsFor(name, ctx, seen);
-      if (items.length) out.push({ topic: name, items });
-    } catch (err) {
-      console.error('digest: finds failed for', name, err);
-    }
+/**
+ * Up to 3 finds for one topic, skipping saved URLs and anything picked for an
+ * earlier topic. Runs as its own job step (each takes 30–70 s). Never throws:
+ * a topic with no good finds is just left out of the digest.
+ */
+export async function findsForTopic(
+  userId: string,
+  topic: string,
+  saved: string[],
+  earlier: DigestContent['finds'],
+): Promise<Find[]> {
+  const picked = earlier.flatMap((f) => f.items);
+  const seen = new Set([...saved, ...picked.map((f) => f.url)]);
+  try {
+    return await findsFor(topic, await getPromptContext(userId), seen, picked.map((f) => f.title));
+  } catch (err) {
+    console.error('digest: finds failed for', topic, err);
+    return [];
   }
-  return out;
 }
 
 /**

@@ -38,17 +38,30 @@ export async function generateText(parts: Part[], opts: GenerateOptions = {}): P
   return text;
 }
 
+export interface GroundingSource {
+  /** Usually a Google redirect link; follow it to reach the real page. */
+  uri: string;
+  title: string;
+}
+
 /**
- * A call grounded in live Google Search results. JSON mode can't be combined
- * with tools, so callers parse the text themselves.
+ * A call grounded in live Google Search results. Returns the model's text
+ * plus the pages Search actually used — those links are real, unlike URLs the
+ * model types into its answer. JSON mode can't be combined with tools, so
+ * callers parse the text themselves.
  */
-export async function generateGrounded(text: string, opts: GenerateOptions = {}): Promise<string> {
+export async function generateGrounded(
+  text: string,
+  opts: GenerateOptions = {},
+): Promise<{ text: string; sources: GroundingSource[] }> {
   const res = await ai().models.generateContent({
     model: modelId(opts.model ?? 'fast'),
     contents: [{ role: 'user', parts: [{ text }] }],
     config: { tools: [{ googleSearch: {} }] },
   });
-  return res.text?.trim() ?? '';
+  const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
+  const sources = chunks.flatMap((c) => (c.web?.uri ? [{ uri: c.web.uri, title: c.web.title ?? '' }] : []));
+  return { text: res.text?.trim() ?? '', sources };
 }
 
 export interface ChatTurn {

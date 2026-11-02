@@ -37,8 +37,11 @@ export async function notifyUser(userId: string, message: PushMessage): Promise<
         });
         sent++;
       } catch (err) {
-        const status = (err as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) {
+        const { statusCode: status, body } = err as { statusCode?: number; body?: string };
+        // 404/410: the subscription expired. 403 "VAPID credentials … do not
+        // correspond": it was made with another key and can never work.
+        // Either way it's dead; the browser re-subscribes on its next visit.
+        if (status === 404 || status === 410 || (status === 403 && /VAPID credentials/i.test(body ?? ''))) {
           await db.from('push_devices').delete().eq('endpoint', d.endpoint);
         } else {
           console.error('notify: push failed', status, err);

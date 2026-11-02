@@ -25,13 +25,15 @@ type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, file
 export function ItemView({ id }: { id: string }) {
   const [item, setItem] = useState<Item | null>(null);
   const [thumbs, setThumbs] = useState(0);
+  const [playLessonId, setPlayLessonId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ item: Item; thumbs: number }>(`/api/items/${id}`);
+      const res = await api<{ item: Item; thumbs: number; playLessonId: string | null }>(`/api/items/${id}`);
       setItem(res.item);
       setThumbs(res.thumbs);
+      setPlayLessonId(res.playLessonId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     }
@@ -112,7 +114,7 @@ export function ItemView({ id }: { id: string }) {
 
       {item?.status === 'done' && (
         <>
-          <Actions item={item} thumbs={thumbs} setThumbs={setThumbs} onOutput={putOutput} />
+          <Actions item={item} thumbs={thumbs} setThumbs={setThumbs} onOutput={putOutput} playLessonId={playLessonId} />
           <section className="mt-8">
             <h2 className="mb-3 font-semibold">Ask about this</h2>
             <Chat itemId={item.id} placeholder="e.g. what's the catch?" />
@@ -153,11 +155,14 @@ function Actions({
   thumbs,
   setThumbs,
   onOutput,
+  playLessonId,
 }: {
   item: Item;
   thumbs: number;
   setThumbs: (v: number) => void;
   onOutput: OnOutput;
+  /** A ready, unplayed lesson: Play goes straight to it. */
+  playLessonId: string | null;
 }) {
   const [explaining, setExplaining] = useState<ExplainMode | null>(null);
   const [drawing, setDrawing] = useState(false);
@@ -197,8 +202,12 @@ function Actions({
     }
   }
 
-  /** Opens an unplayed lesson (usually pre-written by the pipeline) or writes one. */
+  /** Opens the ready lesson (usually pre-written by the pipeline), else writes one. */
   async function play(template?: Template) {
+    if (!template && playLessonId) {
+      router.push(`/play/${playLessonId}`);
+      return;
+    }
     setPlaying(true);
     setError(null);
     try {

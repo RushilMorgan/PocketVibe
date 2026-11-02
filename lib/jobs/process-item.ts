@@ -5,6 +5,7 @@ import { createDiagram } from '@/lib/diagrams/generate';
 import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
+import { recipeText } from '@/lib/handlers/schemas';
 import { indexItem } from '@/lib/index/index-item';
 import { fetchContent, UnreadableError } from '@/lib/items/fetch';
 import { markFailed, saveOutput } from '@/lib/items/service';
@@ -70,7 +71,8 @@ export const processItem = inngest.createFunction(
       return result;
     });
 
-    await step.run('handle', async () => {
+    // Returns the text to index: for recipes the clean card, not the noisy page.
+    const indexText = await step.run('handle', async () => {
       const ctx = await getPromptContext(userId);
       if (meta.kind === 'recipe') {
         const recipe = await extractRecipe({
@@ -80,11 +82,12 @@ export const processItem = inngest.createFunction(
         });
         await saveOutput(userId, itemId, 'recipe', recipe);
         await update({ summary: recipe.description });
-      } else {
-        const explainer = await explain(rawText, ctx);
-        await saveOutput(userId, itemId, 'explainer', explainer);
-        await update({ summary: explainer.lines.join('\n') });
+        return recipeText(recipe);
       }
+      const explainer = await explain(rawText, ctx);
+      await saveOutput(userId, itemId, 'explainer', explainer);
+      await update({ summary: explainer.lines.join('\n') });
+      return rawText;
     });
 
     // SPEC Phase 2: tech items that explain a system get a diagram automatically.
@@ -100,7 +103,7 @@ export const processItem = inngest.createFunction(
       });
     }
 
-    await step.run('index',() => indexItem({ id: itemId, user_id: userId, title: meta.title, text: rawText }));
+    await step.run('index', () => indexItem({ id: itemId, user_id: userId, title: meta.title, text: indexText }));
     await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
     await step.run('finish', () => update({ status: 'done' }));
 

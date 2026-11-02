@@ -3,9 +3,15 @@
   "configurations": [
     {
       "name": "heytoolie-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NODE_EXTRA_CA_CERTS=C:\\ProgramData\\Norton\\Antivirus\\wscert.pem&& npm run dev"],
       "port": 3000
+    },
+    {
+      "name": "inngest-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NODE_EXTRA_CA_CERTS=C:\\ProgramData\\Norton\\Antivirus\\wscert.pem&& npx --yes inngest-cli@latest dev -u http://localhost:3000/api/inngest --no-discovery"],
+      "port": 8288
     }
   ]
 }

@@ -36,10 +36,16 @@ export async function sendMagicLink(rawEmail: string, next: string): Promise<voi
   if (error) throw new HttpError(400, error.message);
 }
 
-/** Exchanges the magic-link code for a session cookie. */
-export async function completeSignIn(code: string): Promise<void> {
+/** Turns a magic link (PKCE code, or token_hash) into a session cookie. */
+export async function completeSignIn(link: { code: string } | { tokenHash: string; type: string }): Promise<void> {
   const supabase = await createSessionClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { error } =
+    'code' in link
+      ? await supabase.auth.exchangeCodeForSession(link.code)
+      : await supabase.auth.verifyOtp({
+          token_hash: link.tokenHash,
+          type: link.type === 'magiclink' ? 'magiclink' : 'email',
+        });
   if (error) throw new HttpError(400, error.message);
 }
 
@@ -54,20 +60,23 @@ export async function signOut(): Promise<void> {
  */
 export const getCurrentUser = cache(async (): Promise<UserRow | null> => {
   const supabase = await createSessionClient();
-  const { data } = await supabase.auth.getUser();
-  const authUser = data.user;
-  if (!authUser?.email || !(await isAllowed(authUser.email))) return null;
+  // getClaims verifies the session JWT (locally with asymmetric signing keys,
+  // else via Auth) — one less round trip than getUser on every request.
+  const { data } = await supabase.auth.getClaims();
+  const id = data?.claims.sub;
+  const email = typeof data?.claims.email === 'string' ? data.claims.email.toLowerCase() : null;
+  if (!id || !email) return null;
 
   const db = adminClient();
-  const { data: existing, error } = await db.from('users').select('*').eq('id', authUser.id).maybeSingle();
+  const [allowed, { data: existing, error }] = await Promise.all([
+    isAllowed(email),
+    db.from('users').select('*').eq('id', id).maybeSingle(),
+  ]);
   if (error) throw error;
+  if (!allowed) return null;
   if (existing) return existing;
 
-  const { data: created, error: insertError } = await db
-    .from('users')
-    .upsert({ id: authUser.id, email: authUser.email.toLowerCase() })
-    .select('*')
-    .single();
+  const { data: created, error: insertError } = await db.from('users').upsert({ id, email }).select('*').single();
   if (insertError) throw insertError;
   return created;
 });

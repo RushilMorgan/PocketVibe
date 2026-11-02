@@ -11,8 +11,14 @@ export type PromptContext = {
 /** How much each signal moves a topic's weight (SPEC → Profile). */
 export const WEIGHT = { save: 1, thumbsUp: 2, thumbsDown: -2, play: 1 } as const;
 
-/** A tag joins an existing topic when its embedding is at least this close. */
-const SAME_TOPIC = 0.8;
+/**
+ * A tag joins an existing topic when its embedding is at least this close.
+ * SPEC says 0.8, but measured on gemini-embedding-001 (768-d, 2026-11-02)
+ * unrelated tags already score 0.75–0.82 ("javascript"~"sourdough" 0.816),
+ * near-duplicates ≥ 0.9 ("llms"~"large language models" 0.917) and distinct
+ * related interests just under ("pancakes"~"breakfast" 0.897).
+ */
+const SAME_TOPIC = 0.9;
 
 /** The {level}, {tone} and {top_topics} injected into every prompt. */
 export async function getPromptContext(userId: string): Promise<PromptContext> {

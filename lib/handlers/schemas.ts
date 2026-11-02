@@ -35,6 +35,19 @@ export const recipe = z.object({
 
 export type Recipe = z.infer<typeof recipe>;
 
+/** A recipe as plain text — what gets indexed for chat, instead of the noisy source page. */
+export function recipeText(r: Recipe): string {
+  return [
+    `${r.title}. ${r.description}`,
+    `Serves ${r.servings}. Prep ${r.prepTime}. Cook ${r.cookTime}.`,
+    `Ingredients:\n${r.ingredients.map((i) => `- ${[i.quantity, i.unit, i.name].filter(Boolean).join(' ')}`).join('\n')}`,
+    `Method:\n${r.steps.map((s, n) => `${n + 1}. ${s.text}${s.time ? ` (${s.time})` : ''}`).join('\n')}`,
+    r.tags.length ? `Tags: ${r.tags.join(', ')}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export const explainer = z.object({
   lines: z.array(z.string().min(1)).min(1).max(5).describe('The explanation: at most 5 short lines'),
   why_it_matters: z.string().min(1),

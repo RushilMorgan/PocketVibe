@@ -6,7 +6,7 @@ It will be read on a phone, so:
 - Use sequenceDiagram only when the point is who talks to whom, in order.
 - Use mindmap only for "the parts of X" ideas with no flow between them.
 - Plain words at level {level}; no jargon labels.
-- No styling, classes, click handlers, notes or %%{init}%% blocks.
+- No styling, classes, click handlers, notes or init directives.
 
 Return JSON: "mermaid" is the Mermaid code only (no code fences), "caption" is
 one plain sentence (max 15 words) saying what the diagram shows.

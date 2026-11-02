@@ -93,18 +93,18 @@ export async function unplayedLesson(userId: string, itemId: string): Promise<st
 
 export async function getLesson(userId: string, lessonId: string): Promise<LessonView> {
   if (!/^[0-9a-f-]{36}$/i.test(lessonId)) throw new HttpError(404, 'Lesson not found.');
-  const db = adminClient();
-  const { data, error } = await db
+  // One round trip: the lesson plus its item via the item_id foreign key.
+  const { data: row, error } = await adminClient()
     .from('item_outputs')
-    .select('id, item_id, content')
+    .select('id, item_id, content, items(title, url, kind)')
     .eq('id', lessonId)
     .eq('user_id', userId)
     .eq('type', 'lesson')
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new HttpError(404, 'Lesson not found.');
-  const { data: item, error: itemError } = await db.from('items').select('title, url, kind').eq('id', data.item_id).single();
-  if (itemError) throw itemError;
+  if (!row) throw new HttpError(404, 'Lesson not found.');
+  const data = row as unknown as { id: string; item_id: string; content: unknown; items: { title: string | null; url: string; kind: string | null } };
+  const item = data.items;
   return {
     id: data.id,
     itemId: data.item_id,

@@ -24,7 +24,8 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getUser();
+  // Refreshes the session cookie if the access token has expired.
+  await supabase.auth.getClaims();
   return response;
 }
 

@@ -17,6 +17,25 @@ const schema = z.object({
   GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
 });
 
+/** The Council's multi-vendor gateway. Checked only when a council job runs. */
+const councilSchema = z.object({
+  OPENROUTER_API_KEY: z.string().min(1),
+  /** Any OpenAI-compatible gateway (OpenRouter, MegaLLM…). */
+  OPENROUTER_BASE_URL: z.url().default('https://openrouter.ai/api/v1'),
+  /** JSON {seat: model id} overriding lib/council/roster.ts, e.g. {"chair":"anthropic/claude-sonnet-5.5"}. */
+  COUNCIL_MODELS: z.string().optional(),
+  COUNCIL_DAILY_CAP: z.coerce.number().int().positive().default(5),
+});
+
+export type CouncilEnv = z.infer<typeof councilSchema>;
+
+let councilCached: CouncilEnv | undefined;
+
+export function councilEnv(): CouncilEnv {
+  councilCached ??= councilSchema.parse(process.env);
+  return councilCached;
+}
+
 export type Env = z.infer<typeof schema>;
 
 let cached: Env | undefined;

@@ -281,3 +281,10 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 - Single-user lockdown: RLS also requires an allowlisted email, the old site's tables, functions and
   edge functions are closed or deleted, and `/tools/recipe-extractor` (kept at its old URL) now
   requires sign-in.
+
+**Council (not in the spec)**
+- A fifth tab, `/council`: put an idea to five models from different labs (via OpenRouter) that
+  frame it, research it on the web, take independent views, cross-examine each other (anonymised),
+  and vote on the chair's report — one revision if anyone objects, dissent kept verbatim. Then
+  follow-up questions, each answered by every member and ratified. Web research only; it doesn't
+  read your saves. Tables `council_sessions` and `council_turns`.

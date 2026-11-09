@@ -125,6 +125,35 @@ export type ChatMessageRow = {
   created_at: string;
 }
 
+export type CouncilSessionRow = {
+  id: string;
+  user_id: string;
+  idea: string;
+  title: string | null;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  /** The step the job is on (lib/council/schemas.ts STAGES). */
+  stage: string;
+  error: string | null;
+  /** The ratified report (lib/council/schemas.ts Report); null until done. */
+  report: Json | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CouncilTurnRow = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  /** 0 = the first pass; each follow-up is the next round. */
+  round: number;
+  stage: string;
+  member: string;
+  model: string;
+  content: Json;
+  cost_usd: number;
+  created_at: string;
+}
+
 export type AllowedEmailRow = {
   email: string;
   created_at: string;
@@ -144,6 +173,8 @@ export interface Database {
       allowed_emails: Table<AllowedEmailRow, 'email'>;
       digests: Table<DigestRow, 'user_id' | 'week_start' | 'content'>;
       chat_messages: Table<ChatMessageRow, 'user_id' | 'role' | 'content'>;
+      council_sessions: Table<CouncilSessionRow, 'user_id' | 'idea'>;
+      council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
     };
     Views: { [_ in never]: never };
     Functions: {

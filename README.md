@@ -19,12 +19,14 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
    your **topic profile**.
 5. You get a **push notification**, and a **lesson** (quiz, simulator, put-in-order or spot-the-bug)
    is pre-written so Play opens instantly.
-6. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
+6. **Council** tab: describe an idea and five models from different labs (through OpenRouter)
+   research it, argue it out and vote on a verdict with next steps; then ask follow-ups.
+7. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
    for each of your top 3 topics, and one lesson from something you never opened.
 
 ## Stack
 
-Next.js 16 on Vercel (Dublin) · Supabase (Auth, Postgres + pgvector, Storage) · Gemini · Inngest ·
+Next.js 16 on Vercel (Dublin) · Supabase (Auth, Postgres + pgvector, Storage) · Gemini · OpenRouter (Council) · Inngest ·
 Web Push · Kroki · Tailwind 4 · Zod · Vitest. Details in [RULES.md](RULES.md#stack).
 
 ## Run it locally

@@ -18,6 +18,15 @@ const VARS: Record<string, string[]> = {
   finds: [...CTX, 'topic', 'exclude'],
   'finds-pick': [...CTX, 'topic', 'already'],
   recipe: ['tone'],
+  'council-frame': ['lens'],
+  'council-research': ['lens'],
+  'council-take': ['lens', 'letter'],
+  'council-rebut': ['lens', 'letter'],
+  'council-synthesize': [...CTX, 'lens'],
+  'council-ratify': ['lens', 'letter'],
+  'council-revise': [...CTX, 'lens'],
+  'council-followup': ['lens', 'letter'],
+  'council-followup-answer': [...CTX, 'lens'],
 };
 
 const dir = path.join(process.cwd(), 'prompts');

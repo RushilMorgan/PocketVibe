@@ -19,6 +19,9 @@ changing code.
     `modelId` (looked up with `getSmartModel()`); the fast tier is not user-selectable.
   - `gemini-embedding-001` at 768 dims. Models are env vars (`GEMINI_MODEL_FAST/PRO`); thinking
     levels are only sent to models that support them, so a 2.5 model still works.
+- **OpenRouter** (`lib/ai/openrouter.ts`, OpenAI-compatible) for the Council only — five seats from
+  different labs, roster in `lib/council/roster.ts` (ids from OpenRouter's `/api/v1/models`),
+  overridable with `COUNCIL_MODELS`. Its web plugin's `url_citation`s are the only sources shown.
 - **Inngest** for background jobs, served at `/api/inngest` (Vercel Marketplace integration in prod).
 - **Web Push** (`web-push`, VAPID) and optional **Resend** email. **Kroki** renders Mermaid to PNG.
 - **Tailwind 4**, **Zod 4**, **Vitest**. TypeScript is pinned to **6.x** — `npm i -D typescript`
@@ -28,7 +31,7 @@ changing code.
 
 | Path | What |
 |---|---|
-| `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/ask`, `/topics`, `/settings`, `/digest/[id]` |
+| `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/ask`, `/council`, `/council/[id]`, `/topics`, `/settings`, `/digest/[id]` |
 | `app/play/[lessonId]` | Full-screen lesson player (no tab bar) |
 | `app/share`, `app/auth/callback`, `app/d/[id]` | Share target (POST), magic-link landing, signed digest-link tracker |
 | `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
@@ -41,7 +44,8 @@ changing code.
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights) |
 | `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
 | `lib/digest` | Weekly digest: your week, Search-grounded finds, suggested lesson, email, tracking links |
-| `lib/jobs` | Inngest functions: `process-item`, `weekly-digest` (registered in `functions.ts`) |
+| `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
+| `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup` (registered in `functions.ts`) |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell |
 | `prompts/*.md` | Every AI prompt, editable without touching code |
 | `public/sw.js` | Service worker: push, static cache, offline lessons (plain JS, no build) |
@@ -63,6 +67,9 @@ changing code.
 - Chat threads are server-owned: the client sends only the new question; `lib/chat.ts` loads earlier
   turns from `chat_messages`, saves the question, and saves the answer when the stream ends (or
   whatever arrived, if it breaks). An item's thread has its `item_id`; the Ask tab's is `null`.
+- Council turns are the job's cache: `run.ts` returns an existing `council_turns` row instead of
+  calling the model again, so Retry only pays for unfinished stages. A member whose step gives up
+  is dropped (quorum 3); research is best-effort.
 - Job steps must be safe to re-run (Inngest retries each step): replace outputs/chunks rather than
   append, and guard weight changes (`recordItemTopics` skips already-linked items).
 

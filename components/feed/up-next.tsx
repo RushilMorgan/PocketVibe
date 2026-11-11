@@ -34,6 +34,21 @@ export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpN
           {firstLine && <p className="mt-1.5 line-clamp-2 text-sm text-white/85">{firstLine}</p>}
         </div>
       </Link>
+      {item.related && (
+        <Link
+          href={`/items/${item.related.itemId}`}
+          className="mx-3 mt-3 flex items-center gap-2 rounded-xl bg-bg px-3 py-2 text-sm"
+        >
+          <span aria-hidden>🔗</span>
+          <span className="min-w-0 flex-1 truncate">
+            <span className="text-muted">Connects to </span>
+            <span className="font-semibold">{item.related.title ?? 'another save'}</span>
+          </span>
+          <span aria-hidden className="text-muted">
+            →
+          </span>
+        </Link>
+      )}
       <div className="flex items-center gap-2 p-3">
         {item.lessonId ? (
           <>

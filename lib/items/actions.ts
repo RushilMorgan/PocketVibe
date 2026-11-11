@@ -7,7 +7,8 @@ import { HttpError } from '@/lib/http';
 import { adjustItemTopics, getPromptContext, WEIGHT } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
 import { getSmartModel } from '@/lib/users';
-import type { ItemRow } from '@/lib/supabase/database.types';
+import type { ItemRow, RelatedSave } from '@/lib/supabase/database.types';
+import { pickRelated } from './related';
 import { getItem, saveOutput } from './service';
 
 /** Explain simpler / Go deeper: regenerates the explainer and replaces it. */
@@ -73,6 +74,28 @@ export async function similarItems(userId: string, itemId: string, limit = 5): P
     const item = byId.get(id);
     return item ? [{ ...item, similarity }] : [];
   });
+}
+
+/**
+ * Job step: stores the closest other save above the bar as this item's
+ * `related` (or clears it), and links back from that save if it has no
+ * connection yet. Safe to re-run: both writes are idempotent.
+ */
+export async function linkRelated(userId: string, itemId: string, title: string | null): Promise<RelatedSave | null> {
+  const db = adminClient();
+  const related = pickRelated(await similarItems(userId, itemId, 3));
+  const { error } = await db.from('items').update({ related }).eq('id', itemId).eq('user_id', userId);
+  if (error) throw error;
+  if (related) {
+    const { error: backError } = await db
+      .from('items')
+      .update({ related: { itemId, title, similarity: related.similarity } })
+      .eq('id', related.itemId)
+      .eq('user_id', userId)
+      .is('related', null);
+    if (backError) throw backError;
+  }
+  return related;
 }
 
 /** Latest 👍/👎 for an item: 1, -1, or 0 for none. */

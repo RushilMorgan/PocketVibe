@@ -33,6 +33,7 @@ export type FeedSourceItem = Pick<
   | 'thumbnail_url'
   | 'duration_seconds'
   | 'snoozed_until'
+  | 'related'
   | 'created_at'
 >;
 

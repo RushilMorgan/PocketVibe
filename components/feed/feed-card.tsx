@@ -28,6 +28,14 @@ export function FeedCard({ item }: { item: FeedItem }) {
           {item.kind ? <Pill>{KIND_LABEL[item.kind]}</Pill> : <span />}
           <StateMark item={item} />
         </div>
+        {item.related && (
+          <span
+            title={`Connects to ${item.related.title ?? 'another save'}`}
+            className="absolute bottom-2 left-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white"
+          >
+            🔗
+          </span>
+        )}
         {duration && (
           <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
             {duration}

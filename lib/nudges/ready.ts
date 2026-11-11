@@ -7,6 +7,7 @@ import type { ItemKind } from '@/lib/supabase/database.types';
 
 const TITLE_MAX = 60;
 const BODY_LINE_MAX = 110;
+const RELATED_MAX = 50;
 
 export interface ReadyInput {
   itemId: string;
@@ -17,6 +18,8 @@ export interface ReadyInput {
   firstLine: string | null;
   ingredientCount: number | null;
   thumbnailUrl: string | null;
+  /** Title of the save this one connects to (lib/items/related.ts), if any. */
+  relatedTitle?: string | null;
 }
 
 export function clip(text: string, max: number): string {
@@ -37,12 +40,13 @@ export function readyMessage(r: ReadyInput): PushMessage {
   const item = `/items/${r.itemId}`;
   const title = r.title ? clip(r.title, TITLE_MAX) : 'Your save is ready';
   const line = r.firstLine ? clip(r.firstLine, BODY_LINE_MAX) : null;
+  const connects = r.relatedTitle ? `\n🔗 Connects to: ${clip(r.relatedTitle, RELATED_MAX)}` : '';
 
   if (r.kind === 'recipe') {
     const count = r.ingredientCount ? `${r.ingredientCount} ingredients — ` : '';
     return {
       title,
-      body: `${count}recipe card ready 🍳`,
+      body: `${count}recipe card ready 🍳${connects}`,
       url: trackedUrl(item, r.nudgeId, 'open'),
       image: r.thumbnailUrl ?? undefined,
       actions: [{ action: 'read', title: 'Open recipe', url: trackedUrl(item, r.nudgeId, 'read') }],
@@ -50,7 +54,7 @@ export function readyMessage(r: ReadyInput): PushMessage {
   }
   return {
     title,
-    body: line ? `${line}\n▶ 2-min lesson inside` : 'Your explainer and a 2-min lesson are ready',
+    body: (line ? `${line}\n▶ 2-min lesson inside` : 'Your explainer and a 2-min lesson are ready') + connects,
     url: trackedUrl(item, r.nudgeId, 'open'),
     image: r.thumbnailUrl ?? undefined,
     actions: [

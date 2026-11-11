@@ -17,6 +17,7 @@ function item(over: Partial<FeedItem>): FeedItem {
     thumbnail_url: null,
     duration_seconds: null,
     snoozed_until: null,
+    related: null,
     created_at: '2026-11-11T09:00:00Z',
     state: 'read',
     thumbnailShape: 'landscape',

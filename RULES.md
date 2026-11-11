@@ -101,6 +101,8 @@ changing code.
   the matching `Row` type.
 - Topic matching uses cosine ≥ **0.9**, not the SPEC's 0.8 — measured on `gemini-embedding-001`,
   unrelated tags already score 0.75–0.82. Re-measure before changing the embedding model.
+- "Connects to" between saves (`items.related`, `lib/items/related.ts`) needs best-chunk similarity
+  ≥ **0.80**: measured on real saves, related pairs scored 0.82–0.87 and unrelated ones up to 0.77.
 - Changing the embedding model or its dimensions means re-embedding every chunk and topic.
 
 ## Frontend

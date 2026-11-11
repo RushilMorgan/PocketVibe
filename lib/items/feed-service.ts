@@ -7,7 +7,7 @@ import { findThumbnail } from './fetch';
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 const ITEM_COLUMNS =
-  'id, url, source, kind, title, status, error, summary, thumbnail_url, duration_seconds, snoozed_until, created_at';
+  'id, url, source, kind, title, status, error, summary, thumbnail_url, duration_seconds, snoozed_until, related, created_at';
 /** PostgREST returns at most this many rows per request. */
 const PAGE = 1000;
 

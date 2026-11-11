@@ -7,6 +7,7 @@ import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
 import { recipeText } from '@/lib/handlers/schemas';
 import { indexItem } from '@/lib/index/index-item';
+import { linkRelated } from '@/lib/items/actions';
 import { fetchContent, findThumbnail, UnreadableError } from '@/lib/items/fetch';
 import { markFailed, saveOutput } from '@/lib/items/service';
 import { notifyUser } from '@/lib/notify';
@@ -121,6 +122,15 @@ export const processItem = inngest.createFunction(
     }
 
     await step.run('index', () => indexItem({ id: itemId, user_id: userId, title: meta.title, text: indexText }));
+    // Best-effort, after index (it compares this item's chunks): "Connects to …" for the push and feed.
+    const related = await step.run('related', async () => {
+      try {
+        return await linkRelated(userId, itemId, meta.title);
+      } catch (err) {
+        console.error('related failed, item stays unlinked', err);
+        return null;
+      }
+    });
     await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
     await step.run('finish', () => update({ status: 'done' }));
 
@@ -160,6 +170,7 @@ export const processItem = inngest.createFunction(
           firstLine: row.summary?.split('\n')[0] ?? null,
           ingredientCount: Array.isArray(ingredients) ? ingredients.length : null,
           thumbnailUrl: row.thumbnail_url,
+          relatedTitle: related?.title ?? null,
         }),
       );
     }

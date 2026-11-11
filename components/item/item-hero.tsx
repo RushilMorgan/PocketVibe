@@ -93,6 +93,21 @@ export function ItemHero({ item, title }: { item: Item; title: string | null }) 
         <span className="rounded-full bg-surface px-2.5 py-1 text-muted ring-1 ring-line">{savedAgo(item.created_at)}</span>
       </div>
       <h1 className="mt-2.5 text-[1.65rem] font-extrabold leading-[1.15] tracking-tight">{title ?? sourceLabel(item)}</h1>
+      {item.related && (
+        <Link
+          href={`/items/${item.related.itemId}`}
+          className="mt-3 flex items-center gap-2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm"
+        >
+          <span aria-hidden>🔗</span>
+          <span className="min-w-0 flex-1 truncate">
+            <span className="text-muted">Connects to </span>
+            <span className="font-semibold">{item.related.title ?? 'another save'}</span>
+          </span>
+          <span aria-hidden className="text-muted">
+            →
+          </span>
+        </Link>
+      )}
     </header>
   );
 }

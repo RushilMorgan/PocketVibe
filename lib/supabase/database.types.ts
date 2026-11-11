@@ -37,6 +37,8 @@ export type UserRow = {
   updated_at: string;
 }
 
+export type RelatedSave = { itemId: string; title: string | null; similarity: number };
+
 export type ItemRow = {
   id: string;
   user_id: string;
@@ -54,6 +56,8 @@ export type ItemRow = {
   duration_seconds: number | null;
   /** Hidden from the feed's Up next card until then ("Not now"). */
   snoozed_until: string | null;
+  /** The closest other save above the similarity bar (lib/items/related.ts); null = none. */
+  related: RelatedSave | null;
   created_at: string;
   updated_at: string;
 }

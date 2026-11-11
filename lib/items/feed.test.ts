@@ -30,6 +30,7 @@ function item(id: string, over: Partial<FeedSourceItem> = {}): FeedSourceItem {
     thumbnail_url: null,
     duration_seconds: null,
     snoozed_until: null,
+    related: null,
     created_at: '2026-11-01T10:00:00Z',
     ...over,
   };

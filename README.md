@@ -54,6 +54,10 @@ Open http://localhost:3000. Sign-in is by magic link and only works for emails i
 `allowed_emails` table; add `http://localhost:3000/auth/callback` to Supabase → Auth → URL
 Configuration → Redirect URLs.
 
+To skip the email when checking pages locally, set `DEV_LOGIN_EMAIL` (an allowlisted email) in
+`.env.local` and open http://localhost:3000/auth/dev?next=/. It only works under `npm run dev` on
+localhost; everywhere else it's a 404.
+
 | Script | What |
 |---|---|
 | `npm run dev` | Next dev server on :3000 |

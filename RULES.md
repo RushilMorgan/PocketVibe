@@ -46,7 +46,8 @@ changing code.
 | `lib/digest` | Weekly digest: your week, Search-grounded finds, suggested lesson, email, tracking links |
 | `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup` (registered in `functions.ts`) |
-| `components/` | Client UI; `components/lessons` has one player per template on a shared shell |
+| `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet) |
+| `lib/items/feed.ts` | Saves feed logic, pure and tested: item states, Up next pick, streak with weekly freeze, week progress ([docs/saves-redesign.md](docs/saves-redesign.md)) |
 | `prompts/*.md` | Every AI prompt, editable without touching code |
 | `public/sw.js` | Service worker: push, static cache, offline lessons (plain JS, no build) |
 | `supabase/migrations` | Forward-only SQL; filenames match the versions recorded on the remote DB |
@@ -119,7 +120,10 @@ changing code.
 - Network-dependent checks (Gemini, Kroki, Search) are run as throwaway smoke tests and deleted, not
   committed.
 - UI: run the app (`.claude/launch.json` has `heytoolie-dev` and `inngest-dev`) and check pages in the
-  browser at phone width, light and dark.
+  browser at phone width, light and dark. Sign in with http://localhost:3000/auth/dev?next=/ (needs
+  `DEV_LOGIN_EMAIL` in `.env.local`; a 404 outside `next dev` on localhost) instead of a magic link.
+- Feed images are the sources' own (`items.thumbnail_url`), shown with a plain `<img>`; a card whose
+  image fails asks `/api/items/<id>/thumbnail` once, then falls back to a kind-coloured tile.
 
 ## Deploy
 

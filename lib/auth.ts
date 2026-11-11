@@ -49,6 +49,18 @@ export async function completeSignIn(link: { code: string } | { tokenHash: strin
   if (error) throw new HttpError(400, error.message);
 }
 
+/**
+ * Local dev only (`/auth/dev`, guarded by lib/dev-login.ts): mints a magic
+ * link with the service role and redeems it at once, so no email is sent.
+ * Still refuses emails that aren't allowlisted.
+ */
+export async function devSignIn(email: string): Promise<void> {
+  if (!(await isAllowed(email))) throw new HttpError(403, 'DEV_LOGIN_EMAIL is not in allowed_emails.');
+  const { data, error } = await adminClient().auth.admin.generateLink({ type: 'magiclink', email });
+  if (error) throw new HttpError(400, error.message);
+  await completeSignIn({ tokenHash: data.properties.hashed_token, type: 'magiclink' });
+}
+
 export async function signOut(): Promise<void> {
   const supabase = await createSessionClient();
   await supabase.auth.signOut();

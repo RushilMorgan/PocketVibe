@@ -5,175 +5,245 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/components/api';
 import { EnablePush } from '@/components/enable-push';
-import { timeAgo } from '@/components/time-ago';
-import { KIND_LABEL, type Topic } from '@/components/types';
-import type { ItemRow } from '@/lib/supabase/database.types';
+import { FeedCard } from '@/components/feed/feed-card';
+import { SaveButton } from '@/components/feed/save-button';
+import { StreakStrip } from '@/components/feed/streak-strip';
+import { UpNext } from '@/components/feed/up-next';
+import type { Feed, FeedFilter, FeedItem, Topic } from '@/components/types';
 
 const PAGE = 30;
-const CHIPS = 8;
+const TOPIC_CHIPS = 6;
 
-/** The feed: paste box, topic filter chips, saved items newest first. */
-export function Home({ notice, initialTopic }: { notice?: string; initialTopic: string | null }) {
+/** One chip at a time: a smart filter, a topic, or neither (All). */
+type Selection = { filter: FeedFilter | null; topic: string | null };
+
+/** The saves feed (docs/saves-redesign.md Part A): streak, Up next, filter chips, image grid. */
+export function Home({
+  notice,
+  initialTopic,
+  initialFilter,
+}: {
+  notice?: string;
+  initialTopic: string | null;
+  initialFilter: FeedFilter | null;
+}) {
   const router = useRouter();
-  const [items, setItems] = useState<ItemRow[] | null>(null);
+  const [feed, setFeed] = useState<Feed | null>(null);
+  const [items, setItems] = useState<FeedItem[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [topic, setTopic] = useState<string | null>(initialTopic);
-  const [url, setUrl] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [sel, setSel] = useState<Selection>({ filter: initialFilter, topic: initialFilter ? null : initialTopic });
   const [digestId, setDigestId] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
-  const load = useCallback(async (topicId: string | null, before?: string) => {
+  const load = useCallback(async (s: Selection, before?: string) => {
     const params = new URLSearchParams({ limit: String(PAGE) });
-    if (topicId) params.set('topic', topicId);
+    if (s.filter) params.set('filter', s.filter);
+    if (s.topic) params.set('topic', s.topic);
     if (before) params.set('before', before);
-    const { items: page } = await api<{ items: ItemRow[] }>(`/api/items?${params}`);
-    setItems((prev) => (before && prev ? [...prev, ...page] : page));
-    setHasMore(page.length === PAGE);
+    const page = await api<Feed>(`/api/feed?${params}`);
+    setFailed(false);
+    if (before) {
+      setItems((prev) => [...(prev ?? []), ...page.items]);
+    } else {
+      setFeed(page);
+      setItems(page.items);
+    }
+    setHasMore(page.hasMore);
   }, []);
 
   useEffect(() => {
     setItems(null);
-    load(topic).catch(() => setItems([]));
-  }, [topic, load]);
+    load(sel).catch(() => {
+      setItems([]);
+      setFailed(true);
+    });
+  }, [sel, load]);
 
   useEffect(() => {
-    api<{ id: string | null }>('/api/digests/latest').then(
-      (r) => setDigestId(r.id),
-      () => {},
-    );
+    api<{ id: string | null }>('/api/digests/latest').then((r) => setDigestId(r.id), () => {});
+    api<{ topics: Topic[] }>('/api/topics').then((r) => setTopics(r.topics.filter((t) => t.itemCount > 0)), () => {});
   }, []);
 
-  useEffect(() => {
-    api<{ topics: Topic[] }>('/api/topics').then(
-      (r) => setTopics(r.topics.filter((t) => t.itemCount > 0)),
-      () => {},
-    );
-  }, []);
-
-  // Refresh while anything is still being processed.
-  const pending = items?.some((i) => i.status === 'queued' || i.status === 'processing');
+  // Refresh while anything is still being processed, so cards flip to done by themselves.
+  const pending = items?.some((i) => i.state === 'working');
   useEffect(() => {
     if (!pending) return;
-    const timer = setInterval(() => load(topic).catch(() => {}), 4000);
+    const timer = setInterval(() => load(sel).catch(() => {}), 4000);
     return () => clearInterval(timer);
-  }, [pending, topic, load]);
+  }, [pending, sel, load]);
 
-  function pickTopic(id: string | null) {
-    setTopic(id);
-    router.replace(id ? `/?topic=${id}` : '/', { scroll: false });
+  function pick(next: Selection) {
+    setSel(next);
+    const q = next.filter ? `?filter=${next.filter}` : next.topic ? `?topic=${next.topic}` : '';
+    router.replace(`/${q}`, { scroll: false });
   }
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
-    try {
-      const { item } = await api<{ item: ItemRow }>('/api/items', { body: { url } });
-      router.push(`/items/${item.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-      setSaving(false);
-    }
+  async function snooze(id: string) {
+    await api(`/api/items/${id}/snooze`, { method: 'POST' }).catch(() => {});
+    await load(sel).catch(() => {});
   }
 
-  const chips = topics.slice(0, CHIPS);
-  const selected = topics.find((t) => t.id === topic);
+  const showAll = !sel.filter && !sel.topic;
+  const topicChips = topics.slice(0, TOPIC_CHIPS);
+  const selectedTopic = topics.find((t) => t.id === sel.topic);
+  const nothingSaved = showAll && items?.length === 0 && !failed;
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Your saves</h1>
-      {notice && <p className="mt-4 rounded-lg bg-surface p-3 text-sm">{notice}</p>}
+    <div className="flex flex-col gap-4">
+      <header className="flex items-end justify-between">
+        <h1 className="text-3xl font-extrabold tracking-tight">Your saves</h1>
+        {feed && feed.counts.lesson > 0 && (
+          <button onClick={() => pick({ filter: 'lesson', topic: null })} className="text-sm font-medium text-accent">
+            {feed.counts.lesson} lesson{feed.counts.lesson === 1 ? '' : 's'} waiting
+          </button>
+        )}
+      </header>
 
-      <form onSubmit={save} className="mt-5 flex gap-2">
-        <input
-          type="url"
-          required
-          inputMode="url"
-          placeholder="Paste a link"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
-        />
-        <button disabled={saving} className="rounded-xl bg-accent px-4 py-3 font-medium text-on-accent disabled:opacity-60">
-          Save
-        </button>
-      </form>
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+      {notice && <p className="rounded-xl bg-surface p-3 text-sm">{notice}</p>}
+
+      {feed && !nothingSaved && <StreakStrip streak={feed.streak} week={feed.week} todayIndex={sastWeekday()} />}
+
       <EnablePush />
+
       {digestId && (
-        <Link href={`/digest/${digestId}`} className="mt-4 flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3">
-          <span aria-hidden className="text-xl">📬</span>
+        <Link href={`/digest/${digestId}`} className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 p-3">
+          <span aria-hidden className="text-xl">
+            📬
+          </span>
           <span className="text-sm">
             <span className="font-semibold">Your week is ready</span> — what you saved, new finds and a 2-minute lesson.
           </span>
         </Link>
       )}
 
-      {chips.length > 0 && (
-        <div className="-mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-1">
-          <Chip active={!topic} onClick={() => pickTopic(null)}>
+      {showAll && feed?.upNext && (
+        <UpNext item={feed.upNext.item} reason={feed.upNext.reason} onSnooze={() => snooze(feed.upNext!.item.id)} />
+      )}
+
+      {!nothingSaved && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          <Chip active={showAll} onClick={() => pick({ filter: null, topic: null })}>
             All
           </Chip>
-          {chips.map((t) => (
-            <Chip key={t.id} active={topic === t.id} onClick={() => pickTopic(t.id)}>
-              {t.name}
+          <Chip active={sel.filter === 'unread'} onClick={() => pick({ filter: 'unread', topic: null })} count={feed?.counts.unread}>
+            To read
+          </Chip>
+          <Chip active={sel.filter === 'lesson'} onClick={() => pick({ filter: 'lesson', topic: null })} count={feed?.counts.lesson}>
+            Lessons
+          </Chip>
+          <Chip active={sel.filter === 'recipe'} onClick={() => pick({ filter: 'recipe', topic: null })}>
+            Recipes
+          </Chip>
+          {topicChips.map((t) => (
+            <Chip key={t.id} active={sel.topic === t.id} onClick={() => pick({ filter: null, topic: t.id })}>
+              <span className="capitalize">{t.name}</span>
             </Chip>
           ))}
-          {selected && !chips.includes(selected) && <Chip active>{selected.name}</Chip>}
+          {selectedTopic && !topicChips.includes(selectedTopic) && (
+            <Chip active>
+              <span className="capitalize">{selectedTopic.name}</span>
+            </Chip>
+          )}
         </div>
       )}
 
-      <ul className="mt-4 flex flex-col gap-2">
-        {items === null && <li className="text-muted">Loading…</li>}
-        {items?.map((item) => (
-          <li key={item.id}>
-            <FeedCard item={item} />
-          </li>
-        ))}
-        {items?.length === 0 && (
-          <li className="rounded-xl border border-dashed border-line p-6 text-center text-muted">
-            {topic ? 'Nothing under this topic yet.' : 'Nothing saved yet. Share a link to HeyToolie from any app, or paste one above.'}
-          </li>
-        )}
-      </ul>
+      {items === null && <SkeletonGrid />}
+
+      {items && items.length > 0 && (
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
+          {items.map((item) => (
+            <li key={item.id}>
+              <FeedCard item={item} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {failed && (
+        <p className="rounded-2xl border border-line p-6 text-center text-sm text-muted">
+          Couldn&apos;t load your saves.{' '}
+          <button onClick={() => pick({ ...sel })} className="font-medium text-accent">
+            Try again
+          </button>
+        </p>
+      )}
+
+      {nothingSaved && (
+        <div className="rounded-3xl border border-dashed border-line p-8 text-center">
+          <p aria-hidden className="text-5xl">
+            📥
+          </p>
+          <h2 className="mt-3 text-lg font-bold">Share your first video</h2>
+          <p className="mt-1 text-sm text-muted">
+            In YouTube or TikTok tap Share → HeyToolie. You&apos;ll get the useful version back, plus a 2-minute lesson.
+          </p>
+        </div>
+      )}
+
+      {!showAll && items?.length === 0 && !failed && (
+        <div className="rounded-3xl border border-dashed border-line p-8 text-center">
+          <p className="font-semibold">Nothing here right now. Nice.</p>
+          <button onClick={() => pick({ filter: null, topic: null })} className="mt-2 text-sm font-medium text-accent">
+            Show all saves
+          </button>
+        </div>
+      )}
 
       {hasMore && items && (
         <button
-          onClick={() => load(topic, items.at(-1)!.created_at)}
-          className="mt-4 w-full rounded-xl border border-line py-3 text-sm text-muted"
+          onClick={() => load(sel, items.at(-1)!.created_at).catch(() => {})}
+          className="w-full rounded-xl border border-line py-3 text-sm text-muted"
         >
           Load more
         </button>
       )}
+
+      <SaveButton />
     </div>
   );
 }
 
-function Chip({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+/** Monday = 0 in South African time, for the week dots. */
+function sastWeekday(): number {
+  return (new Date(Date.now() + 2 * 3600_000).getUTCDay() + 6) % 7;
+}
+
+function Chip({
+  active,
+  onClick,
+  count,
+  children,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  count?: number;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${active ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface'}`}
+      aria-pressed={active}
+      className={`shrink-0 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+        active ? 'bg-ink text-bg' : 'border border-line bg-surface'
+      }`}
     >
       {children}
+      {count ? <span className={`ml-1.5 ${active ? 'opacity-70' : 'text-muted'}`}>{count}</span> : null}
     </button>
   );
 }
 
-function FeedCard({ item }: { item: ItemRow }) {
-  const working = item.status === 'queued' || item.status === 'processing';
-  const firstLine = item.summary?.split('\n')[0];
+function SkeletonGrid() {
   return (
-    <Link href={`/items/${item.id}`} className="block rounded-xl border border-line bg-surface p-4">
-      <div className="flex items-center justify-between gap-2 text-xs text-muted">
-        <span>{item.kind ? KIND_LABEL[item.kind] : working ? 'Working on it…' : '📎'}</span>
-        <span>{timeAgo(item.created_at)}</span>
-      </div>
-      <p className="mt-1.5 font-medium leading-snug">{item.title ?? new URL(item.url).hostname}</p>
-      {item.status === 'failed' && <p className="mt-1 text-sm text-danger">Couldn&apos;t read that one — tap to retry</p>}
-      {item.status === 'done' && firstLine && <p className="mt-1 line-clamp-2 text-sm text-muted">{firstLine}</p>}
-    </Link>
+    <ul aria-label="Loading" className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3">
+      {Array.from({ length: 4 }, (_, i) => (
+        <li key={i}>
+          <div className="aspect-[4/5] animate-pulse rounded-2xl bg-line motion-reduce:animate-none" />
+          <div className="mt-2 h-3 w-4/5 animate-pulse rounded bg-line motion-reduce:animate-none" />
+          <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-line motion-reduce:animate-none" />
+        </li>
+      ))}
+    </ul>
   );
 }

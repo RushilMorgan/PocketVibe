@@ -1,4 +1,5 @@
 import { pageUser } from '@/lib/auth';
+import type { FeedFilter } from '@/components/types';
 import { Home } from './home';
 
 const NOTICES: Record<string, string> = {
@@ -6,8 +7,16 @@ const NOTICES: Record<string, string> = {
   cap: "That's today's limit — save it again tomorrow.",
 };
 
+const FILTERS: FeedFilter[] = ['unread', 'lesson', 'recipe'];
+
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await pageUser('/');
-  const { share, topic } = await searchParams;
-  return <Home notice={share ? NOTICES[share] : undefined} initialTopic={topic ?? null} />;
+  const { share, topic, filter } = await searchParams;
+  return (
+    <Home
+      notice={share ? NOTICES[share] : undefined}
+      initialTopic={topic ?? null}
+      initialFilter={FILTERS.includes(filter as FeedFilter) ? (filter as FeedFilter) : null}
+    />
+  );
 }

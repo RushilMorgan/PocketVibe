@@ -1,6 +1,6 @@
 # Saves feed redesign + engagement — spec and plan
 
-Status: **draft for review** (2026-11-11). Nothing built yet.
+Status (2026-11-11): Phases 1–3 built (thumbnails, feed API, feed screen). Phases 4–8 to do.
 
 ## Why
 

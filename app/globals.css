@@ -10,6 +10,11 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-on-accent: var(--on-accent);
+  --color-warm: var(--warm);
+  --color-tile-recipe: var(--tile-recipe);
+  --color-tile-tech: var(--tile-tech);
+  --color-tile-news: var(--tile-news);
+  --color-tile-other: var(--tile-other);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -23,6 +28,12 @@
   --danger: #dc2626;
   --success: #16a34a;
   --on-accent: #ffffff; /* text on accent/success/danger fills */
+  --warm: #ea580c; /* streak flame, week dots */
+  /* Saves feed fallback tiles when an item has no image; white text sits on them in both modes. */
+  --tile-recipe: #c2410c;
+  --tile-tech: #4338ca;
+  --tile-news: #0369a1;
+  --tile-other: #57534e;
   color-scheme: light dark;
 }
 
@@ -37,6 +48,7 @@
     --danger: #f87171;
     --success: #4ade80;
     --on-accent: #0c0a09;
+    --warm: #fb923c;
   }
 }
 

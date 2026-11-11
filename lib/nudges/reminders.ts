@@ -58,7 +58,8 @@ export interface NudgeHistory {
 export type ReminderChoice =
   | { kind: 'streak'; days: number }
   | { kind: 'midweek'; lessonsWaiting: number; saveDays: number }
-  | { kind: 'lesson'; itemId: string; lessonId: string; title: string | null };
+  | { kind: 'lesson'; itemId: string; lessonId: string; title: string | null }
+  | { kind: 'review'; itemId: string; title: string | null; format: 'recall' | 'connect'; relatedTitle: string | null };
 
 /** Three untapped reminders in a row → quiet for two days after the last one. */
 export function backedOff(history: NudgeHistory[], now: Date): boolean {
@@ -86,9 +87,24 @@ export function lessonCandidate(items: FeedItem[], history: NudgeHistory[], now:
 }
 
 /**
+ * A save whose review card is due and hasn't been nudged about since it fell
+ * due. Longest-waiting first.
+ */
+export function reviewCandidate(items: FeedItem[], history: NudgeHistory[], now: Date): FeedItem | null {
+  const nowIso = now.toISOString();
+  return (
+    items
+      .filter((i) => i.reviewDueAt && i.reviewDueAt <= nowIso)
+      .filter((i) => !history.some((h) => h.kind === 'review' && h.item_id === i.id && h.sent_at >= i.reviewDueAt!))
+      .sort((a, b) => a.reviewDueAt!.localeCompare(b.reviewDueAt!))[0] ?? null
+  );
+}
+
+/**
  * The reminder for this slot, or null. Only in one of your chosen slots, not
  * while backed off. In your last slot of the day: a streak about to break
- * wins, then (Wednesdays) the mid-week check-in; otherwise a waiting lesson.
+ * wins, then (Wednesdays) the mid-week check-in; otherwise a waiting lesson,
+ * then a review card that's due.
  */
 export function pickReminder(input: {
   feed: Pick<Feed, 'items' | 'streak' | 'week' | 'counts'>;
@@ -110,6 +126,16 @@ export function pickReminder(input: {
   }
   const item = lessonCandidate(feed.items, history, now);
   if (item?.lessonId) return { kind: 'lesson', itemId: item.id, lessonId: item.lessonId, title: item.title };
+  const due = reviewCandidate(feed.items, history, now);
+  if (due) {
+    return {
+      kind: 'review',
+      itemId: due.id,
+      title: due.title,
+      format: due.reviewFormat === 'connect' && due.related ? 'connect' : 'recall',
+      relatedTitle: due.related?.title ?? null,
+    };
+  }
   return null;
 }
 
@@ -133,6 +159,19 @@ export function reminderMessage(choice: ReminderChoice, nudgeId: string, templat
           { action: 'play', title: '▶ Play', url: trackedUrl(play, nudgeId, 'play') },
           { action: 'read', title: 'Read it first', url: trackedUrl(`/items/${choice.itemId}`, nudgeId, 'read') },
         ],
+      };
+    }
+    case 'review': {
+      const review = `/review/${choice.itemId}`;
+      const title = clip(choice.title ?? 'something you saved', 40);
+      return {
+        title:
+          choice.format === 'connect' && choice.relatedTitle
+            ? `How does “${title}” connect to “${clip(choice.relatedTitle, 30)}”?`
+            : `Still remember “${title}”?`,
+        body: choice.format === 'connect' ? 'Then and now — one card, 20 seconds.' : 'One card, 20 seconds. Flip it and see.',
+        url: trackedUrl(review, nudgeId, 'open'),
+        actions: [{ action: 'play', title: '🧠 Try it', url: trackedUrl(review, nudgeId, 'play') }],
       };
     }
     case 'streak':

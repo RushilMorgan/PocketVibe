@@ -10,6 +10,8 @@ export type ItemSource = 'youtube' | 'article' | 'tiktok' | 'other';
 export type ItemKind = 'recipe' | 'tech' | 'news' | 'other';
 export type ItemStatus = 'queued' | 'processing' | 'done' | 'failed';
 export type OutputType = 'recipe' | 'explainer' | 'diagram' | 'lesson';
+export type ReviewFormat = 'recall' | 'connect';
+export type ReviewRating = 'got' | 'fuzzy' | 'forgot';
 export type NudgeKind = 'ready' | 'lesson' | 'review' | 'midweek' | 'streak';
 export type NudgeAction = 'open' | 'read' | 'play';
 export type EventType = 'saved' | 'opened' | 'played' | 'score' | 'thumbs' | 'digest_open';
@@ -39,7 +41,13 @@ export type UserRow = {
   updated_at: string;
 }
 
-export type RelatedSave = { itemId: string; title: string | null; similarity: number };
+export type RelatedSave = {
+  itemId: string;
+  title: string | null;
+  similarity: number;
+  /** Cached "Then and now" note on how the two connect (lib/reviews); regenerated if the link changes. */
+  note?: { lines: string[] } | null;
+};
 
 export type ItemRow = {
   id: string;
@@ -154,6 +162,15 @@ export type CouncilSessionRow = {
   updated_at: string;
 }
 
+export type ReviewRow = {
+  id: string;
+  user_id: string;
+  item_id: string;
+  format: ReviewFormat;
+  rating: ReviewRating;
+  created_at: string;
+}
+
 export type NudgeRow = {
   id: string;
   user_id: string;
@@ -201,6 +218,7 @@ export interface Database {
       chat_messages: Table<ChatMessageRow, 'user_id' | 'role' | 'content'>;
       council_sessions: Table<CouncilSessionRow, 'user_id' | 'idea'>;
       nudges: Table<NudgeRow, 'user_id' | 'kind'>;
+      reviews: Table<ReviewRow, 'user_id' | 'item_id' | 'format' | 'rating'>;
       council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
     };
     Views: { [_ in never]: never };

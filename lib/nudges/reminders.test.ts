@@ -7,6 +7,7 @@ import {
   normalizeReminderTimes,
   pickReminder,
   REMINDER_SLOTS,
+  reviewCandidate,
   reminderMessage,
   slotAt,
   type NudgeHistory,
@@ -40,6 +41,8 @@ function item(id: string, over: Partial<FeedItem> = {}): FeedItem {
     topTopic: null,
     readMinutes: 1,
     ingredientCount: null,
+    reviewDueAt: null,
+    reviewFormat: null,
     ...over,
   };
 }
@@ -147,6 +150,41 @@ describe('pickReminder', () => {
   it('stays quiet while backed off', () => {
     const h = [sent('lesson', '2026-11-11T05:00:00Z'), sent('lesson', '2026-11-11T06:00:00Z'), sent('lesson', '2026-11-12T06:00:00Z')];
     expect(pickReminder({ ...base, history: h, feed: feed([item('a')]), now: THU_18 })).toBeNull();
+  });
+});
+
+describe('review reminders', () => {
+  const due = (id: string, reviewDueAt: string, over: Partial<FeedItem> = {}) =>
+    item(id, { state: 'read', lessonId: null, reviewDueAt, reviewFormat: 'recall', ...over });
+
+  it('come after waiting lessons, longest-waiting first', () => {
+    const items = [due('late', '2026-11-11T10:00:00Z'), due('early', '2026-11-08T10:00:00Z')];
+    expect(pickReminder({ history: [], times: [1080], feed: feed(items, { lessons: 0 }), now: THU_18 })).toMatchObject({
+      kind: 'review',
+      itemId: 'early',
+      format: 'recall',
+    });
+    expect(lessonCandidate(items, [], THU_18)).toBeNull();
+    expect(reviewCandidate([...items, item('lesson', { openedAt: '2026-11-11T08:00:00Z' })], [], THU_18)?.id).toBe('early');
+  });
+
+  it("aren't sent twice for the same due date", () => {
+    const items = [due('a', '2026-11-08T10:00:00Z')];
+    expect(reviewCandidate(items, [sent('review', '2026-11-09T16:00:00Z', false, 'a')], THU_18)).toBeNull();
+    // An older nudge, from before this due date, doesn't count.
+    expect(reviewCandidate(items, [sent('review', '2026-11-01T16:00:00Z', false, 'a')], THU_18)?.id).toBe('a');
+  });
+
+  it('use Then and now wording when connected', () => {
+    const m = reminderMessage(
+      { kind: 'review', itemId: 'i1', title: 'AI SaaS cloning', format: 'connect', relatedTitle: 'Claude side hustles' },
+      'n1',
+    );
+    expect(m.title).toBe('How does “AI SaaS cloning” connect to “Claude side hustles”?');
+    expect(m.url).toBe('/review/i1?n=n1&a=open');
+    expect(reminderMessage({ kind: 'review', itemId: 'i1', title: 'Naga cave', format: 'recall', relatedTitle: null }, 'n1').title).toBe(
+      'Still remember “Naga cave”?',
+    );
   });
 });
 

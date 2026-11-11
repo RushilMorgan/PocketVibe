@@ -18,6 +18,7 @@ const VARS: Record<string, string[]> = {
   finds: [...CTX, 'topic', 'exclude'],
   'finds-pick': [...CTX, 'topic', 'already'],
   recipe: ['tone'],
+  'review-connect': [...CTX, 'then_age', 'then_title', 'then_text', 'now_age', 'now_title', 'now_text'],
   'council-frame': ['lens'],
   'council-research': ['lens'],
   'council-take': ['lens', 'letter'],

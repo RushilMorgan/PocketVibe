@@ -28,6 +28,8 @@ function item(over: Partial<FeedItem>): FeedItem {
     topTopic: null,
     readMinutes: null,
     ingredientCount: null,
+    reviewDueAt: null,
+    reviewFormat: null,
     ...over,
   };
 }

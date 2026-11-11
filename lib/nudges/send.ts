@@ -45,7 +45,8 @@ export async function sendReminder(userId: string, now: Date): Promise<{ sent: b
     .from('nudges')
     .insert({
       user_id: userId,
-      item_id: choice.kind === 'lesson' ? choice.itemId : null,
+      // Lesson and review reminders are per save; "never twice" checks read this.
+      item_id: 'itemId' in choice ? choice.itemId : null,
       kind: choice.kind,
       slot: slotAt(now).key,
       sent_at: now.toISOString(),

@@ -1,7 +1,7 @@
 # Saves feed redesign + engagement — spec and plan
 
-Status (2026-11-11): Phases 1–6 built (thumbnails, feed API, feed screen, rich ready push + tap
-tracking, "Connects to" with T = 0.80, reminders). Phase 7 waits on a B3 format; Phase 8 to do.
+Status (2026-11-11): Phases 1–7 built (thumbnails, feed API, feed screen, rich ready push + tap
+tracking, "Connects to" with T = 0.80, reminders, recall + Then-and-now reviews). Phase 8 to do.
 Reminders differ slightly from B0/B5 as written: the streak nudge needs a streak of 2+ days, and the
 Wednesday check-in asks for one lesson when more than 3 are waiting.
 
@@ -260,8 +260,10 @@ card (A3, rule 3) offers it too, so it works without a push. The candidate forma
    docs. Which approach from *<title>* fits, and why?", with a short answer reveal. It suits tech
    saves; recipes would get "Cook it this week?" with the ingredient list instead.
 
-Recommendation: **1 as the default, 3 whenever a related save exists**, with 2 as an option on the
-recall card ("Explain it instead"). Waiting on your pick.
+**Picked (2026-11-11): 1 + 3.** Recall card by default; Then and now for connected saves, alternating
+with recall so it stays fresh. The schedule counts from the first time you opened the save; Fuzzy
+repeats the same gap, Forgot restarts at 3 days, and after the 30-day card it's done. Recipes are
+left out. A review card counts towards the streak.
 
 ### B4. Connections between saves
 

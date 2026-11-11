@@ -56,3 +56,20 @@ body {
   background: var(--bg);
   color: var(--ink);
 }
+
+/* Review cards (app/review): the answer side turns in. */
+@keyframes card-flip {
+  from {
+    transform: perspective(900px) rotateY(80deg);
+    opacity: 0.3;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-card-flip {
+    animation: card-flip 0.35s ease-out;
+  }
+}

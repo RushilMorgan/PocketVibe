@@ -4,12 +4,13 @@
  * Feed volume is one person's saves, so the whole list is built in memory and
  * filtered/paged after; revisit if it ever reaches thousands.
  */
-import type { EventType, ItemRow } from '@/lib/supabase/database.types';
+import { reviewPlan, type ReviewLog } from '@/lib/reviews/schedule';
+import type { EventType, ItemRow, ReviewFormat } from '@/lib/supabase/database.types';
 
 export type FeedState = 'working' | 'failed' | 'new' | 'read' | 'lesson_ready' | 'played' | 'mastered';
 export type FeedFilter = 'unread' | 'lesson' | 'recipe';
 export type ThumbnailShape = 'portrait' | 'landscape';
-export type UpNextReason = 'fresh' | 'lesson' | 'unread';
+export type UpNextReason = 'fresh' | 'lesson' | 'review' | 'unread';
 
 /** Best score at or above this counts as mastered. */
 export const MASTERED = 0.8;
@@ -44,6 +45,8 @@ export interface FeedInput {
   recipes: { item_id: string; ingredientCount: number }[];
   itemTopics: { item_id: string; topic_id: string }[];
   topics: { id: string; name: string; weight: number }[];
+  /** Ratings from review cards (lib/reviews). */
+  reviews: (ReviewLog & { item_id: string })[];
 }
 
 export type FeedItem = FeedSourceItem & {
@@ -59,6 +62,9 @@ export type FeedItem = FeedSourceItem & {
   /** Rough reading time of the explainer; null for recipes and unfinished items. */
   readMinutes: number | null;
   ingredientCount: number | null;
+  /** When its next review card is due (lib/reviews/schedule.ts); null = not eligible or done. */
+  reviewDueAt: string | null;
+  reviewFormat: ReviewFormat | null;
 };
 
 export interface Streak {
@@ -153,11 +159,13 @@ export function feedState(s: {
 /** Turns rows into feed items, newest first. */
 export function feedItems(input: FeedInput): FeedItem[] {
   const opened = new Map<string, string>();
+  const firstOpened = new Map<string, string>();
   const lastPlayed = new Map<string, string>();
   const best = new Map<string, number>();
   for (const e of input.events) {
     if (!e.item_id) continue;
     if (e.type === 'opened' && (opened.get(e.item_id) ?? '') < e.created_at) opened.set(e.item_id, e.created_at);
+    if (e.type === 'opened' && (firstOpened.get(e.item_id) ?? '￿') > e.created_at) firstOpened.set(e.item_id, e.created_at);
     if (e.type === 'played' && (lastPlayed.get(e.item_id) ?? '') < e.created_at) lastPlayed.set(e.item_id, e.created_at);
     if (e.type === 'score' && e.value !== null) best.set(e.item_id, Math.max(best.get(e.item_id) ?? 0, e.value));
   }
@@ -177,6 +185,8 @@ export function feedItems(input: FeedInput): FeedItem[] {
     if (t && (!current || t.weight > current.weight)) topTopic.set(link.item_id, t);
   }
   const ingredients = new Map(input.recipes.map((r) => [r.item_id, r.ingredientCount]));
+  const reviewsFor = new Map<string, ReviewLog[]>();
+  for (const r of input.reviews ?? []) reviewsFor.set(r.item_id, [...(reviewsFor.get(r.item_id) ?? []), r]);
 
   return [...input.items]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -187,6 +197,14 @@ export function feedItems(input: FeedInput): FeedItem[] {
       const bestScore = best.get(item.id) ?? null;
       const isOpened = opened.has(item.id);
       const done = item.status === 'done';
+      const review = done
+        ? reviewPlan({
+            firstOpenedAt: firstOpened.get(item.id) ?? null,
+            reviews: reviewsFor.get(item.id) ?? [],
+            hasRelated: Boolean(item.related),
+            isRecipe: item.kind === 'recipe',
+          })
+        : null;
       return {
         ...item,
         state: feedState({ status: item.status, opened: isOpened, played: Boolean(played), bestScore, lessonWaiting: Boolean(lessonId) }),
@@ -198,6 +216,8 @@ export function feedItems(input: FeedInput): FeedItem[] {
         topTopic: topTopic.get(item.id)?.name ?? null,
         readMinutes: done && item.kind !== 'recipe' ? readMinutes(item.summary) : null,
         ingredientCount: ingredients.get(item.id) ?? null,
+        reviewDueAt: review?.dueAt ?? null,
+        reviewFormat: review?.format ?? null,
       };
     });
 }
@@ -207,8 +227,8 @@ export function feedItems(input: FeedInput): FeedItem[] {
 /**
  * The one save to suggest at the top of the feed (A3), in priority order:
  * finished in the last 24h and unopened → opened with a lesson waiting →
- * the oldest unopened. Snoozed and unfinished items are skipped.
- * (Resurfacing due reviews slots in after "lesson" in Phase 7.)
+ * a review card that's due (longest-waiting first) → the oldest unopened.
+ * Snoozed and unfinished items are skipped.
  */
 export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reason: UpNextReason } | null {
   const nowIso = now.toISOString();
@@ -220,6 +240,10 @@ export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reas
   if (fresh) return { item: fresh, reason: 'fresh' };
   const lesson = newestFirst.find((i) => i.opened && i.lessonId && i.state !== 'mastered');
   if (lesson) return { item: lesson, reason: 'lesson' };
+  const review = eligible
+    .filter((i) => i.reviewDueAt && i.reviewDueAt <= nowIso)
+    .sort((a, b) => a.reviewDueAt!.localeCompare(b.reviewDueAt!))[0];
+  if (review) return { item: review, reason: 'review' };
   const unread = newestFirst.findLast((i) => i.state === 'new');
   if (unread) return { item: unread, reason: 'unread' };
   return null;
@@ -228,7 +252,7 @@ export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reas
 // ── streak and week ──────────────────────────────────────────────────────────
 
 /**
- * Consecutive SAST days with a save or a lesson played (A6). One missed day
+ * Consecutive SAST days with a save, a lesson played or a review card (A6). One missed day
  * per Mon–Sun week is covered by a freeze; a second miss in that week ends the
  * streak. Today only counts once it has activity, so an empty morning doesn't
  * break yesterday's streak.
@@ -283,8 +307,12 @@ export function weekProgress(events: FeedInput['events'], now: Date): WeekProgre
   return { saveDays: savedOn.filter(Boolean).length, lessonsPlayed, savedOn };
 }
 
-export function activityDays(events: FeedInput['events']): string[] {
-  return events.filter((e) => e.type === 'saved' || e.type === 'played').map((e) => sastDate(e.created_at));
+/** Days with a save, a lesson played, or a review card done. */
+export function activityDays(events: FeedInput['events'], reviews: FeedInput['reviews'] = []): string[] {
+  return [
+    ...events.filter((e) => e.type === 'saved' || e.type === 'played').map((e) => sastDate(e.created_at)),
+    ...reviews.map((r) => sastDate(r.created_at)),
+  ];
 }
 
 // ── the whole feed ───────────────────────────────────────────────────────────
@@ -313,7 +341,7 @@ export function buildFeed(input: FeedInput, opts: FeedOptions, now: Date): Feed 
       unread: all.filter((i) => matchesFilter(i, 'unread')).length,
       lesson: all.filter((i) => matchesFilter(i, 'lesson')).length,
     },
-    streak: streak(activityDays(input.events), now),
+    streak: streak(activityDays(input.events, input.reviews), now),
     week: weekProgress(input.events, now),
   };
 }

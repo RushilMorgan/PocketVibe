@@ -14,15 +14,16 @@ const PAGE = 1000;
 /** The saves feed for one user: rows from five tables, shaped by lib/items/feed.ts. */
 export async function getFeed(userId: string, opts: FeedOptions, now = new Date()): Promise<Feed> {
   const db = adminClient();
-  const [items, events, lessons, recipes, itemTopics, topics] = await Promise.all([
+  const [items, events, lessons, recipes, itemTopics, topics, reviews] = await Promise.all([
     db.from('items').select(ITEM_COLUMNS).eq('user_id', userId),
     allEvents(userId),
     db.from('item_outputs').select('id, item_id, created_at').eq('user_id', userId).eq('type', 'lesson'),
     db.from('item_outputs').select('item_id, ingredients:content->ingredients').eq('user_id', userId).eq('type', 'recipe'),
     db.from('item_topics').select('item_id, topic_id').eq('user_id', userId),
     db.from('topics').select('id, name, weight').eq('user_id', userId),
+    db.from('reviews').select('item_id, rating, format, created_at').eq('user_id', userId),
   ]);
-  for (const r of [items, lessons, recipes, itemTopics, topics]) if (r.error) throw r.error;
+  for (const r of [items, lessons, recipes, itemTopics, topics, reviews]) if (r.error) throw r.error;
 
   const input: FeedInput = {
     items: items.data ?? [],
@@ -34,6 +35,7 @@ export async function getFeed(userId: string, opts: FeedOptions, now = new Date(
     })),
     itemTopics: itemTopics.data ?? [],
     topics: topics.data ?? [],
+    reviews: reviews.data ?? [],
   };
   return buildFeed(input, opts, now);
 }

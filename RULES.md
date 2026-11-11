@@ -32,7 +32,7 @@ changing code.
 | Path | What |
 |---|---|
 | `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/ask`, `/council`, `/council/[id]`, `/topics`, `/settings`, `/digest/[id]` |
-| `app/play/[lessonId]` | Full-screen lesson player (no tab bar) |
+| `app/play/[lessonId]`, `app/review/[itemId]` | Full-screen lesson player and review card (no tab bar) |
 | `app/share`, `app/auth/callback`, `app/d/[id]` | Share target (POST), magic-link landing, signed digest-link tracker |
 | `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
 | `app/api/**` | Route handlers: parse input → call `/lib` → JSON |
@@ -48,6 +48,7 @@ changing code.
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min 07:00–21:30 SAST) — registered in `functions.ts` |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet); `components/item` is the item page header (full-bleed image) and helpers |
 | `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / Play buttons), reminders (`reminders.ts` picks lesson / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
+| `lib/reviews` | Bringing old saves back: the 3 → 10 → 30-day schedule from `reviews` rows (`schedule.ts`, pure), recall and Then-and-now cards (`service.ts`; the connection note is cached on `items.related.note`) |
 | `lib/items/feed.ts` | Saves feed logic, pure and tested: item states, Up next pick, streak with weekly freeze, week progress ([docs/saves-redesign.md](docs/saves-redesign.md)) |
 | `prompts/*.md` | Every AI prompt, editable without touching code |
 | `public/sw.js` | Service worker: push, static cache, offline lessons (plain JS, no build) |

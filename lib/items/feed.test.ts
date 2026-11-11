@@ -36,7 +36,7 @@ function item(id: string, over: Partial<FeedSourceItem> = {}): FeedSourceItem {
   };
 }
 
-const empty: FeedInput = { items: [], events: [], lessons: [], recipes: [], itemTopics: [], topics: [] };
+const empty: FeedInput = { items: [], events: [], lessons: [], recipes: [], itemTopics: [], topics: [], reviews: [] };
 const ev = (type: FeedInput['events'][number]['type'], created_at: string, item_id: string | null = null, value: number | null = null) => ({
   type,
   created_at,
@@ -124,6 +124,17 @@ describe('feedItems', () => {
     expect(a.lessonId).toBe('again');
   });
 
+  it('schedules reviews from the first open, and not for recipes', () => {
+    const [a, r] = feedItems({
+      ...empty,
+      items: [item('a', { created_at: '2026-11-02T10:00:00Z' }), item('r', { kind: 'recipe' })],
+      events: [ev('opened', '2026-11-04T10:00:00Z', 'a'), ev('opened', '2026-11-03T10:00:00Z', 'a'), ev('opened', '2026-11-03T10:00:00Z', 'r')],
+      reviews: [],
+    });
+    expect(a).toMatchObject({ reviewDueAt: '2026-11-06T10:00:00.000Z', reviewFormat: 'recall' });
+    expect(r).toMatchObject({ reviewDueAt: null, reviewFormat: null });
+  });
+
   it('gives recipes ingredients but no reading time', () => {
     const [r] = feedItems({ ...empty, items: [item('r', { kind: 'recipe' })], recipes: [{ item_id: 'r', ingredientCount: 6 }] });
     expect(r).toMatchObject({ ingredientCount: 6, readMinutes: null });
@@ -160,8 +171,16 @@ describe('pickUpNext', () => {
     expect(pickUpNext(items, NOW)).toMatchObject({ item: { id: 'expired' } });
   });
 
+  it('then a review card that has come due, longest-waiting first', () => {
+    const items = build([item('a'), item('b', { created_at: '2026-10-30T10:00:00Z' })], {
+      events: [ev('opened', '2026-11-05T10:00:00Z', 'a'), ev('opened', '2026-11-02T10:00:00Z', 'b')],
+    });
+    expect(pickUpNext(items, NOW)).toMatchObject({ item: { id: 'b' }, reason: 'review' });
+  });
+
   it('returns null when everything is done with', () => {
-    const items = build([item('a')], { events: [ev('opened', '2026-11-02T10:00:00Z', 'a')] });
+    // Opened yesterday: its first review isn't due for 3 days.
+    const items = build([item('a')], { events: [ev('opened', '2026-11-10T10:00:00Z', 'a')] });
     expect(pickUpNext(items, NOW)).toBeNull();
   });
 });

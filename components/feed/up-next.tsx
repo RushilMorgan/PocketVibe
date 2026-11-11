@@ -6,6 +6,7 @@ import { Thumb } from './thumb';
 const REASON: Record<UpNextReason, string> = {
   fresh: 'Fresh from today',
   lesson: 'Your lesson is waiting',
+  review: 'Still remember this?',
   unread: 'Still unread',
 };
 
@@ -50,7 +51,16 @@ export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpN
         </Link>
       )}
       <div className="flex items-center gap-2 p-3">
-        {item.lessonId ? (
+        {reason === 'review' ? (
+          <>
+            <Link href={`/review/${item.id}`} className="flex-1 rounded-xl bg-accent py-2.5 text-center text-sm font-semibold text-on-accent">
+              {item.reviewFormat === 'connect' ? '🔗 Then and now' : '🧠 Quick recall'} · 20s
+            </Link>
+            <Link href={`/items/${item.id}`} className="flex-1 rounded-xl border border-line py-2.5 text-center text-sm font-medium">
+              {read}
+            </Link>
+          </>
+        ) : item.lessonId ? (
           <>
             <Link
               href={`/play/${item.lessonId}`}

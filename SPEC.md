@@ -225,6 +225,10 @@ All four phases are built and live on heytoolie.com (November 2026). The day-30 
 first real use. Email for the weekly digest is wired up but waits on a Resend key; until then the
 digest is delivered by push.
 
+On 2026-11-11 the saves feed and item page were redesigned and the app gained ways to bring you back
+(thumbnails, Up next, streak, richer pushes, reminders, review cards) — see "Saves redesign" below
+and [docs/saves-redesign.md](docs/saves-redesign.md) for the full spec and plan.
+
 ## Implementation notes — where the build differs from this spec
 
 Deliberate changes, each made for a measured or practical reason. How the code works day to day is in
@@ -235,7 +239,10 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   of `users.push_subscription`), `allowed_emails` (the sign-up allowlist, enforced by an auth hook),
   `digests` (the weekly digest and when it was first opened — the day-30 test counts digests, not
   taps), `public_tool_usage` (daily limit for the recipe tool while it was public; now unused), `chat_messages` (chat
-  history, so answers survive leaving the page).
+  history, so answers survive leaving the page), `nudges` (every push except the digest, with when
+  it was tapped), `reviews` (ratings from review cards).
+- Extra columns: `items.thumbnail_url`, `duration_seconds`, `snoozed_until`, `related`;
+  `users.reminder_times`.
 - `items.status` also has `processing`, and items have an `error` for the "Couldn't read that one"
   card. The `score` event stores the fraction right, so all lesson templates compare.
 
@@ -288,3 +295,25 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   and vote on the chair's report — one revision if anyone objects, dissent kept verbatim. Then
   follow-up questions, each answered by every member and ratified. Web research only; it doesn't
   read your saves. Tables `council_sessions` and `council_turns`.
+
+**Saves redesign (not in the spec; [docs/saves-redesign.md](docs/saves-redesign.md))**
+- The feed is image-led: a 2-column grid of portrait cards (YouTube Shorts use their real 9:16
+  frame, `oar2`), each showing its state (new, lesson ready, score, mastered). Images are the
+  sources' own, linked not copied; TikTok's oEmbed no longer returns one, so TikTok saves get a
+  coloured tile.
+- Above the grid: a streak (days with a save, a lesson or a review; one missed day a week is
+  covered) with this week's progress against the day-30 targets, an **Up next** card (fresh →
+  lesson waiting → review due → oldest unread, with a synced "Not now"), and filter chips.
+- The item page has a full-bleed header, a big Play card, the explainer as a numbered path with
+  coloured callouts, and recipes you can cook from (checklist, tap-through steps, Cook mode).
+- The "ready" push shows the thumbnail and has Read / Play buttons. Every push except the digest is
+  logged in `nudges` and taps are recorded, so we can see which ones work.
+- **Connects to**: a save links to its closest other save when best-chunk similarity is ≥ 0.80
+  (measured: related pairs 0.82–0.87, unrelated up to 0.77) — in the push, feed and item page.
+- **Reminders** at times you pick in Settings (once or twice a day, 07:00–21:30): a waiting lesson,
+  the Wednesday check-in, or a streak (2+ days) about to break; at most one per slot, and they pause
+  after three untapped in a row.
+- **Review cards** bring saves back 3, 10 and 30 days after you first opened them: recall the key
+  ideas and flip, or — for connected saves — "Then and now", a short note on how the two connect.
+  Got it / Fuzzy / Forgot sets the next gap. Re-asking quiz questions was considered and rejected.
+

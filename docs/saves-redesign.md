@@ -1,7 +1,8 @@
 # Saves feed redesign + engagement — spec and plan
 
-Status (2026-11-11): Phases 1–7 built (thumbnails, feed API, feed screen, rich ready push + tap
-tracking, "Connects to" with T = 0.80, reminders, recall + Then-and-now reviews). Phase 8 to do.
+Status (2026-11-11): **all 8 phases built and live.** Commits 9e4c811 (thumbnails), 300e745 (feed API),
+67e1b03 (feed screen), 75c136a (ready push), bb75be3 (item page, not in the original plan), 0a7fcbb
+(connections), f65f67a (reminders), cbdba68 (review cards), then the docs pass.
 Reminders differ slightly from B0/B5 as written: the streak nudge needs a streak of 2+ days, and the
 Wednesday check-in asks for one lesson when more than 3 are waiting.
 

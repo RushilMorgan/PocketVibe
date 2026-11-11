@@ -10,18 +10,22 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
 
 ## How it works
 
-1. **Share** a link to HeyToolie (Android share sheet → `POST /share`), or paste it on the home screen.
+1. **Share** a link to HeyToolie (Android share sheet → `POST /share`), or paste it with the **+** button.
 2. A background job (**Inngest**) fetches it — Gemini watches YouTube videos; other pages go through
    Jina Reader — then **classifies** it (recipe / tech / news / other).
 3. **Recipes** become a recipe card. Everything else gets an **explainer**; tech items that explain a
    system also get a **diagram** (Mermaid → PNG).
-4. The text is **chunked and embedded** (pgvector) for "Ask" and "Similar", and the item's tags feed
-   your **topic profile**.
-5. You get a **push notification**, and a **lesson** (quiz, simulator, put-in-order or spot-the-bug)
-   is pre-written so Play opens instantly.
-6. **Council** tab: describe an idea and five models from different labs (through OpenRouter)
+4. The text is **chunked and embedded** (pgvector) for "Ask" and "Similar", the item's tags feed
+   your **topic profile**, and it's linked to the closest other save it **connects to**.
+5. You get a **push notification** with its thumbnail and Read / Play buttons, and a **lesson**
+   (quiz, simulator, put-in-order or spot-the-bug) is pre-written so Play opens instantly.
+6. The **saves feed** is an image grid with a streak, an **Up next** card and filters. **Reminders**
+   (at the times you pick in Settings) nudge you about a waiting lesson, a Wednesday check-in or a
+   streak about to break, and **review cards** bring saves back after 3, 10 and 30 days (recall the
+   key ideas, or "Then and now" for connected saves).
+7. **Council** tab: describe an idea and five models from different labs (through OpenRouter)
    research it, argue it out and vote on a verdict with next steps; then ask follow-ups.
-7. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
+8. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
    for each of your top 3 topics, and one lesson from something you never opened.
 
 ## Stack
@@ -92,5 +96,8 @@ Database changes go in `supabase/migrations/` (forward-only — see [RULES.md](R
 - **No push notifications** — check the device subscribed (`push_devices` table) and the Vercel logs
   for `notify:`. A 403 "VAPID credentials … do not correspond" means the browser subscribed with an
   old key; reopening the app re-subscribes it.
+- **No reminders** — check `users.reminder_times` isn't empty, the `nudges` table for the slot
+  (`slot` like `2026-11-11T18:00`; three untapped in a row pause them for two days), and that the
+  `reminders` function is synced in Inngest (`PUT /api/inngest`).
 - **Shares stuck on "working on it…"** — Inngest isn't reachable: locally run `npm run dev:inngest`
   with `INNGEST_DEV=1`; in production check the integration and `PUT /api/inngest`.

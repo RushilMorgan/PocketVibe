@@ -8,6 +8,10 @@ export interface PushMessage {
   body: string;
   /** Same-site path the notification opens, e.g. /items/<id>. */
   url: string;
+  /** Large picture (Android shows it under the text). */
+  image?: string;
+  /** Buttons under the notification; each opens its own same-site path. */
+  actions?: { action: string; title: string; url: string }[];
 }
 
 /**

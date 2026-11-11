@@ -4,7 +4,7 @@
  * Other navigations and API calls always go to the network, and the /share
  * POST from the share sheet is never intercepted. */
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const STATIC_CACHE = `static-${VERSION}`;
 /** Lesson pages + their JSON, so a lesson opened once can be played offline. */
 const LESSON_CACHE = `lessons-${VERSION}`;
@@ -65,7 +65,8 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Payload: { title, body, url } from lib/notify.ts.
+// Payload: { title, body, url, image?, actions?: [{ action, title, url }] } from lib/notify.ts.
+// Each button's url is kept in data so notificationclick can open the right page.
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -73,6 +74,10 @@ self.addEventListener('push', (event) => {
   } catch {
     data = { title: 'HeyToolie', body: event.data ? event.data.text() : '' };
   }
+  const url = data.url || '/';
+  const actions = Array.isArray(data.actions) ? data.actions.slice(0, 2) : [];
+  const actionUrls = {};
+  for (const a of actions) actionUrls[a.action] = a.url;
   event.waitUntil(
     self.registration.showNotification(data.title || 'HeyToolie', {
       body: data.body || '',
@@ -81,15 +86,22 @@ self.addEventListener('push', (event) => {
       // header), so it must be a white silhouette — a colour image becomes a blob.
       icon: new URL('/icon-192.png', self.location.origin).href,
       badge: new URL('/badge-96.png', self.location.origin).href,
-      tag: data.url,
-      data: { url: data.url || '/' },
+      // Large picture under the text (Android/Chrome); ignored where unsupported.
+      image: data.image || undefined,
+      actions: actions.map((a) => ({ action: a.action, title: a.title })),
+      // One notification per page: the query carries tap-tracking ids, so it's dropped here.
+      tag: url.split('?')[0],
+      data: { url, actionUrls },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  const data = event.notification.data || {};
+  const path = (event.action && data.actionUrls?.[event.action]) || data.url || '/';
+  // Only ever open our own pages.
+  const target = new URL(path.startsWith('/') ? path : '/', self.location.origin).href;
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

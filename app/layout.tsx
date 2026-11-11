@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
+import { NudgeTap } from '@/components/nudge-tap';
 import { ServiceWorker } from '@/components/service-worker';
 import './globals.css';
 
@@ -25,6 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh font-sans antialiased">
         <main className="mx-auto max-w-xl px-4 py-6">{children}</main>
         <ServiceWorker />
+        {/* useSearchParams needs a Suspense boundary so pages can still render statically. */}
+        <Suspense>
+          <NudgeTap />
+        </Suspense>
       </body>
     </html>
   );

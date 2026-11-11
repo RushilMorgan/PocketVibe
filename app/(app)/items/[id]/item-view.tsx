@@ -114,7 +114,13 @@ export function ItemView({ id }: { id: string }) {
 
       {item?.status === 'done' && (
         <>
-          <Actions item={item} thumbs={thumbs} setThumbs={setThumbs} onOutput={putOutput} playLessonId={playLessonId} />
+          <Actions
+            item={item}
+            thumbs={thumbs}
+            setThumbs={setThumbs}
+            onOutput={putOutput}
+            playLessonId={playLessonId}
+          />
           <section className="mt-8">
             <h2 className="mb-3 font-semibold">Ask about this</h2>
             <Chat itemId={item.id} placeholder="e.g. what's the catch?" />
@@ -218,6 +224,23 @@ function Actions({
       setPlaying(false);
     }
   }
+
+  // ?play=1 comes from the notification's "Play lesson" button: start the lesson
+  // without a tap. Read from the live URL (not a server prop, which Next caches)
+  // and dropped first, so Back from the lesson lands here instead of looping.
+  const autoPlayed = useRef(false);
+  useEffect(() => {
+    if (autoPlayed.current || item.kind === 'recipe') return;
+    if (new URLSearchParams(window.location.search).get('play') !== '1') return;
+    autoPlayed.current = true;
+    const rest = new URLSearchParams(window.location.search);
+    rest.delete('play');
+    const query = rest.toString();
+    window.history.replaceState(window.history.state, '', `/items/${item.id}${query ? `?${query}` : ''}`);
+    play();
+    // Runs once on mount; play() only reads props from this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function toggleSimilar() {
     setShowSimilar((s) => !s);

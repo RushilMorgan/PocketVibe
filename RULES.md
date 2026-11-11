@@ -47,6 +47,7 @@ changing code.
 | `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup` (registered in `functions.ts`) |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet) |
+| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / Play buttons) and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
 | `lib/items/feed.ts` | Saves feed logic, pure and tested: item states, Up next pick, streak with weekly freeze, week progress ([docs/saves-redesign.md](docs/saves-redesign.md)) |
 | `prompts/*.md` | Every AI prompt, editable without touching code |
 | `public/sw.js` | Service worker: push, static cache, offline lessons (plain JS, no build) |

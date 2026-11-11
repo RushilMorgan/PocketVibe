@@ -10,6 +10,8 @@ export type ItemSource = 'youtube' | 'article' | 'tiktok' | 'other';
 export type ItemKind = 'recipe' | 'tech' | 'news' | 'other';
 export type ItemStatus = 'queued' | 'processing' | 'done' | 'failed';
 export type OutputType = 'recipe' | 'explainer' | 'diagram' | 'lesson';
+export type NudgeKind = 'ready' | 'lesson' | 'review' | 'midweek' | 'streak';
+export type NudgeAction = 'open' | 'read' | 'play';
 export type EventType = 'saved' | 'opened' | 'played' | 'score' | 'thumbs' | 'digest_open';
 export type Level = 'beginner' | 'some-code' | 'dev';
 
@@ -146,6 +148,18 @@ export type CouncilSessionRow = {
   updated_at: string;
 }
 
+export type NudgeRow = {
+  id: string;
+  user_id: string;
+  item_id: string | null;
+  kind: NudgeKind;
+  /** '2026-11-11T18:00' (SAST) for reminders, unique per user; null for 'ready'. */
+  slot: string | null;
+  sent_at: string;
+  tapped_at: string | null;
+  action: NudgeAction | null;
+}
+
 export type CouncilTurnRow = {
   id: string;
   session_id: string;
@@ -180,6 +194,7 @@ export interface Database {
       digests: Table<DigestRow, 'user_id' | 'week_start' | 'content'>;
       chat_messages: Table<ChatMessageRow, 'user_id' | 'role' | 'content'>;
       council_sessions: Table<CouncilSessionRow, 'user_id' | 'idea'>;
+      nudges: Table<NudgeRow, 'user_id' | 'kind'>;
       council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
     };
     Views: { [_ in never]: never };

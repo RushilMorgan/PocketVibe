@@ -10,6 +10,8 @@ import { indexItem } from '@/lib/index/index-item';
 import { fetchContent, findThumbnail, UnreadableError } from '@/lib/items/fetch';
 import { markFailed, saveOutput } from '@/lib/items/service';
 import { notifyUser } from '@/lib/notify';
+import { readyMessage } from '@/lib/nudges/ready';
+import { readyNudgeId } from '@/lib/nudges/service';
 import { getPromptContext, recordItemTopics } from '@/lib/profile';
 import type { ItemRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
@@ -122,13 +124,45 @@ export const processItem = inngest.createFunction(
     await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
     await step.run('finish', () => update({ status: 'done' }));
 
-    await step.run('notify', () =>
-      notifyUser(userId, {
-        title: meta.kind === 'recipe' ? 'Your recipe is ready 🍳' : 'Your explainer is ready',
-        body: meta.title,
-        url: `/items/${itemId}`,
-      }),
-    );
+    // Rich push with the thumbnail and Read / Play buttons, logged as a 'ready' nudge for tap stats.
+    // Best-effort: the item is already done, so a push problem must never fail it.
+    await step.run('notify', async () => {
+      try {
+        return await sendReady();
+      } catch (err) {
+        console.error('ready push failed', err);
+        return 0;
+      }
+    });
+
+    async function sendReady(): Promise<number> {
+      const [{ data: row, error }, { data: recipe }] = await Promise.all([
+        db.from('items').select('summary, thumbnail_url').eq('id', itemId).eq('user_id', userId).single(),
+        db
+          .from('item_outputs')
+          .select('ingredients:content->ingredients')
+          .eq('item_id', itemId)
+          .eq('user_id', userId)
+          .eq('type', 'recipe')
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (error) throw error;
+      const ingredients = (recipe as { ingredients?: unknown } | null)?.ingredients;
+      const nudgeId = await readyNudgeId(userId, itemId);
+      return notifyUser(
+        userId,
+        readyMessage({
+          itemId,
+          nudgeId,
+          title: meta.title,
+          kind: meta.kind,
+          firstLine: row.summary?.split('\n')[0] ?? null,
+          ingredientCount: Array.isArray(ingredients) ? ingredients.length : null,
+          thumbnailUrl: row.thumbnail_url,
+        }),
+      );
+    }
 
     // Pre-write a lesson so Play opens instantly. After notify, so it never
     // delays the explainer; best-effort, Play can still generate on demand.

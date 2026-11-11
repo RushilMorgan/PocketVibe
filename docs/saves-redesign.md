@@ -1,6 +1,7 @@
 # Saves feed redesign + engagement — spec and plan
 
-Status (2026-11-11): Phases 1–3 built (thumbnails, feed API, feed screen). Phases 4–8 to do.
+Status (2026-11-11): Phases 1–4 built (thumbnails, feed API, feed screen, rich ready push + tap
+tracking). Phases 5–8 to do.
 
 ## Why
 

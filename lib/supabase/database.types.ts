@@ -46,6 +46,10 @@ export type ItemRow = {
   error: string | null;
   raw_text: string | null;
   summary: string | null;
+  /** The source's own preview image, linked not copied; null = none found. */
+  thumbnail_url: string | null;
+  /** YouTube video length; null for articles or when it couldn't be read. */
+  duration_seconds: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -6,6 +6,7 @@ import { inngest, itemQueued } from '@/lib/jobs/client';
 import { adminClient } from '@/lib/supabase/server';
 import type { ItemOutputRow, ItemRow, OutputType } from '@/lib/supabase/database.types';
 import { detectSource, normalizeUrl } from './source';
+import { youtubeThumbnail } from './thumbnail';
 
 export type ItemWithOutputs = ItemRow & {
   outputs: ItemOutputRow[];
@@ -49,9 +50,12 @@ export async function saveItem(userId: string, rawUrl: string): Promise<ItemRow>
     throw new HttpError(429, "That's today's limit — save it again tomorrow.");
   }
 
+  const source = detectSource(url);
+  // YouTube's image needs no request, so the card has it before the job starts.
+  const thumbnail_url = source === 'youtube' ? youtubeThumbnail(url) : null;
   const { data: item, error } = await db
     .from('items')
-    .insert({ user_id: userId, url, source: detectSource(url) })
+    .insert({ user_id: userId, url, source, thumbnail_url })
     .select('*')
     .single();
   if (error) throw error;

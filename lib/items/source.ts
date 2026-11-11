@@ -37,11 +37,17 @@ export function normalizeUrl(raw: string): string | null {
  * the form Gemini accepts as video input. Null if no video id is present.
  */
 export function youtubeWatchUrl(url: string): string | null {
+  const id = youtubeVideoId(url);
+  return id ? `https://www.youtube.com/watch?v=${id}` : null;
+}
+
+/** The video id from any YouTube link form, or null. */
+export function youtubeVideoId(url: string): string | null {
   const u = new URL(url);
   const id = u.hostname.endsWith('youtu.be')
     ? u.pathname.slice(1)
     : (u.searchParams.get('v') ?? u.pathname.match(/^\/(?:shorts|live|embed)\/([^/]+)/)?.[1]);
-  return id && /^[\w-]{6,}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : null;
+  return id && /^[\w-]{6,}$/.test(id) ? id : null;
 }
 
 /** Reads `"lengthSeconds":"123"` out of a YouTube watch page. */

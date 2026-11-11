@@ -7,7 +7,7 @@ import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
 import { recipeText } from '@/lib/handlers/schemas';
 import { indexItem } from '@/lib/index/index-item';
-import { fetchContent, UnreadableError } from '@/lib/items/fetch';
+import { fetchContent, findThumbnail, UnreadableError } from '@/lib/items/fetch';
 import { markFailed, saveOutput } from '@/lib/items/service';
 import { notifyUser } from '@/lib/notify';
 import { getPromptContext, recordItemTopics } from '@/lib/profile';
@@ -48,7 +48,7 @@ export const processItem = inngest.createFunction(
         .update({ status: 'processing', error: null })
         .eq('id', itemId)
         .eq('user_id', userId)
-        .select('id, url, source, raw_text')
+        .select('id, url, source, raw_text, thumbnail_url')
         .single();
       if (error) throw error;
       return data;
@@ -57,14 +57,28 @@ export const processItem = inngest.createFunction(
     const rawText = await step.run('fetch', async () => {
       if (item.raw_text) return item.raw_text; // Retry after a later step failed.
       try {
-        const text = await fetchContent(item.url, item.source);
-        await update({ raw_text: text });
+        const { text, durationSeconds } = await fetchContent(item.url, item.source);
+        await update({ raw_text: text, duration_seconds: durationSeconds });
         return text;
       } catch (err) {
         if (err instanceof UnreadableError) throw new NonRetriableError(err.message);
         throw err;
       }
     });
+
+    // Best-effort: a save without a preview image falls back to a kind tile.
+    if (!item.thumbnail_url) {
+      await step.run('thumbnail', async () => {
+        try {
+          const thumbnail_url = await findThumbnail(item.url, item.source);
+          if (thumbnail_url) await update({ thumbnail_url });
+          return Boolean(thumbnail_url);
+        } catch (err) {
+          console.error('thumbnail failed, item keeps the kind tile', err);
+          return false;
+        }
+      });
+    }
 
     const meta = await step.run('classify', async () => {
       const result = await classify(rawText, await getPromptContext(userId));

@@ -46,7 +46,7 @@ export function metaLine(item: FeedItem, now = Date.now()): string {
 }
 
 /** "AI SaaS" for the fallback tile; falls back to the site name. */
-export function tileLabel(item: Pick<FeedItem, 'topTopic' | 'url'>): string {
+export function tileLabel(item: { topTopic?: string | null; url: string }): string {
   if (item.topTopic) return item.topTopic;
   try {
     return new URL(item.url).hostname.replace(/^www\./, '');

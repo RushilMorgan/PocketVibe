@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/components/api';
 import { Chat } from '@/components/chat';
-import { ExplainerCard } from '@/components/explainer-card';
-import { RecipeCard } from '@/components/recipe-card';
 import { DiagramCard } from '@/components/diagram-card';
-import { KIND_LABEL, type Item, type SimilarItem } from '@/components/types';
+import { ExplainerCard, SectionLabel } from '@/components/explainer-card';
+import { Thumb } from '@/components/feed/thumb';
+import { ItemHero } from '@/components/item/item-hero';
+import { RecipeCard } from '@/components/recipe-card';
+import type { Item, SimilarItem } from '@/components/types';
 import type { Diagram, ExplainMode, Explainer, Recipe } from '@/lib/handlers/schemas';
 import { TEMPLATE_LABEL, TEMPLATES, type Template } from '@/lib/lessons/schema';
 
@@ -18,9 +20,9 @@ type Output = Item['outputs'][number];
 type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, fileUrl?: string | null) => void;
 
 /**
- * One saved item: "Got it, working on it…" while queued, Retry on failure,
- * then the output with Play, Explain simpler · Go deeper · Diagram · Similar ·
- * 👍/👎 and a chat box about this item.
+ * One saved item: a full-bleed header with its picture, then — once read —
+ * the lesson card, the explainer or recipe, tools, similar saves and a chat.
+ * While it's being read it shows progress; on failure, Retry.
  */
 export function ItemView({ id }: { id: string }) {
   const [item, setItem] = useState<Item | null>(null);
@@ -78,51 +80,62 @@ export function ItemView({ id }: { id: string }) {
 
   if (error) {
     return (
-      <div>
-        <BackLink />
+      <div className="pt-2">
+        <Link href="/" className="text-sm text-muted">
+          ← All saves
+        </Link>
         <p className="mt-6 text-danger">{error}</p>
       </div>
     );
   }
+  if (!item) return <LoadingSkeleton />;
+
+  const recipe = item.outputs.find((o) => o.type === 'recipe');
+  const explainer = item.outputs.find((o) => o.type === 'explainer');
+  const diagram = item.outputs.find((o) => o.type === 'diagram');
 
   return (
-    <div>
-      <BackLink />
-      <div className="mt-4 rounded-2xl border border-line bg-surface p-5">
-        {pending && (
-          <>
-            <p className="text-lg font-medium">Got it, working on it…</p>
-            <p className="mt-1 text-sm text-muted">Usually under a minute. You&apos;ll get a notification if they&apos;re on.</p>
-          </>
-        )}
-        {item?.status === 'failed' && (
-          <>
-            <p className="text-lg font-medium">Couldn&apos;t read that one</p>
-            {item.error && <p className="mt-1 text-sm text-muted">{item.error}</p>}
-            <button onClick={retry} className="mt-4 rounded-xl bg-accent px-4 py-2 font-medium text-on-accent">
-              Retry
-            </button>
-          </>
-        )}
-        {item?.status === 'done' && <Done item={item} />}
-        {item && (
-          <a href={item.url} target="_blank" rel="noreferrer" className="mt-5 block truncate text-sm text-accent">
-            {item.url}
-          </a>
-        )}
-      </div>
+    <div className="pb-6">
+      <ItemHero item={item} title={item.title} />
 
-      {item?.status === 'done' && (
+      {pending && <Working item={item} />}
+
+      {item.status === 'failed' && (
+        <div className="mt-6 rounded-3xl border border-line bg-surface p-6 text-center">
+          <p aria-hidden className="text-4xl">
+            😕
+          </p>
+          <p className="mt-2 text-lg font-bold">Couldn&apos;t read that one</p>
+          {item.error && <p className="mt-1 text-sm text-muted">{item.error}</p>}
+          <button onClick={retry} className="mt-4 rounded-xl bg-accent px-5 py-2.5 font-semibold text-on-accent">
+            Try again
+          </button>
+        </div>
+      )}
+
+      {item.status === 'done' && (
         <>
-          <Actions
-            item={item}
-            thumbs={thumbs}
-            setThumbs={setThumbs}
-            onOutput={putOutput}
-            playLessonId={playLessonId}
-          />
-          <section className="mt-8">
-            <h2 className="mb-3 font-semibold">Ask about this</h2>
+          {explainer && <LessonCard item={item} playLessonId={playLessonId} />}
+
+          <div className="mt-7">
+            {recipe && <RecipeCard recipe={recipe.content as unknown as Recipe} showTitle={false} />}
+            {explainer && <ExplainerCard explainer={explainer.content as unknown as Explainer} />}
+            {diagram?.file_url && (
+              <section className="mt-7">
+                <SectionLabel>The picture</SectionLabel>
+                <DiagramCard src={diagram.file_url} caption={(diagram.content as unknown as Diagram).caption} />
+              </section>
+            )}
+          </div>
+
+          {explainer && <Tools item={item} onOutput={putOutput} hasDiagram={Boolean(diagram)} />}
+          <Feedback itemId={item.id} thumbs={thumbs} setThumbs={setThumbs} />
+          <Similar itemId={item.id} />
+
+          <section className="mt-8 rounded-3xl border border-line bg-surface p-4">
+            <h2 className="mb-3 flex items-center gap-2 font-bold">
+              <span aria-hidden>💬</span> Ask about this
+            </h2>
             <Chat itemId={item.id} placeholder="e.g. what's the catch?" />
           </section>
         </>
@@ -131,82 +144,39 @@ export function ItemView({ id }: { id: string }) {
   );
 }
 
-function BackLink() {
+/** Progress while the job runs: it has the text once `raw_text` is in. */
+function Working({ item }: { item: Item }) {
+  const video = item.source === 'youtube' || item.source === 'tiktok';
+  const stage = item.raw_text ? 1 : 0;
+  const steps = [video ? 'Watching the video' : 'Reading the page', item.kind === 'recipe' ? 'Writing your recipe card' : 'Writing your explainer', 'Making your 2-min lesson'];
   return (
-    <Link href="/" className="text-sm text-muted">
-      ← All saves
-    </Link>
+    <div className="mt-6 rounded-3xl border border-line bg-surface p-5">
+      <p className="text-lg font-bold">Working on it…</p>
+      <p className="mt-0.5 text-sm text-muted">Usually under a minute. You&apos;ll get a notification if they&apos;re on.</p>
+      <ol className="mt-4 flex flex-col gap-3">
+        {steps.map((label, i) => (
+          <li key={label} className={`flex items-center gap-3 text-sm ${i > stage ? 'text-muted' : ''}`}>
+            <span
+              aria-hidden
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                i < stage ? 'bg-success text-on-accent' : i === stage ? 'bg-accent text-on-accent' : 'bg-line'
+              }`}
+            >
+              {i < stage ? '✓' : i === stage ? <span className="h-2 w-2 animate-pulse rounded-full bg-on-accent motion-reduce:animate-none" /> : i + 1}
+            </span>
+            <span className={i === stage ? 'font-semibold' : ''}>{label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
-function Done({ item }: { item: Item }) {
-  const recipe = item.outputs.find((o) => o.type === 'recipe');
-  const explainer = item.outputs.find((o) => o.type === 'explainer');
-  const diagram = item.outputs.find((o) => o.type === 'diagram');
-  if (recipe) return <RecipeCard recipe={recipe.content as unknown as Recipe} />;
-  return (
-    <>
-      {item.kind && <p className="text-xs text-muted">{KIND_LABEL[item.kind]}</p>}
-      <h1 className="mt-1 mb-4 text-xl font-semibold leading-snug">{item.title}</h1>
-      {explainer && <ExplainerCard explainer={explainer.content as unknown as Explainer} />}
-      {diagram?.file_url && (
-        <DiagramCard src={diagram.file_url} caption={(diagram.content as unknown as Diagram).caption} />
-      )}
-    </>
-  );
-}
-
-function Actions({
-  item,
-  thumbs,
-  setThumbs,
-  onOutput,
-  playLessonId,
-}: {
-  item: Item;
-  thumbs: number;
-  setThumbs: (v: number) => void;
-  onOutput: OnOutput;
-  /** A ready, unplayed lesson: Play goes straight to it. */
-  playLessonId: string | null;
-}) {
-  const [explaining, setExplaining] = useState<ExplainMode | null>(null);
-  const [drawing, setDrawing] = useState(false);
-  const [playing, setPlaying] = useState(false);
+/** The big call to action: play the 2-minute lesson (or pick a format). */
+function LessonCard({ item, playLessonId }: { item: Item; playLessonId: string | null }) {
   const router = useRouter();
-  const [similar, setSimilar] = useState<SimilarItem[] | null>(null);
-  const [showSimilar, setShowSimilar] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isExplainer = item.outputs.some((o) => o.type === 'explainer');
-  const hasDiagram = item.outputs.some((o) => o.type === 'diagram');
-
-  async function reExplain(mode: ExplainMode) {
-    setExplaining(mode);
-    setError(null);
-    try {
-      const { explainer } = await api<{ explainer: Explainer }>(`/api/items/${item.id}/explain`, { body: { mode } });
-      onOutput('explainer', explainer);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setExplaining(null);
-    }
-  }
-
-  async function drawDiagram() {
-    setDrawing(true);
-    setError(null);
-    try {
-      const { diagram } = await api<{ diagram: { content: Diagram; fileUrl: string } }>(`/api/items/${item.id}/diagram`, {
-        method: 'POST',
-      });
-      onOutput('diagram', diagram.content, diagram.fileUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setDrawing(false);
-    }
-  }
 
   /** Opens the ready lesson (usually pre-written by the pipeline), else writes one. */
   async function play(template?: Template) {
@@ -230,7 +200,7 @@ function Actions({
   // and dropped first, so Back from the lesson lands here instead of looping.
   const autoPlayed = useRef(false);
   useEffect(() => {
-    if (autoPlayed.current || item.kind === 'recipe') return;
+    if (autoPlayed.current) return;
     if (new URLSearchParams(window.location.search).get('play') !== '1') return;
     autoPlayed.current = true;
     const rest = new URLSearchParams(window.location.search);
@@ -242,103 +212,175 @@ function Actions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function toggleSimilar() {
-    setShowSimilar((s) => !s);
-    if (similar) return;
+  return (
+    <section className="mt-5">
+      <button
+        onClick={() => play()}
+        disabled={playing}
+        className="flex w-full items-center gap-4 rounded-3xl bg-accent p-4 text-left text-on-accent shadow-lg shadow-accent/25 active:scale-[0.99] disabled:opacity-80"
+      >
+        <span aria-hidden className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-on-accent/15 text-2xl">
+          {playing ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-on-accent border-t-transparent" /> : '▶'}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-lg font-extrabold leading-tight">{playing ? 'Getting your lesson ready…' : 'Play the 2-minute lesson'}</span>
+          <span className="mt-0.5 block text-sm opacity-85">{playLessonId ? 'Ready to go · see what stuck' : 'Test what stuck, in 2 minutes'}</span>
+        </span>
+      </button>
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted">or play as</span>
+        {TEMPLATES.filter((t) => t !== 'spot_bug' || item.kind === 'tech').map((t) => (
+          <button
+            key={t}
+            onClick={() => play(t)}
+            disabled={playing}
+            className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium disabled:opacity-50"
+          >
+            {TEMPLATE_LABEL[t]}
+          </button>
+        ))}
+      </div>
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </section>
+  );
+}
+
+/** Re-explain simpler / deeper, or draw a diagram. */
+function Tools({ item, onOutput, hasDiagram }: { item: Item; onOutput: OnOutput; hasDiagram: boolean }) {
+  const [busy, setBusy] = useState<ExplainMode | 'diagram' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reExplain(mode: ExplainMode) {
+    setBusy(mode);
+    setError(null);
     try {
-      setSimilar((await api<{ items: SimilarItem[] }>(`/api/items/${item.id}/similar`)).items);
-    } catch {
-      setSimilar([]);
+      const { explainer } = await api<{ explainer: Explainer }>(`/api/items/${item.id}/explain`, { body: { mode } });
+      onOutput('explainer', explainer);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setBusy(null);
     }
   }
 
+  async function drawDiagram() {
+    setBusy('diagram');
+    setError(null);
+    try {
+      const { diagram } = await api<{ diagram: { content: Diagram; fileUrl: string } }>(`/api/items/${item.id}/diagram`, {
+        method: 'POST',
+      });
+      onOutput('diagram', diagram.content, diagram.fileUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const tiles: { key: ExplainMode | 'diagram'; icon: string; label: string; working: string; run: () => void }[] = [
+    { key: 'simpler', icon: '🐣', label: 'Simpler', working: 'Simplifying…', run: () => reExplain('simpler') },
+    { key: 'deeper', icon: '🔬', label: 'Go deeper', working: 'Digging in…', run: () => reExplain('deeper') },
+  ];
+  if (!hasDiagram) tiles.push({ key: 'diagram', icon: '🗺️', label: 'Diagram', working: 'Drawing…', run: drawDiagram });
+
+  return (
+    <section className="mt-8">
+      <SectionLabel>Explain it again</SectionLabel>
+      <div className={`mt-3 grid gap-2 ${tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        {tiles.map((t) => (
+          <button
+            key={t.key}
+            onClick={t.run}
+            disabled={busy !== null}
+            className="flex flex-col items-center gap-1 rounded-2xl border border-line bg-surface px-2 py-3.5 disabled:opacity-50"
+          >
+            <span aria-hidden className={`text-2xl ${busy === t.key ? 'animate-bounce motion-reduce:animate-none' : ''}`}>
+              {t.icon}
+            </span>
+            <span className="text-sm font-semibold">{busy === t.key ? t.working : t.label}</span>
+          </button>
+        ))}
+      </div>
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </section>
+  );
+}
+
+function Feedback({ itemId, thumbs, setThumbs }: { itemId: string; thumbs: number; setThumbs: (v: number) => void }) {
   async function vote(value: 1 | -1) {
     const next = thumbs === value ? 0 : value;
     setThumbs(next);
     try {
-      await api(`/api/items/${item.id}/thumbs`, { body: { value: next } });
+      await api(`/api/items/${itemId}/thumbs`, { body: { value: next } });
     } catch {
       setThumbs(thumbs);
     }
   }
-
-  const button = 'rounded-full border border-line bg-surface px-3.5 py-2 text-sm disabled:opacity-50';
+  const pill = 'flex h-10 w-12 items-center justify-center rounded-full border text-lg transition-colors';
   return (
-    <div className="mt-4">
-      {isExplainer && (
-        <div className="mb-3">
-          <button
-            onClick={() => play()}
-            disabled={playing}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-3.5 font-semibold text-on-accent disabled:opacity-70"
-          >
-            <span aria-hidden>▶</span>
-            {playing ? 'Getting your lesson ready…' : 'Play · 2-minute lesson'}
-          </button>
-          <p className="mt-1.5 text-center text-xs text-muted">
-            or play as{' '}
-            {TEMPLATES.filter((t) => t !== 'spot_bug' || item.kind === 'tech').map((t, i) => (
-              <span key={t}>
-                {i > 0 && ' · '}
-                <button onClick={() => play(t)} disabled={playing} className="text-accent disabled:opacity-50">
-                  {TEMPLATE_LABEL[t].toLowerCase()}
-                </button>
-              </span>
-            ))}
-          </p>
-        </div>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {isExplainer && (
-          <>
-            <button className={button} disabled={!!explaining} onClick={() => reExplain('simpler')}>
-              {explaining === 'simpler' ? 'Simplifying…' : 'Explain simpler'}
-            </button>
-            <button className={button} disabled={!!explaining} onClick={() => reExplain('deeper')}>
-              {explaining === 'deeper' ? 'Digging in…' : 'Go deeper'}
-            </button>
-            {!hasDiagram && (
-              <button className={button} disabled={drawing} onClick={drawDiagram}>
-                {drawing ? 'Drawing…' : 'Diagram'}
-              </button>
-            )}
-          </>
-        )}
-        <button className={button} aria-expanded={showSimilar} onClick={toggleSimilar}>
-          Similar
-        </button>
+    <div className="mt-6 flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-2.5">
+      <span className="text-sm font-medium">{thumbs ? 'Thanks — noted for next time' : 'Was this useful?'}</span>
+      <div className="flex gap-2">
         <button
-          className={`${button} ${thumbs === 1 ? 'border-accent bg-accent text-on-accent' : ''}`}
           aria-pressed={thumbs === 1}
           aria-label="Thumbs up"
           onClick={() => vote(1)}
+          className={`${pill} ${thumbs === 1 ? 'border-success bg-success/15' : 'border-line'}`}
         >
           👍
         </button>
         <button
-          className={`${button} ${thumbs === -1 ? 'border-danger bg-danger text-on-accent' : ''}`}
           aria-pressed={thumbs === -1}
           aria-label="Thumbs down"
           onClick={() => vote(-1)}
+          className={`${pill} ${thumbs === -1 ? 'border-danger bg-danger/15' : 'border-line'}`}
         >
           👎
         </button>
       </div>
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
 
-      {showSimilar && (
-        <ul className="mt-3 flex flex-col gap-2">
-          {similar === null && <li className="text-sm text-muted">Looking…</li>}
-          {similar?.length === 0 && <li className="text-sm text-muted">Nothing similar saved yet.</li>}
-          {similar?.map((s) => (
-            <li key={s.id}>
-              <Link href={`/items/${s.id}`} className="block rounded-xl border border-line bg-surface p-3 text-sm">
-                {s.title ?? s.url}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+/** Other saves on the same idea, as a row of thumbnails (no AI call: chunk embeddings). */
+function Similar({ itemId }: { itemId: string }) {
+  const [items, setItems] = useState<SimilarItem[] | null>(null);
+  useEffect(() => {
+    api<{ items: SimilarItem[] }>(`/api/items/${itemId}/similar`).then(
+      (r) => setItems(r.items),
+      () => setItems([]),
+    );
+  }, [itemId]);
+  if (!items?.length) return null;
+  return (
+    <section className="mt-8">
+      <SectionLabel>From your saves</SectionLabel>
+      <ul className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+        {items.map((s) => (
+          <li key={s.id} className="w-32 shrink-0">
+            <Link href={`/items/${s.id}`} className="block">
+              <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-line">
+                <Thumb item={s} />
+              </div>
+              <p className="mt-1.5 line-clamp-2 text-xs font-semibold leading-snug">{s.title ?? s.url}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div aria-label="Loading">
+      <div className="-mx-4 -mt-6 h-[22rem] animate-pulse bg-line motion-reduce:animate-none" />
+      <div className="mt-4 h-4 w-1/3 animate-pulse rounded bg-line motion-reduce:animate-none" />
+      <div className="mt-3 h-7 w-5/6 animate-pulse rounded bg-line motion-reduce:animate-none" />
+      <div className="mt-2 h-7 w-2/3 animate-pulse rounded bg-line motion-reduce:animate-none" />
+      <div className="mt-6 h-20 animate-pulse rounded-3xl bg-line motion-reduce:animate-none" />
     </div>
   );
 }

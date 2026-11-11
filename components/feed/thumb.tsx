@@ -13,12 +13,15 @@ const TILE: Record<NonNullable<FeedItem['kind']> | 'none', { bg: string; icon: s
   none: { bg: 'bg-tile-other', icon: '🔗' },
 };
 
+/** What Thumb needs: a feed item, an item page's item, or a similar-saves row. */
+export type ThumbItem = Pick<FeedItem, 'id' | 'thumbnail_url' | 'kind' | 'url'> & { topTopic?: string | null };
+
 /**
  * The item's own preview image, filling its box. If the image fails (TikTok
  * links expire) it asks the server once for a fresh one and otherwise shows a
  * coloured tile for the kind with the item's top topic.
  */
-export function Thumb({ item, eager, position }: { item: FeedItem; eager?: boolean; position?: string }) {
+export function Thumb({ item, eager, position }: { item: ThumbItem; eager?: boolean; position?: string }) {
   const [src, setSrc] = useState(item.thumbnail_url);
   const [refreshed, setRefreshed] = useState(false);
 

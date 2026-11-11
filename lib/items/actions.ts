@@ -30,7 +30,7 @@ export async function makeDiagram(userId: string, itemId: string): Promise<{ con
   return result;
 }
 
-export type SimilarItem = Pick<ItemRow, 'id' | 'title' | 'kind' | 'url'> & { similarity: number };
+export type SimilarItem = Pick<ItemRow, 'id' | 'title' | 'kind' | 'url' | 'thumbnail_url'> & { similarity: number };
 
 /**
  * Other saves closest to this one, using the item's own chunk embeddings as
@@ -64,7 +64,7 @@ export async function similarItems(userId: string, itemId: string, limit = 5): P
   if (!ranked.length) return [];
   const { data: items, error: itemsError } = await db
     .from('items')
-    .select('id, title, kind, url')
+    .select('id, title, kind, url, thumbnail_url')
     .eq('user_id', userId)
     .in('id', ranked.map(([id]) => id));
   if (itemsError) throw itemsError;

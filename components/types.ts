@@ -19,6 +19,7 @@ export interface SimilarItem {
   title: string | null;
   kind: ItemRow['kind'];
   url: string;
+  thumbnail_url: string | null;
   similarity: number;
 }
 

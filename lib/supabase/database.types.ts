@@ -33,6 +33,8 @@ export type UserRow = {
   tone: string;
   /** Model for explainers, lessons, diagrams, chat; null = GEMINI_MODEL_PRO. */
   smart_model: string | null;
+  /** Reminder slots, minutes after midnight SAST (07:00–21:30, half-hourly), at most 2; [] = off. */
+  reminder_times: number[];
   created_at: string;
   updated_at: string;
 }

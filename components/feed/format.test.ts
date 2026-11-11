@@ -22,6 +22,7 @@ function item(over: Partial<FeedItem>): FeedItem {
     state: 'read',
     thumbnailShape: 'landscape',
     opened: true,
+    openedAt: null,
     lessonId: null,
     bestScore: null,
     topTopic: null,

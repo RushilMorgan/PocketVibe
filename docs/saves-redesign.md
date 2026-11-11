@@ -1,7 +1,9 @@
 # Saves feed redesign + engagement — spec and plan
 
-Status (2026-11-11): Phases 1–5 built (thumbnails, feed API, feed screen, rich ready push + tap
-tracking, "Connects to" with T = 0.80). Phases 6–8 to do.
+Status (2026-11-11): Phases 1–6 built (thumbnails, feed API, feed screen, rich ready push + tap
+tracking, "Connects to" with T = 0.80, reminders). Phase 7 waits on a B3 format; Phase 8 to do.
+Reminders differ slightly from B0/B5 as written: the streak nudge needs a streak of 2+ days, and the
+Wednesday check-in asks for one lesson when more than 3 are waiting.
 
 ## Why
 

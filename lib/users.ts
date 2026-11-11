@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { isSmartModel, SMART_MODEL_IDS } from '@/lib/ai/models';
+import { MAX_REMINDERS_A_DAY, normalizeReminderTimes, REMINDER_SLOTS } from '@/lib/nudges/reminders';
 import { adminClient } from '@/lib/supabase/server';
 import type { UserRow } from '@/lib/supabase/database.types';
 
@@ -11,6 +12,12 @@ export const settingsUpdate = z
     tone: z.string().trim().min(1).max(40),
     /** null = back to the default (GEMINI_MODEL_PRO). */
     smart_model: z.enum(SMART_MODEL_IDS).nullable(),
+    /** Reminder slots (minutes after midnight SAST); [] = off. Cleaned to allowed slots, at most two. */
+    reminder_times: z
+      .array(z.number().int())
+      .max(MAX_REMINDERS_A_DAY)
+      .refine((t) => t.every((m) => REMINDER_SLOTS.includes(m)), 'Pick times on the half hour from 07:00 to 21:30.')
+      .transform(normalizeReminderTimes),
   })
   .partial();
 

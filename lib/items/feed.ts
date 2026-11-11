@@ -50,6 +50,8 @@ export type FeedItem = FeedSourceItem & {
   state: FeedState;
   thumbnailShape: ThumbnailShape;
   opened: boolean;
+  /** When it was last opened, if ever. */
+  openedAt: string | null;
   /** Newest lesson not yet played, if any. */
   lessonId: string | null;
   bestScore: number | null;
@@ -150,12 +152,12 @@ export function feedState(s: {
 
 /** Turns rows into feed items, newest first. */
 export function feedItems(input: FeedInput): FeedItem[] {
-  const opened = new Set<string>();
+  const opened = new Map<string, string>();
   const lastPlayed = new Map<string, string>();
   const best = new Map<string, number>();
   for (const e of input.events) {
     if (!e.item_id) continue;
-    if (e.type === 'opened') opened.add(e.item_id);
+    if (e.type === 'opened' && (opened.get(e.item_id) ?? '') < e.created_at) opened.set(e.item_id, e.created_at);
     if (e.type === 'played' && (lastPlayed.get(e.item_id) ?? '') < e.created_at) lastPlayed.set(e.item_id, e.created_at);
     if (e.type === 'score' && e.value !== null) best.set(e.item_id, Math.max(best.get(e.item_id) ?? 0, e.value));
   }
@@ -190,6 +192,7 @@ export function feedItems(input: FeedInput): FeedItem[] {
         state: feedState({ status: item.status, opened: isOpened, played: Boolean(played), bestScore, lessonWaiting: Boolean(lessonId) }),
         thumbnailShape: thumbnailShape(item),
         opened: isOpened,
+        openedAt: opened.get(item.id) ?? null,
         lessonId: done ? lessonId : null,
         bestScore,
         topTopic: topTopic.get(item.id)?.name ?? null,

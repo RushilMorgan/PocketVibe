@@ -69,7 +69,14 @@ describe('slots', () => {
     expect(REMINDER_SLOTS).toHaveLength(30);
   });
 
-  it('finds the SAST slot, weekday and key', () => {
+  it("finds the slot in the user's time zone", () => {
+    const at = new Date('2026-11-11T16:00:12Z');
+    expect(slotAt(at, 'Europe/London')).toEqual({ minutes: 960, weekday: 2, key: '2026-11-11T16:00' });
+    expect(slotAt(at, 'Asia/Tokyo')).toEqual({ minutes: 60, weekday: 3, key: '2026-11-12T01:00' });
+    expect(slotAt(new Date('2026-11-11T12:30:00Z'), 'Asia/Kolkata')).toMatchObject({ minutes: 1080 }); // 18:00 IST
+  });
+
+  it('defaults to South African time', () => {
     expect(slotAt(new Date('2026-11-11T16:00:12Z'))).toEqual({ minutes: 1080, weekday: 2, key: '2026-11-11T18:00' });
     expect(slotAt(new Date('2026-11-11T05:44:00Z'))).toEqual({ minutes: 450, weekday: 2, key: '2026-11-11T07:30' });
     expect(formatSlot(450)).toBe('07:30');
@@ -121,6 +128,13 @@ describe('lessonCandidate', () => {
 
 describe('pickReminder', () => {
   const base = { history: [] as NudgeHistory[], times: [1080] };
+
+  it('fires at 18:00 local wherever you are', () => {
+    // 18:00 in London is 18:00Z; at that moment it's 20:00 in Johannesburg.
+    const london18 = new Date('2026-11-12T18:00:00Z');
+    expect(pickReminder({ ...base, tz: 'Europe/London', feed: feed([item('a')]), now: london18 })).toMatchObject({ kind: 'lesson' });
+    expect(pickReminder({ ...base, feed: feed([item('a')]), now: london18 })).toBeNull();
+  });
 
   it('only fires in a chosen slot', () => {
     expect(pickReminder({ ...base, feed: feed([item('a')]), now: THU_18 })).toMatchObject({ kind: 'lesson', itemId: 'a' });

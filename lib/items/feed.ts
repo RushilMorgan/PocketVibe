@@ -5,6 +5,7 @@
  * filtered/paged after; revisit if it ever reaches thousands.
  */
 import { reviewPlan, type ReviewLog } from '@/lib/reviews/schedule';
+import { DEFAULT_TZ, localDate, localParts } from '@/lib/time';
 import type { EventType, ItemRow, ReviewFormat } from '@/lib/supabase/database.types';
 
 export type FeedState = 'working' | 'failed' | 'new' | 'read' | 'lesson_ready' | 'played' | 'mastered';
@@ -17,7 +18,7 @@ export const MASTERED = 0.8;
 /** How long "Not now" hides an item from Up next. */
 export const SNOOZE_DAYS = 3;
 const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100] as const;
-/** After this SAST hour an inactive day with no freeze left is "at risk". */
+/** After this local hour an inactive day with no freeze left is "at risk". */
 const AT_RISK_HOUR = 18;
 export const WEEK_TARGET = { saveDays: 5, lessons: 1 } as const;
 
@@ -101,19 +102,9 @@ export interface Feed {
   week: WeekProgress;
 }
 
-// ── dates (SAST is UTC+2 with no DST) ───────────────────────────────────────
+// ── dates (in the user's own time zone, lib/time.ts) ────────────────────────
 
-const SAST_MS = 2 * 3600_000;
 const DAY_MS = 24 * 3600_000;
-
-/** The SAST calendar date of an instant, as YYYY-MM-DD. */
-export function sastDate(at: string | Date): string {
-  return new Date(new Date(at).getTime() + SAST_MS).toISOString().slice(0, 10);
-}
-
-function sastHour(now: Date): number {
-  return new Date(now.getTime() + SAST_MS).getUTCHours();
-}
 
 function addDays(date: string, n: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
@@ -252,14 +243,14 @@ export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reas
 // ── streak and week ──────────────────────────────────────────────────────────
 
 /**
- * Consecutive SAST days with a save, a lesson played or a review card (A6). One missed day
+ * Consecutive local days with a save, a lesson played or a review card (A6). One missed day
  * per Mon–Sun week is covered by a freeze; a second miss in that week ends the
  * streak. Today only counts once it has activity, so an empty morning doesn't
  * break yesterday's streak.
  */
-export function streak(activityDays: Iterable<string>, now: Date): Streak {
+export function streak(activityDays: Iterable<string>, now: Date, tz: string = DEFAULT_TZ): Streak {
   const active = new Set(activityDays);
-  const today = sastDate(now);
+  const today = localDate(now, tz);
   const activeToday = active.has(today);
   const first = [...active].sort()[0];
 
@@ -286,18 +277,18 @@ export function streak(activityDays: Iterable<string>, now: Date): Streak {
     days,
     freezeLeft,
     activeToday,
-    atRisk: days > 0 && !activeToday && freezeLeft === 0 && sastHour(now) >= AT_RISK_HOUR,
+    atRisk: days > 0 && !activeToday && freezeLeft === 0 && localParts(now, tz).hour >= AT_RISK_HOUR,
     milestone: [...STREAK_MILESTONES].reverse().find((m) => days >= m) ?? null,
   };
 }
 
-/** This SAST week (Mon–Sun) against the day-30 success test targets. */
-export function weekProgress(events: FeedInput['events'], now: Date): WeekProgress {
-  const monday = weekStart(sastDate(now));
+/** This local week (Mon–Sun) against the day-30 success test targets. */
+export function weekProgress(events: FeedInput['events'], now: Date, tz: string = DEFAULT_TZ): WeekProgress {
+  const monday = weekStart(localDate(now, tz));
   const savedOn = Array<boolean>(7).fill(false);
   let lessonsPlayed = 0;
   for (const e of events) {
-    const day = sastDate(e.created_at);
+    const day = localDate(e.created_at, tz);
     if (day < monday) continue;
     const index = Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${monday}T00:00:00Z`)) / DAY_MS);
     if (index > 6) continue;
@@ -308,10 +299,10 @@ export function weekProgress(events: FeedInput['events'], now: Date): WeekProgre
 }
 
 /** Days with a save, a lesson played, or a review card done. */
-export function activityDays(events: FeedInput['events'], reviews: FeedInput['reviews'] = []): string[] {
+export function activityDays(events: FeedInput['events'], reviews: FeedInput['reviews'] = [], tz: string = DEFAULT_TZ): string[] {
   return [
-    ...events.filter((e) => e.type === 'saved' || e.type === 'played').map((e) => sastDate(e.created_at)),
-    ...reviews.map((r) => sastDate(r.created_at)),
+    ...events.filter((e) => e.type === 'saved' || e.type === 'played').map((e) => localDate(e.created_at, tz)),
+    ...reviews.map((r) => localDate(r.created_at, tz)),
   ];
 }
 
@@ -324,7 +315,8 @@ export function matchesFilter(item: FeedItem, filter: FeedFilter | undefined): b
   return true;
 }
 
-export function buildFeed(input: FeedInput, opts: FeedOptions, now: Date): Feed {
+/** `tz` is the user's time zone: it decides what "today" and "this week" mean. */
+export function buildFeed(input: FeedInput, opts: FeedOptions, now: Date, tz: string = DEFAULT_TZ): Feed {
   const all = feedItems(input);
   const inTopic = opts.topicId
     ? new Set(input.itemTopics.filter((l) => l.topic_id === opts.topicId).map((l) => l.item_id))
@@ -341,7 +333,7 @@ export function buildFeed(input: FeedInput, opts: FeedOptions, now: Date): Feed 
       unread: all.filter((i) => matchesFilter(i, 'unread')).length,
       lesson: all.filter((i) => matchesFilter(i, 'lesson')).length,
     },
-    streak: streak(activityDays(input.events, input.reviews), now),
-    week: weekProgress(input.events, now),
+    streak: streak(activityDays(input.events, input.reviews, tz), now, tz),
+    week: weekProgress(input.events, now, tz),
   };
 }

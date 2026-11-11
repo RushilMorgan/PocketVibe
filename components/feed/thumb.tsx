@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/components/api';
 import type { FeedItem } from '@/components/types';
+import { displayTopic } from '@/lib/topic-view';
 import { tileLabel } from './format';
 
 const TILE: Record<NonNullable<FeedItem['kind']> | 'none', { bg: string; icon: string }> = {
@@ -21,7 +22,18 @@ export type ThumbItem = Pick<FeedItem, 'id' | 'thumbnail_url' | 'kind' | 'url'> 
  * links expire) it asks the server once for a fresh one and otherwise shows a
  * coloured tile for the kind with the item's top topic.
  */
-export function Thumb({ item, eager, position }: { item: ThumbItem; eager?: boolean; position?: string }) {
+export function Thumb({
+  item,
+  eager,
+  position,
+  compact,
+}: {
+  item: ThumbItem;
+  eager?: boolean;
+  position?: string;
+  /** Small boxes (collages): the fallback tile shows just its emoji. */
+  compact?: boolean;
+}) {
   const [src, setSrc] = useState(item.thumbnail_url);
   const [refreshed, setRefreshed] = useState(false);
 
@@ -43,10 +55,10 @@ export function Thumb({ item, eager, position }: { item: ThumbItem; eager?: bool
     const tile = TILE[item.kind ?? 'none'];
     return (
       <div className={`flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center text-white ${tile.bg}`}>
-        <span aria-hidden className="text-4xl">
+        <span aria-hidden className={compact ? 'text-2xl' : 'text-4xl'}>
           {tile.icon}
         </span>
-        <span className="line-clamp-2 text-sm font-semibold capitalize leading-tight">{tileLabel(item)}</span>
+        {!compact && <span className="line-clamp-2 text-sm font-semibold leading-tight">{item.topTopic ? displayTopic(item.topTopic) : tileLabel(item)}</span>}
       </div>
     );
   }

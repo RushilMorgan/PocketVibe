@@ -6,13 +6,13 @@
 import type { Feed, FeedItem } from '@/lib/items/feed';
 import type { PushMessage } from '@/lib/notify';
 import type { NudgeKind } from '@/lib/supabase/database.types';
+import { DEFAULT_TZ, localParts } from '@/lib/time';
 import { clip, trackedUrl } from './ready';
 
-const SAST_MS = 2 * 3600_000;
 const HOUR_MS = 3600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** Allowed slots: every half hour from 07:00 to 21:30 SAST, in minutes after midnight. */
+/** Allowed slots: every half hour from 07:00 to 21:30 in the user's time zone, in minutes after midnight. */
 export const REMINDER_SLOTS: readonly number[] = Array.from({ length: 30 }, (_, i) => 420 + i * 30);
 export const DEFAULT_REMINDER_TIMES = [1080];
 export const MAX_REMINDERS_A_DAY = 2;
@@ -32,15 +32,15 @@ export function formatSlot(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-/** The half-hour slot `now` falls in, in SAST: minutes after midnight, Mon=0 weekday, and a unique key. */
-export function slotAt(now: Date): { minutes: number; weekday: number; key: string } {
-  const sast = new Date(now.getTime() + SAST_MS);
-  const minutes = sast.getUTCHours() * 60 + (sast.getUTCMinutes() < 30 ? 0 : 30);
-  return {
-    minutes,
-    weekday: (sast.getUTCDay() + 6) % 7,
-    key: `${sast.toISOString().slice(0, 10)}T${formatSlot(minutes)}`,
-  };
+/**
+ * The half-hour slot `now` falls in, in the user's time zone: minutes after
+ * local midnight, Mon=0 weekday, and a key (local date + time) unique per user.
+ * Zones offset by :45 (e.g. Nepal) land in the slot that started 15 minutes earlier.
+ */
+export function slotAt(now: Date, tz: string = DEFAULT_TZ): { minutes: number; weekday: number; key: string } {
+  const local = localParts(now, tz);
+  const minutes = local.hour * 60 + (local.minute < 30 ? 0 : 30);
+  return { minutes, weekday: local.weekday, key: `${local.date}T${formatSlot(minutes)}` };
 }
 
 /** Cleans a Settings choice: allowed slots only, no duplicates, sorted, at most two. */
@@ -111,9 +111,11 @@ export function pickReminder(input: {
   history: NudgeHistory[];
   times: number[];
   now: Date;
+  /** The user's time zone; slots and "Wednesday" are local. */
+  tz?: string;
 }): ReminderChoice | null {
-  const { feed, history, times, now } = input;
-  const slot = slotAt(now);
+  const { feed, history, times, now, tz = DEFAULT_TZ } = input;
+  const slot = slotAt(now, tz);
   if (!times.includes(slot.minutes) || backedOff(history, now)) return null;
   const lastSlot = slot.minutes === Math.max(...times);
 

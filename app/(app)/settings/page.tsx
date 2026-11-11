@@ -17,6 +17,7 @@ export default async function SettingsPage() {
           display_name: user.display_name,
           smart_model: user.smart_model,
           reminder_times: user.reminder_times ?? [],
+          timezone: user.timezone ?? 'Africa/Johannesburg',
         }}
         defaultModel={env().GEMINI_MODEL_PRO}
       />

@@ -35,8 +35,12 @@ export type UserRow = {
   tone: string;
   /** Model for explainers, lessons, diagrams, chat; null = GEMINI_MODEL_PRO. */
   smart_model: string | null;
-  /** Reminder slots, minutes after midnight SAST (07:00–21:30, half-hourly), at most 2; [] = off. */
+  /** Reminder slots, minutes after local midnight (07:00–21:30, half-hourly), at most 2; [] = off. */
   reminder_times: number[];
+  /** IANA time zone from the user's device (lib/time.ts); default Africa/Johannesburg. */
+  timezone: string;
+  /** Topics page: topics grouped into themes, cached until the topic set changes (lib/topics.ts). */
+  topic_themes: { hash: string; themes: { name: string; emoji: string; topicIds: string[] }[] } | null;
   created_at: string;
   updated_at: string;
 }
@@ -176,7 +180,7 @@ export type NudgeRow = {
   user_id: string;
   item_id: string | null;
   kind: NudgeKind;
-  /** '2026-11-11T18:00' (SAST) for reminders, unique per user; null for 'ready'. */
+  /** '2026-11-11T18:00' (user's local time) for reminders, unique per user; null for 'ready'. */
   slot: string | null;
   sent_at: string;
   tapped_at: string | null;

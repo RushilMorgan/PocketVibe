@@ -2,6 +2,7 @@ import 'server-only';
 import { HttpError } from '@/lib/http';
 import { adminClient } from '@/lib/supabase/server';
 import { buildFeed, SNOOZE_DAYS, type Feed, type FeedInput, type FeedOptions } from './feed';
+import { DEFAULT_TZ } from '@/lib/time';
 import { findThumbnail } from './fetch';
 
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -14,7 +15,7 @@ const PAGE = 1000;
 /** The saves feed for one user: rows from five tables, shaped by lib/items/feed.ts. */
 export async function getFeed(userId: string, opts: FeedOptions, now = new Date()): Promise<Feed> {
   const db = adminClient();
-  const [items, events, lessons, recipes, itemTopics, topics, reviews] = await Promise.all([
+  const [items, events, lessons, recipes, itemTopics, topics, reviews, user] = await Promise.all([
     db.from('items').select(ITEM_COLUMNS).eq('user_id', userId),
     allEvents(userId),
     db.from('item_outputs').select('id, item_id, created_at').eq('user_id', userId).eq('type', 'lesson'),
@@ -22,8 +23,9 @@ export async function getFeed(userId: string, opts: FeedOptions, now = new Date(
     db.from('item_topics').select('item_id, topic_id').eq('user_id', userId),
     db.from('topics').select('id, name, weight').eq('user_id', userId),
     db.from('reviews').select('item_id, rating, format, created_at').eq('user_id', userId),
+    db.from('users').select('timezone').eq('id', userId).maybeSingle(),
   ]);
-  for (const r of [items, lessons, recipes, itemTopics, topics, reviews]) if (r.error) throw r.error;
+  for (const r of [items, lessons, recipes, itemTopics, topics, reviews, user]) if (r.error) throw r.error;
 
   const input: FeedInput = {
     items: items.data ?? [],
@@ -37,7 +39,7 @@ export async function getFeed(userId: string, opts: FeedOptions, now = new Date(
     topics: topics.data ?? [],
     reviews: reviews.data ?? [],
   };
-  return buildFeed(input, opts, now);
+  return buildFeed(input, opts, now, user.data?.timezone ?? DEFAULT_TZ);
 }
 
 /** Every event the feed uses, paged past PostgREST's row cap so streaks stay right as history grows. */

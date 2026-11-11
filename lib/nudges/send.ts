@@ -7,13 +7,14 @@ import { pickReminder, reminderMessage, slotAt, type ReminderChoice } from './re
 /** How far back reminder history matters (back-off, never-twice). */
 const HISTORY_DAYS = 30;
 
-/** Users with a reminder slot at `now` and at least one device to send to. */
+/** Users whose chosen slot (in their own time zone) is `now`, with at least one device to send to. */
 export async function usersDueAt(now: Date): Promise<string[]> {
   const db = adminClient();
-  const { minutes } = slotAt(now);
-  const { data: users, error } = await db.from('users').select('id').contains('reminder_times', [minutes]);
+  // A handful of users (allowlist), so filter in code: each one's slot depends on their own zone.
+  const { data: all, error } = await db.from('users').select('id, reminder_times, timezone');
   if (error) throw error;
-  if (!users?.length) return [];
+  const users = (all ?? []).filter((u) => u.reminder_times.length && u.reminder_times.includes(slotAt(now, u.timezone).minutes));
+  if (!users.length) return [];
   const { data: devices, error: devError } = await db
     .from('push_devices')
     .select('user_id')
@@ -31,14 +32,14 @@ export async function sendReminder(userId: string, now: Date): Promise<{ sent: b
   const db = adminClient();
   const since = new Date(now.getTime() - HISTORY_DAYS * 24 * 3600_000).toISOString();
   const [{ data: user, error }, { data: history, error: historyError }, feed] = await Promise.all([
-    db.from('users').select('reminder_times').eq('id', userId).single(),
+    db.from('users').select('reminder_times, timezone').eq('id', userId).single(),
     db.from('nudges').select('kind, item_id, sent_at, tapped_at').eq('user_id', userId).gte('sent_at', since),
     getFeed(userId, { limit: 100 }, now),
   ]);
   if (error) throw error;
   if (historyError) throw historyError;
 
-  const choice = pickReminder({ feed, history: history ?? [], times: user.reminder_times, now });
+  const choice = pickReminder({ feed, history: history ?? [], times: user.reminder_times, now, tz: user.timezone });
   if (!choice) return { sent: false };
 
   const { data: row, error: insertError } = await db
@@ -48,7 +49,7 @@ export async function sendReminder(userId: string, now: Date): Promise<{ sent: b
       // Lesson and review reminders are per save; "never twice" checks read this.
       item_id: 'itemId' in choice ? choice.itemId : null,
       kind: choice.kind,
-      slot: slotAt(now).key,
+      slot: slotAt(now, user.timezone).key,
       sent_at: now.toISOString(),
     })
     .select('id')

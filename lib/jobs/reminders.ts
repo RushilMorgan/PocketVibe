@@ -3,15 +3,16 @@ import { sendReminder, usersDueAt } from '@/lib/nudges/send';
 import { inngest } from './client';
 
 /**
- * Reminders (docs/saves-redesign.md B0): every half hour from 07:00 to 21:30
- * South African time, send each user whose chosen slot this is at most one
- * reminder (a waiting lesson, the Wednesday check-in, or a streak about to
- * break). One step per user so one failure doesn't stop the rest.
+ * Reminders (docs/saves-redesign.md B0): every half hour, all day (UTC), send
+ * each user whose chosen slot this is *in their own time zone* at most one
+ * reminder (a waiting lesson, a review, the Wednesday check-in, or a streak
+ * about to break). One step per user so one failure doesn't stop the rest.
  */
 export const reminders = inngest.createFunction(
   {
     id: 'reminders',
-    triggers: [{ cron: 'TZ=Africa/Johannesburg 0,30 7-21 * * *' }],
+    // Every half hour round the clock: someone's 07:00–21:30 is always happening somewhere.
+    triggers: [{ cron: '0,30 * * * *' }],
     retries: 1,
     concurrency: { limit: 1 },
   },

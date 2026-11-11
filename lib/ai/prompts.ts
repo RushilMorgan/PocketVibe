@@ -5,7 +5,7 @@ import { fillTemplate } from './template';
 
 export type PromptName = 'classifier' | 'video-digest' | 'recipe' | 'explainer' | 'chat' | 'diagram' | 'lesson' | 'lesson-pick' | 'lesson-quiz' | 'lesson-simulator' | 'lesson-order' | 'lesson-spot_bug' | 'finds' | 'finds-pick'
   | 'council-frame' | 'council-research' | 'council-take' | 'council-rebut' | 'council-synthesize' | 'council-ratify'
-  | 'council-revise' | 'council-followup' | 'council-followup-answer' | 'review-connect';
+  | 'council-revise' | 'council-followup' | 'council-followup-answer' | 'review-connect' | 'topic-themes';
 
 const cache = new Map<PromptName, string>();
 

@@ -20,7 +20,7 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
 5. You get a **push notification** with its thumbnail and Read / Play buttons, and a **lesson**
    (quiz, simulator, put-in-order or spot-the-bug) is pre-written so Play opens instantly.
 6. The **saves feed** is an image grid with a streak, an **Up next** card and filters. **Reminders**
-   (at the times you pick in Settings) nudge you about a waiting lesson, a Wednesday check-in or a
+   (at the times you pick in Settings, in your phone's time zone) nudge you about a waiting lesson, a Wednesday check-in or a
    streak about to break, and **review cards** bring saves back after 3, 10 and 30 days (recall the
    key ideas, or "Then and now" for connected saves).
 7. **Council** tab: describe an idea and five models from different labs (through OpenRouter)
@@ -96,7 +96,7 @@ Database changes go in `supabase/migrations/` (forward-only — see [RULES.md](R
 - **No push notifications** — check the device subscribed (`push_devices` table) and the Vercel logs
   for `notify:`. A 403 "VAPID credentials … do not correspond" means the browser subscribed with an
   old key; reopening the app re-subscribes it.
-- **No reminders** — check `users.reminder_times` isn't empty, the `nudges` table for the slot
+- **No reminders** — check `users.reminder_times` isn't empty and `users.timezone` is right (it follows the phone), the `nudges` table for the slot
   (`slot` like `2026-11-11T18:00`; three untapped in a row pause them for two days), and that the
   `reminders` function is synced in Inngest (`PUT /api/inngest`).
 - **Shares stuck on "working on it…"** — Inngest isn't reachable: locally run `npm run dev:inngest`

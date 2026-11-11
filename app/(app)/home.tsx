@@ -10,6 +10,7 @@ import { SaveButton } from '@/components/feed/save-button';
 import { StreakStrip } from '@/components/feed/streak-strip';
 import { UpNext } from '@/components/feed/up-next';
 import type { Feed, FeedFilter, FeedItem, Topic } from '@/components/types';
+import { displayTopic } from '@/lib/topic-view';
 
 const PAGE = 30;
 const TOPIC_CHIPS = 6;
@@ -102,7 +103,7 @@ export function Home({
 
       {notice && <p className="rounded-xl bg-surface p-3 text-sm">{notice}</p>}
 
-      {feed && !nothingSaved && <StreakStrip streak={feed.streak} week={feed.week} todayIndex={sastWeekday()} />}
+      {feed && !nothingSaved && <StreakStrip streak={feed.streak} week={feed.week} todayIndex={localWeekday()} />}
 
       <EnablePush />
 
@@ -137,12 +138,12 @@ export function Home({
           </Chip>
           {topicChips.map((t) => (
             <Chip key={t.id} active={sel.topic === t.id} onClick={() => pick({ filter: null, topic: t.id })}>
-              <span className="capitalize">{t.name}</span>
+              <span>{displayTopic(t.name)}</span>
             </Chip>
           ))}
           {selectedTopic && !topicChips.includes(selectedTopic) && (
             <Chip active>
-              <span className="capitalize">{selectedTopic.name}</span>
+              <span>{displayTopic(selectedTopic.name)}</span>
             </Chip>
           )}
         </div>
@@ -204,9 +205,9 @@ export function Home({
   );
 }
 
-/** Monday = 0 in South African time, for the week dots. */
-function sastWeekday(): number {
-  return (new Date(Date.now() + 2 * 3600_000).getUTCDay() + 6) % 7;
+/** Monday = 0 on this device's clock (the server works in the same zone, synced by TimezoneSync). */
+function localWeekday(): number {
+  return (new Date().getDay() + 6) % 7;
 }
 
 function Chip({

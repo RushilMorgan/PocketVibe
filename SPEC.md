@@ -316,4 +316,10 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 - **Review cards** bring saves back 3, 10 and 30 days after you first opened them: recall the key
   ideas and flip, or — for connected saves — "Then and now", a short note on how the two connect.
   Got it / Fuzzy / Forgot sets the next gap. Re-asking quiz questions was considered and rejected.
-
+- Reminders, the streak's "today" and the feed's week follow the user's own time zone
+  (`users.timezone`, reported by the phone), not fixed SAST.
+- The Topics tab is now "What you're into": your mix of save kinds, the top 5 as cards with their
+  saves, and every topic grouped into themes by Flash (cached until the topic set changes). Tap a
+  topic to see its saves, rename it, merge it into another, or forget it. Automatic merge
+  suggestions were tried and dropped: topic-name similarity mixed good pairs (devops security ↔
+  cybersecurity 0.90) with bad ones (chicken shawarma ↔ chicken dip 0.89).

@@ -41,11 +41,12 @@ changing code.
 | `lib/handlers` | Recipe + explainer handlers and the client-safe output schemas |
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
 | `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results |
-| `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights) |
+| `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights); the Topics page data, Flash-made themes (cached on `users.topic_themes`) and merge |
+| `lib/topic-view.ts`, `lib/time.ts` | Pure: Topics page shaping (trends, themes, mix, `displayTopic` for acronyms) and local dates/times in the user's time zone |
 | `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
 | `lib/digest` | Weekly digest: your week, Search-grounded finds, suggested lesson, email, tracking links |
 | `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
-| `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min 07:00–21:30 SAST) — registered in `functions.ts` |
+| `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min round the clock; each user's slots are in their own time zone) — registered in `functions.ts` |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet); `components/item` is the item page header (full-bleed image) and helpers |
 | `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / Play buttons), reminders (`reminders.ts` picks lesson / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
 | `lib/reviews` | Bringing old saves back: the 3 → 10 → 30-day schedule from `reviews` rows (`schedule.ts`, pure), recall and Then-and-now cards (`service.ts`; the connection note is cached on `items.related.note`) |
@@ -126,6 +127,9 @@ changing code.
 - UI: run the app (`.claude/launch.json` has `heytoolie-dev` and `inngest-dev`) and check pages in the
   browser at phone width, light and dark. Sign in with http://localhost:3000/auth/dev?next=/ (needs
   `DEV_LOGIN_EMAIL` in `.env.local`; a 404 outside `next dev` on localhost) instead of a magic link.
+- Dates are local: `users.timezone` (IANA, kept in step with the device by `components/timezone-sync.tsx`)
+  decides reminder slots, the streak's "today" and the feed's week — use `lib/time.ts`, never a fixed
+  offset. (The daily save cap and the Sunday digest are still on SAST.)
 - Feed images are the sources' own (`items.thumbnail_url`), shown with a plain `<img>`; a card whose
   image fails asks `/api/items/<id>/thumbnail` once, then falls back to a kind-coloured tile.
 

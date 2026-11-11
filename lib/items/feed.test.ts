@@ -5,7 +5,6 @@ import {
   feedState,
   pickUpNext,
   readMinutes,
-  sastDate,
   streak,
   thumbnailShape,
   weekProgress,
@@ -45,9 +44,13 @@ const ev = (type: FeedInput['events'][number]['type'], created_at: string, item_
 });
 
 describe('dates', () => {
-  it('converts to the SAST calendar day', () => {
-    expect(sastDate('2026-11-10T22:30:00Z')).toBe('2026-11-11');
-    expect(sastDate('2026-11-10T21:59:00Z')).toBe('2026-11-10');
+  it("uses the user's time zone for today and the week", () => {
+    // 22:30 UTC Tue = 00:30 Wed in Johannesburg, still Tue in London.
+    const late = new Date('2026-11-10T22:30:00Z');
+    expect(streak(['2026-11-10'], late, 'Europe/London')).toMatchObject({ days: 1, activeToday: true });
+    expect(streak(['2026-11-10'], late, 'Africa/Johannesburg')).toMatchObject({ days: 1, activeToday: false });
+    expect(weekProgress([ev('saved', '2026-11-08T23:30:00Z')], NOW, 'Europe/London').saveDays).toBe(0); // Sun in London
+    expect(weekProgress([ev('saved', '2026-11-08T23:30:00Z')], NOW, 'Africa/Johannesburg').saveDays).toBe(1); // Mon in SA
   });
 
   it('finds the Monday of the week', () => {

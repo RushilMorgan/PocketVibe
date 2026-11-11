@@ -21,8 +21,10 @@ interface Settings {
   display_name: string | null;
   /** null = the server default (`defaultModel`). */
   smart_model: string | null;
-  /** Minutes after midnight SAST; [] = reminders off. */
+  /** Minutes after local midnight; [] = reminders off. */
   reminder_times: number[];
+  /** IANA zone, kept in step with the device by TimezoneSync. */
+  timezone: string;
 }
 
 export function SettingsForm({ initial, defaultModel }: { initial: Settings; defaultModel: string }) {
@@ -144,7 +146,11 @@ export function SettingsForm({ initial, defaultModel }: { initial: Settings; def
         </p>
       </section>
 
-      <Reminders times={settings.reminder_times} onChange={(reminder_times) => save({ reminder_times })} />
+      <Reminders
+        times={settings.reminder_times}
+        timezone={settings.timezone}
+        onChange={(reminder_times) => save({ reminder_times })}
+      />
 
       <section>
         <h2 className="font-semibold">Weekly digest</h2>
@@ -170,8 +176,8 @@ export function SettingsForm({ initial, defaultModel }: { initial: Settings; def
   );
 }
 
-/** Off / once / twice a day, and when (half-hourly, 07:00–21:30 SAST). */
-function Reminders({ times, onChange }: { times: number[]; onChange: (times: number[]) => void }) {
+/** Off / once / twice a day, and when (half-hourly, 07:00–21:30 in the user's time zone). */
+function Reminders({ times, timezone, onChange }: { times: number[]; timezone: string; onChange: (times: number[]) => void }) {
   const count = times.length;
   const setCount = (n: number) => {
     if (n === 0) return onChange([]);
@@ -229,7 +235,7 @@ function Reminders({ times, onChange }: { times: number[]; onChange: (times: num
               </select>
             </label>
           ))}
-          <p className="text-xs text-muted">South African time.</p>
+          <p className="text-xs text-muted">Your local time ({timezone.replace(/_/g, ' ')}) — it follows your phone.</p>
         </div>
       )}
     </section>

@@ -50,6 +50,8 @@ export type ItemRow = {
   thumbnail_url: string | null;
   /** YouTube video length; null for articles or when it couldn't be read. */
   duration_seconds: number | null;
+  /** Hidden from the feed's Up next card until then ("Not now"). */
+  snoozed_until: string | null;
   created_at: string;
   updated_at: string;
 }

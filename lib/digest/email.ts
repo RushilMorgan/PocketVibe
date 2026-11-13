@@ -50,13 +50,20 @@ export function renderDigestEmail(d: DigestContent, link: Linker): { subject: st
       `<p style="margin:12px 0"><a href="${esc(link(`/play/${d.lesson.lessonId}`))}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:600">▶ Play it</a></p>`
     : '';
 
+  const whatif = d.whatif
+    ? h2('What if…') +
+      `<p style="margin:4px 0"><strong>${esc(d.whatif.scenario)}</strong></p>` +
+      `<p style="margin:4px 0;color:#78716c">From your save: ${esc(d.whatif.itemTitle)}</p>` +
+      `<p style="margin:12px 0"><a href="${esc(link(`/items/${d.whatif.itemId}?whatif=1`))}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:600">Think it through</a></p>`
+    : '';
+
   const html = `<!doctype html><html><body style="margin:0;background:#fafaf9">
 <div style="max-width:560px;margin:0 auto;padding:24px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.5;color:#1c1917">
 <p style="font-size:22px;font-weight:600;margin:0">Your week in HeyToolie</p>
 <p style="color:#78716c;margin:4px 0 0">${esc(d.from)} – ${esc(d.to)}</p>
 ${h2('Your week')}${week}
 ${h2('New for you')}${finds}
-${lesson}
+${whatif}${lesson}
 <p style="margin:32px 0 0;font-size:13px;color:#78716c">${a('/settings', 'Settings')} · You get this every Sunday.</p>
 </div></body></html>`;
 
@@ -68,6 +75,7 @@ ${lesson}
     '',
     'NEW FOR YOU',
     ...d.finds.flatMap((f) => [`${f.topic}:`, ...f.items.map((i) => `- ${i.title} — ${i.why} ${link(i.url)}`)]),
+    ...(d.whatif ? ['', `WHAT IF: ${d.whatif.scenario} ${link(`/items/${d.whatif.itemId}?whatif=1`)}`] : []),
     ...(d.lesson ? ['', `2-MINUTE LESSON: ${d.lesson.itemTitle} ${link(`/play/${d.lesson.lessonId}`)}`] : []),
   ].join('\n');
 

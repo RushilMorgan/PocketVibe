@@ -57,7 +57,7 @@ export interface NudgeHistory {
 
 export type ReminderChoice =
   | { kind: 'streak'; days: number }
-  | { kind: 'midweek'; lessonsWaiting: number; saveDays: number }
+  | { kind: 'midweek'; whatIfsWaiting: number; saveDays: number }
   | { kind: 'lesson'; itemId: string; lessonId: string; title: string | null }
   | { kind: 'review'; itemId: string; title: string | null; format: 'recall' | 'connect'; relatedTitle: string | null };
 
@@ -71,7 +71,10 @@ export function backedOff(history: NudgeHistory[], now: Date): boolean {
   return now.getTime() - Date.parse(recent[0].sent_at) < BACKOFF_FOR;
 }
 
-/** Opened 18h–7d ago, lesson waiting and never played, never nudged about before. Most recently opened first. */
+/**
+ * Opened 18h–7d ago, lesson waiting and never played, never nudged about before. Most recently opened first.
+ * Lessons are written on request now (docs/what-if.md, Part C), so this only fires for one you started and left.
+ */
 export function lessonCandidate(items: FeedItem[], history: NudgeHistory[], now: Date): FeedItem | null {
   const nudged = new Set(history.filter((h) => h.kind === 'lesson').map((h) => h.item_id));
   const t = now.getTime();
@@ -104,7 +107,8 @@ export function reviewCandidate(items: FeedItem[], history: NudgeHistory[], now:
  * The reminder for this slot, or null. Only in one of your chosen slots, not
  * while backed off. In your last slot of the day: a streak about to break
  * wins, then (Wednesdays) the mid-week check-in; otherwise a waiting lesson,
- * then a review card that's due.
+ * then a review card that's due. (There's no per-save what-if reminder yet:
+ * it needs a new nudge kind in the database.)
  */
 export function pickReminder(input: {
   feed: Pick<Feed, 'items' | 'streak' | 'week' | 'counts'>;
@@ -123,8 +127,8 @@ export function pickReminder(input: {
   if (lastSlot && streak.days >= STREAK_NUDGE_MIN && !streak.activeToday && streak.freezeLeft === 0) {
     return { kind: 'streak', days: streak.days };
   }
-  if (lastSlot && slot.weekday === 2 && (counts.lesson > 0 || week.saveDays === 0)) {
-    return { kind: 'midweek', lessonsWaiting: counts.lesson, saveDays: week.saveDays };
+  if (lastSlot && slot.weekday === 2 && (counts.whatif > 0 || week.saveDays === 0)) {
+    return { kind: 'midweek', whatIfsWaiting: counts.whatif, saveDays: week.saveDays };
   }
   const item = lessonCandidate(feed.items, history, now);
   if (item?.lessonId) return { kind: 'lesson', itemId: item.id, lessonId: item.lessonId, title: item.title };
@@ -179,12 +183,12 @@ export function reminderMessage(choice: ReminderChoice, nudgeId: string, templat
     case 'streak':
       return {
         title: `🔥 Keep your ${choice.days}-day streak`,
-        body: 'Save a video or play one lesson before midnight — this week’s freeze is already used.',
-        url: trackedUrl('/?filter=lesson', nudgeId, 'open'),
-        actions: [{ action: 'play', title: '▶ Play a lesson', url: trackedUrl('/?filter=lesson', nudgeId, 'play') }],
+        body: 'Save a video or open a what-if before midnight — this week’s freeze is already used.',
+        url: trackedUrl('/?filter=whatif', nudgeId, 'open'),
+        actions: [{ action: 'play', title: '🤔 Open a what-if', url: trackedUrl('/?filter=whatif', nudgeId, 'play') }],
       };
     case 'midweek': {
-      const { lessonsWaiting: n, saveDays } = choice;
+      const { whatIfsWaiting: n, saveDays } = choice;
       if (n === 0) {
         return {
           title: 'Halfway through the week',
@@ -194,12 +198,12 @@ export function reminderMessage(choice: ReminderChoice, nudgeId: string, templat
       }
       const days = `${saveDays} save day${saveDays === 1 ? '' : 's'} so far`;
       // A big backlog reads like homework: ask for one.
-      const ask = n > 3 ? 'start with one, it takes 2 minutes' : `about ${n * 2} minutes`;
+      const ask = n > 1 ? 'pick the one that grabs you' : 'a minute to read';
       return {
         title: 'Halfway through the week',
-        body: `${days}, ${n} lesson${n === 1 ? '' : 's'} waiting — ${ask}.`,
-        url: trackedUrl('/?filter=lesson', nudgeId, 'open'),
-        actions: [{ action: 'play', title: '▶ Play one', url: trackedUrl('/?filter=lesson', nudgeId, 'play') }],
+        body: `${days}, ${n} what-if${n === 1 ? '' : 's'} waiting — ${ask}.`,
+        url: trackedUrl('/?filter=whatif', nudgeId, 'open'),
+        actions: [{ action: 'play', title: '🤔 Open one', url: trackedUrl('/?filter=whatif', nudgeId, 'play') }],
       };
     }
   }

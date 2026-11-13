@@ -8,6 +8,7 @@ import type { ItemKind } from '@/lib/supabase/database.types';
 const TITLE_MAX = 60;
 const BODY_LINE_MAX = 110;
 const RELATED_MAX = 50;
+const WHATIF_MAX = 80;
 
 export interface ReadyInput {
   itemId: string;
@@ -20,6 +21,8 @@ export interface ReadyInput {
   thumbnailUrl: string | null;
   /** Title of the save this one connects to (lib/items/related.ts), if any. */
   relatedTitle?: string | null;
+  /** The save's what-if question (lib/whatif), if it has one. Its card is written just after this push. */
+  whatIf?: string | null;
 }
 
 export function clip(text: string, max: number): string {
@@ -52,14 +55,16 @@ export function readyMessage(r: ReadyInput): PushMessage {
       actions: [{ action: 'read', title: 'Open recipe', url: trackedUrl(item, r.nudgeId, 'read') }],
     };
   }
+  const whatIf = r.whatIf ? `\n🤔 ${clip(r.whatIf, WHATIF_MAX)}` : '';
+  // The What-if button is logged as the 'play' action: the do-something-with-it tap.
   return {
     title,
-    body: (line ? `${line}\n▶ 2-min lesson inside` : 'Your explainer and a 2-min lesson are ready') + connects,
+    body: (line ?? 'Your explainer is ready') + whatIf + connects,
     url: trackedUrl(item, r.nudgeId, 'open'),
     image: r.thumbnailUrl ?? undefined,
     actions: [
       { action: 'read', title: 'Read', url: trackedUrl(item, r.nudgeId, 'read') },
-      { action: 'play', title: '▶ Play lesson', url: trackedUrl(`${item}?play=1`, r.nudgeId, 'play') },
+      ...(r.whatIf ? [{ action: 'play', title: '🤔 What if…', url: trackedUrl(`${item}?whatif=1`, r.nudgeId, 'play') }] : []),
     ],
   };
 }

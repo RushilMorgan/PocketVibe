@@ -26,16 +26,22 @@ describe('trackedUrl', () => {
 });
 
 describe('readyMessage', () => {
-  it('offers Read and Play for an explainer, with the thumbnail', () => {
-    const m = readyMessage({ ...base, kind: 'tech' });
+  it('offers Read and the what-if for an explainer, with the thumbnail', () => {
+    const m = readyMessage({ ...base, kind: 'tech', whatIf: 'What if every app had a vector database by 2028?' });
     expect(m.title).toBe('How vector databases actually work');
-    expect(m.body).toBe('Vector databases find things by meaning, not keywords.\n▶ 2-min lesson inside');
+    expect(m.body).toBe('Vector databases find things by meaning, not keywords.\n🤔 What if every app had a vector database by 2028?');
     expect(m.url).toBe('/items/item-1?n=n-1&a=open');
     expect(m.image).toBe(base.thumbnailUrl);
     expect(m.actions).toEqual([
       { action: 'read', title: 'Read', url: '/items/item-1?n=n-1&a=read' },
-      { action: 'play', title: '▶ Play lesson', url: '/items/item-1?play=1&n=n-1&a=play' },
+      { action: 'play', title: '🤔 What if…', url: '/items/item-1?whatif=1&n=n-1&a=play' },
     ]);
+  });
+
+  it('offers Read only when the save has no what-if', () => {
+    const m = readyMessage({ ...base, kind: 'tech', whatIf: null });
+    expect(m.body).toBe('Vector databases find things by meaning, not keywords.');
+    expect(m.actions).toEqual([{ action: 'read', title: 'Read', url: '/items/item-1?n=n-1&a=read' }]);
   });
 
   it('offers the recipe card for a recipe', () => {
@@ -47,7 +53,7 @@ describe('readyMessage', () => {
 
   it('adds the save it connects to', () => {
     expect(readyMessage({ ...base, kind: 'tech', relatedTitle: 'Cloning and Launching an AI SaaS Application' }).body).toBe(
-      'Vector databases find things by meaning, not keywords.\n▶ 2-min lesson inside\n🔗 Connects to: Cloning and Launching an AI SaaS Application',
+      'Vector databases find things by meaning, not keywords.\n🔗 Connects to: Cloning and Launching an AI SaaS Application',
     );
     expect(readyMessage({ ...base, kind: 'recipe', ingredientCount: 6, relatedTitle: 'Chicken shawarma' }).body).toBe(
       '6 ingredients — recipe card ready 🍳\n🔗 Connects to: Chicken shawarma',
@@ -57,6 +63,6 @@ describe('readyMessage', () => {
   it('falls back when the title and first line are missing', () => {
     const m = readyMessage({ ...base, kind: 'other', title: null, firstLine: null });
     expect(m.title).toBe('Your save is ready');
-    expect(m.body).toBe('Your explainer and a 2-min lesson are ready');
+    expect(m.body).toBe('Your explainer is ready');
   });
 });

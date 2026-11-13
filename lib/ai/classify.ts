@@ -9,6 +9,8 @@ export const classification = z.object({
   title: z.string().min(1).max(200),
   tags: z.array(z.string().min(1).max(40)).min(1).max(5),
   has_structure: z.boolean(),
+  /** The default what-if question (lib/whatif), or null when there's no sensible one. */
+  what_if: z.string().max(200).nullable(),
 });
 
 export type Classification = z.infer<typeof classification>;
@@ -22,5 +24,11 @@ export async function classify(text: string, ctx: PromptContext): Promise<Classi
     { text: instructions },
     { text: `Content:\n${text.slice(0, CLASSIFY_CHARS)}` },
   ], { feature: 'classify' });
-  return { ...result, tags: [...new Set(result.tags.map((t) => t.trim().toLowerCase()))] };
+  const whatIf = result.what_if?.trim();
+  return {
+    ...result,
+    tags: [...new Set(result.tags.map((t) => t.trim().toLowerCase()))],
+    // Recipes never get one, whatever the model says.
+    what_if: whatIf && result.kind !== 'recipe' ? whatIf : null,
+  };
 }

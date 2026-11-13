@@ -9,9 +9,11 @@ import { DEFAULT_TZ, localDate, localParts } from '@/lib/time';
 import type { EventType, ItemRow, ReviewFormat } from '@/lib/supabase/database.types';
 
 export type FeedState = 'working' | 'failed' | 'new' | 'read' | 'lesson_ready' | 'played' | 'mastered';
-export type FeedFilter = 'unread' | 'lesson' | 'recipe';
+export type FeedFilter = 'unread' | 'whatif' | 'recipe';
 export type ThumbnailShape = 'portrait' | 'landscape';
-export type UpNextReason = 'fresh' | 'lesson' | 'review' | 'unread';
+export type UpNextReason = 'fresh' | 'whatif' | 'review' | 'unread';
+/** The save's main what-if (lib/whatif): being written, written and not yet opened, or opened. */
+export type WhatIfState = 'thinking' | 'ready' | 'opened';
 
 /** Best score at or above this counts as mastered. */
 export const MASTERED = 0.8;
@@ -20,7 +22,7 @@ export const SNOOZE_DAYS = 3;
 const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100] as const;
 /** After this local hour an inactive day with no freeze left is "at risk". */
 const AT_RISK_HOUR = 18;
-export const WEEK_TARGET = { saveDays: 5, lessons: 1 } as const;
+export const WEEK_TARGET = { saveDays: 5, whatIfs: 1 } as const;
 
 export type FeedSourceItem = Pick<
   ItemRow,
@@ -48,6 +50,8 @@ export interface FeedInput {
   topics: { id: string; name: string; weight: number }[];
   /** Ratings from review cards (lib/reviews). */
   reviews: (ReviewLog & { item_id: string })[];
+  /** What-if cards (lib/whatif), every kind: the main one sets the item's state, opening any counts as activity. */
+  whatifs: { item_id: string; kind: 'main' | 'alternative' | 'custom'; status: 'pending' | 'done' | 'failed'; opened_at: string | null }[];
 }
 
 export type FeedItem = FeedSourceItem & {
@@ -66,6 +70,8 @@ export type FeedItem = FeedSourceItem & {
   /** When its next review card is due (lib/reviews/schedule.ts); null = not eligible or done. */
   reviewDueAt: string | null;
   reviewFormat: ReviewFormat | null;
+  /** The main what-if's state; null = none (or it failed). */
+  whatIf: WhatIfState | null;
 };
 
 export interface Streak {
@@ -80,7 +86,8 @@ export interface Streak {
 
 export interface WeekProgress {
   saveDays: number;
-  lessonsPlayed: number;
+  /** What-if cards opened this week. */
+  whatIfsOpened: number;
   /** One flag per day Mon–Sun: was something saved that day. */
   savedOn: boolean[];
 }
@@ -97,7 +104,7 @@ export interface Feed {
   items: FeedItem[];
   hasMore: boolean;
   upNext: { item: FeedItem; reason: UpNextReason } | null;
-  counts: { unread: number; lesson: number };
+  counts: { unread: number; whatif: number };
   streak: Streak;
   week: WeekProgress;
 }
@@ -178,6 +185,7 @@ export function feedItems(input: FeedInput): FeedItem[] {
   const ingredients = new Map(input.recipes.map((r) => [r.item_id, r.ingredientCount]));
   const reviewsFor = new Map<string, ReviewLog[]>();
   for (const r of input.reviews ?? []) reviewsFor.set(r.item_id, [...(reviewsFor.get(r.item_id) ?? []), r]);
+  const mainWhatIf = new Map((input.whatifs ?? []).filter((w) => w.kind === 'main').map((w) => [w.item_id, w]));
 
   return [...input.items]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -209,16 +217,24 @@ export function feedItems(input: FeedInput): FeedItem[] {
         ingredientCount: ingredients.get(item.id) ?? null,
         reviewDueAt: review?.dueAt ?? null,
         reviewFormat: review?.format ?? null,
+        whatIf: done ? whatIfState(mainWhatIf.get(item.id)) : null,
       };
     });
+}
+
+export function whatIfState(w: FeedInput['whatifs'][number] | undefined): WhatIfState | null {
+  if (!w || w.status === 'failed') return null;
+  if (w.status === 'pending') return 'thinking';
+  return w.opened_at ? 'opened' : 'ready';
 }
 
 // ── Up next ──────────────────────────────────────────────────────────────────
 
 /**
  * The one save to suggest at the top of the feed (A3), in priority order:
- * finished in the last 24h and unopened → opened with a lesson waiting →
- * a review card that's due (longest-waiting first) → the oldest unopened.
+ * finished in the last 24h and unopened → a review card that's due
+ * (longest-waiting first) → read, with a what-if not yet opened (newest
+ * first) → the oldest unopened.
  * Snoozed and unfinished items are skipped.
  */
 export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reason: UpNextReason } | null {
@@ -229,12 +245,12 @@ export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reas
 
   const fresh = newestFirst.find((i) => i.state === 'new' && i.created_at >= dayAgo);
   if (fresh) return { item: fresh, reason: 'fresh' };
-  const lesson = newestFirst.find((i) => i.opened && i.lessonId && i.state !== 'mastered');
-  if (lesson) return { item: lesson, reason: 'lesson' };
   const review = eligible
     .filter((i) => i.reviewDueAt && i.reviewDueAt <= nowIso)
     .sort((a, b) => a.reviewDueAt!.localeCompare(b.reviewDueAt!))[0];
   if (review) return { item: review, reason: 'review' };
+  const whatIf = newestFirst.find((i) => i.opened && i.whatIf === 'ready');
+  if (whatIf) return { item: whatIf, reason: 'whatif' };
   const unread = newestFirst.findLast((i) => i.state === 'new');
   if (unread) return { item: unread, reason: 'unread' };
   return null;
@@ -243,7 +259,7 @@ export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reas
 // ── streak and week ──────────────────────────────────────────────────────────
 
 /**
- * Consecutive local days with a save, a lesson played or a review card (A6). One missed day
+ * Consecutive local days with a save, a lesson played, a what-if opened or a review card (A6). One missed day
  * per Mon–Sun week is covered by a freeze; a second miss in that week ends the
  * streak. Today only counts once it has activity, so an empty morning doesn't
  * break yesterday's streak.
@@ -283,26 +299,41 @@ export function streak(activityDays: Iterable<string>, now: Date, tz: string = D
 }
 
 /** This local week (Mon–Sun) against the day-30 success test targets. */
-export function weekProgress(events: FeedInput['events'], now: Date, tz: string = DEFAULT_TZ): WeekProgress {
+export function weekProgress(
+  events: FeedInput['events'],
+  now: Date,
+  tz: string = DEFAULT_TZ,
+  whatifs: FeedInput['whatifs'] = [],
+): WeekProgress {
   const monday = weekStart(localDate(now, tz));
+  const sunday = addDays(monday, 6);
   const savedOn = Array<boolean>(7).fill(false);
-  let lessonsPlayed = 0;
   for (const e of events) {
     const day = localDate(e.created_at, tz);
     if (day < monday) continue;
     const index = Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${monday}T00:00:00Z`)) / DAY_MS);
     if (index > 6) continue;
     if (e.type === 'saved') savedOn[index] = true;
-    if (e.type === 'played') lessonsPlayed++;
   }
-  return { saveDays: savedOn.filter(Boolean).length, lessonsPlayed, savedOn };
+  const whatIfsOpened = whatifs.filter((w) => {
+    if (!w.opened_at) return false;
+    const day = localDate(w.opened_at, tz);
+    return day >= monday && day <= sunday;
+  }).length;
+  return { saveDays: savedOn.filter(Boolean).length, whatIfsOpened, savedOn };
 }
 
-/** Days with a save, a lesson played, or a review card done. */
-export function activityDays(events: FeedInput['events'], reviews: FeedInput['reviews'] = [], tz: string = DEFAULT_TZ): string[] {
+/** Days with a save, a lesson played, a what-if opened, or a review card done. */
+export function activityDays(
+  events: FeedInput['events'],
+  reviews: FeedInput['reviews'] = [],
+  tz: string = DEFAULT_TZ,
+  whatifs: FeedInput['whatifs'] = [],
+): string[] {
   return [
     ...events.filter((e) => e.type === 'saved' || e.type === 'played').map((e) => localDate(e.created_at, tz)),
     ...reviews.map((r) => localDate(r.created_at, tz)),
+    ...whatifs.flatMap((w) => (w.opened_at ? [localDate(w.opened_at, tz)] : [])),
   ];
 }
 
@@ -310,7 +341,7 @@ export function activityDays(events: FeedInput['events'], reviews: FeedInput['re
 
 export function matchesFilter(item: FeedItem, filter: FeedFilter | undefined): boolean {
   if (filter === 'unread') return item.state === 'new';
-  if (filter === 'lesson') return item.lessonId !== null;
+  if (filter === 'whatif') return item.whatIf === 'ready';
   if (filter === 'recipe') return item.kind === 'recipe';
   return true;
 }
@@ -331,9 +362,9 @@ export function buildFeed(input: FeedInput, opts: FeedOptions, now: Date, tz: st
     upNext: pickUpNext(all, now),
     counts: {
       unread: all.filter((i) => matchesFilter(i, 'unread')).length,
-      lesson: all.filter((i) => matchesFilter(i, 'lesson')).length,
+      whatif: all.filter((i) => matchesFilter(i, 'whatif')).length,
     },
-    streak: streak(activityDays(input.events, input.reviews, tz), now, tz),
-    week: weekProgress(input.events, now, tz),
+    streak: streak(activityDays(input.events, input.reviews, tz, input.whatifs), now, tz),
+    week: weekProgress(input.events, now, tz, input.whatifs),
   };
 }

@@ -201,6 +201,23 @@ export type CouncilTurnRow = {
   created_at: string;
 }
 
+export type WhatIfRow = {
+  id: string;
+  user_id: string;
+  item_id: string;
+  scenario: string;
+  /** 'main' = the default one picked when the save was classified (one per save). */
+  kind: 'main' | 'alternative' | 'custom';
+  status: 'pending' | 'done' | 'failed';
+  /** lib/whatif/schema.ts WhatIfContent once written. */
+  content: Json | null;
+  error: string | null;
+  /** First time the full card was opened. */
+  opened_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type AiUsageRow = {
   id: string;
   user_id: string;
@@ -256,6 +273,7 @@ export interface Database {
       reviews: Table<ReviewRow, 'user_id' | 'item_id' | 'format' | 'rating'>;
       council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
       ai_usage: Table<AiUsageRow, 'user_id' | 'feature' | 'provider' | 'model'>;
+      whatifs: Table<WhatIfRow, 'user_id' | 'item_id' | 'scenario' | 'kind'>;
     };
     Views: { [_ in never]: never };
     Functions: {

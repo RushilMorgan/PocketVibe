@@ -1,5 +1,4 @@
 import 'server-only';
-import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { getPromptContext } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
 import { findsFor } from './finds';
@@ -85,36 +84,29 @@ export async function findsForTopic(
   }
 }
 
-/**
- * One lesson from something saved but never opened: the newest such item
- * (not a recipe). Reuses its pre-written lesson or writes one.
- */
-export async function suggestedLesson(userId: string): Promise<DigestContent['lesson']> {
+/** The newest what-if that's written but never opened (lib/whatif), or null. No AI call: it's already written. */
+export async function suggestedWhatIf(userId: string): Promise<NonNullable<DigestContent['whatif']> | null> {
   const db = adminClient();
-  const [{ data: items, error }, { data: opened, error: openedError }] = await Promise.all([
-    db
-      .from('items')
-      .select('id, title, url')
-      .eq('user_id', userId)
-      .eq('status', 'done')
-      .neq('kind', 'recipe')
-      .order('created_at', { ascending: false })
-      .limit(50),
-    db.from('events').select('item_id').eq('user_id', userId).eq('type', 'opened').not('item_id', 'is', null),
-  ]);
+  const { data: whatif, error } = await db
+    .from('whatifs')
+    .select('item_id, scenario')
+    .eq('user_id', userId)
+    .eq('kind', 'main')
+    .eq('status', 'done')
+    .is('opened_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
-  if (openedError) throw openedError;
-
-  const openedIds = new Set((opened ?? []).map((o) => o.item_id));
-  for (const item of (items ?? []).filter((i) => !openedIds.has(i.id)).slice(0, 3)) {
-    try {
-      const lessonId = (await unplayedLesson(userId, item.id)) ?? (await createLesson(userId, item.id));
-      return { itemId: item.id, itemTitle: item.title ?? item.url, lessonId };
-    } catch (err) {
-      console.warn('digest: no lesson for', item.id, err);
-    }
-  }
-  return null;
+  if (!whatif) return null;
+  const { data: item, error: itemError } = await db
+    .from('items')
+    .select('title, url')
+    .eq('id', whatif.item_id)
+    .eq('user_id', userId)
+    .single();
+  if (itemError) throw itemError;
+  return { itemId: whatif.item_id, itemTitle: item.title ?? item.url, scenario: whatif.scenario };
 }
 
 /** Saves this week's digest (replacing a re-run of the same week) and returns its id. */

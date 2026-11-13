@@ -5,12 +5,12 @@ import { Thumb } from './thumb';
 
 const REASON: Record<UpNextReason, string> = {
   fresh: 'Fresh from today',
-  lesson: 'Your lesson is waiting',
+  whatif: 'What if it takes off?',
   review: 'Still remember this?',
   unread: 'Still unread',
 };
 
-/** The one save to do next: a big image card with Play / Read and "Not now". */
+/** The one save to do next: a big image card with What if / Review / Read and "Not now". */
 export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpNextReason; onSnooze: () => void }) {
   const firstLine = item.summary?.split('\n')[0];
   const duration = formatDuration(item.duration_seconds);
@@ -55,6 +55,18 @@ export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpN
           <>
             <Link href={`/review/${item.id}`} className="flex-1 rounded-xl bg-accent py-2.5 text-center text-sm font-semibold text-on-accent">
               {item.reviewFormat === 'connect' ? '🔗 Then and now' : '🧠 Quick recall'} · 20s
+            </Link>
+            <Link href={`/items/${item.id}`} className="flex-1 rounded-xl border border-line py-2.5 text-center text-sm font-medium">
+              {read}
+            </Link>
+          </>
+        ) : reason === 'whatif' ? (
+          <>
+            <Link
+              href={`/items/${item.id}?whatif=1`}
+              className="flex-1 rounded-xl bg-accent py-2.5 text-center text-sm font-semibold text-on-accent"
+            >
+              🤔 What if…
             </Link>
             <Link href={`/items/${item.id}`} className="flex-1 rounded-xl border border-line py-2.5 text-center text-sm font-medium">
               {read}

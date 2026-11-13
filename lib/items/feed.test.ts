@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activityDays,
   buildFeed,
   feedItems,
   feedState,
@@ -35,7 +36,14 @@ function item(id: string, over: Partial<FeedSourceItem> = {}): FeedSourceItem {
   };
 }
 
-const empty: FeedInput = { items: [], events: [], lessons: [], recipes: [], itemTopics: [], topics: [], reviews: [] };
+const empty: FeedInput = { items: [], events: [], lessons: [], recipes: [], itemTopics: [], topics: [], reviews: [], whatifs: [] };
+const wi = (item_id: string, over: Partial<FeedInput['whatifs'][number]> = {}): FeedInput['whatifs'][number] => ({
+  item_id,
+  kind: 'main',
+  status: 'done',
+  opened_at: null,
+  ...over,
+});
 const ev = (type: FeedInput['events'][number]['type'], created_at: string, item_id: string | null = null, value: number | null = null) => ({
   type,
   created_at,
@@ -152,12 +160,23 @@ describe('pickUpNext', () => {
     expect(pickUpNext(items, NOW)).toMatchObject({ item: { id: 'fresh' }, reason: 'fresh' });
   });
 
-  it('then an opened save with a lesson waiting', () => {
-    const items = build([item('unread'), item('lesson', { created_at: '2026-11-02T10:00:00Z' })], {
-      events: [ev('opened', '2026-11-03T10:00:00Z', 'lesson')],
-      lessons: [{ id: 'l', item_id: 'lesson', created_at: '2026-11-02T11:00:00Z' }],
+  it('then a read save whose what-if is written but not opened', () => {
+    // Opened yesterday, so its first review card isn't due yet.
+    const items = build([item('unread'), item('w', { created_at: '2026-11-02T10:00:00Z' })], {
+      events: [ev('opened', '2026-11-10T10:00:00Z', 'w')],
+      whatifs: [wi('w')],
     });
-    expect(pickUpNext(items, NOW)).toMatchObject({ item: { id: 'lesson' }, reason: 'lesson' });
+    expect(pickUpNext(items, NOW)).toMatchObject({ item: { id: 'w' }, reason: 'whatif' });
+    const opened = build([item('w')], { events: [ev('opened', '2026-11-10T10:00:00Z', 'w')], whatifs: [wi('w', { opened_at: '2026-11-10T10:05:00Z' })] });
+    expect(pickUpNext(opened, NOW)).toBeNull();
+  });
+
+  it('puts a due review card before a waiting what-if', () => {
+    const items = build([item('w', { created_at: '2026-11-01T10:00:00Z' })], {
+      events: [ev('opened', '2026-11-02T10:00:00Z', 'w')],
+      whatifs: [wi('w')],
+    });
+    expect(pickUpNext(items, NOW)).toMatchObject({ reason: 'review' });
   });
 
   it('then the oldest unopened save', () => {
@@ -224,8 +243,31 @@ describe('streak', () => {
   });
 });
 
+describe('whatIf state', () => {
+  it("follows the save's main what-if only", () => {
+    const items = feedItems({
+      ...empty,
+      items: [item('a'), item('b'), item('c'), item('d'), item('e', { status: 'processing' })],
+      whatifs: [
+        wi('a', { status: 'pending' }),
+        wi('b'),
+        wi('c', { opened_at: '2026-11-05T10:00:00Z' }),
+        wi('d', { kind: 'custom' }),
+        wi('e'),
+      ],
+    });
+    expect(Object.fromEntries(items.map((i) => [i.id, i.whatIf]))).toEqual({ a: 'thinking', b: 'ready', c: 'opened', d: null, e: null });
+  });
+
+  it('counts an opened what-if as activity for the streak and the week', () => {
+    const opened = [wi('a', { kind: 'custom', opened_at: '2026-11-10T08:00:00Z' })];
+    expect(activityDays([], [], 'Africa/Johannesburg', opened)).toEqual(['2026-11-10']);
+    expect(weekProgress([], NOW, 'Africa/Johannesburg', [...opened, wi('b', { opened_at: '2026-11-02T08:00:00Z' })]).whatIfsOpened).toBe(1);
+  });
+});
+
 describe('weekProgress', () => {
-  it('counts save days and lessons this week only', () => {
+  it('counts save days this week only', () => {
     const week = weekProgress(
       [
         ev('saved', '2026-11-09T08:00:00Z'),
@@ -237,7 +279,7 @@ describe('weekProgress', () => {
       ],
       NOW,
     );
-    expect(week).toEqual({ saveDays: 2, lessonsPlayed: 1, savedOn: [true, false, true, false, false, false, false] });
+    expect(week).toEqual({ saveDays: 2, whatIfsOpened: 0, savedOn: [true, false, true, false, false, false, false] });
   });
 });
 
@@ -250,13 +292,13 @@ describe('buildFeed', () => {
       item('c', { created_at: '2026-11-03T10:00:00Z' }),
     ],
     events: [ev('opened', '2026-11-05T11:00:00Z', 'a'), ev('saved', '2026-11-10T10:00:00Z', 'a')],
-    lessons: [{ id: 'la', item_id: 'a', created_at: '2026-11-05T10:30:00Z' }],
+    whatifs: [wi('a'), wi('c', { status: 'pending' })],
     itemTopics: [{ item_id: 'c', topic_id: 't' }],
     topics: [{ id: 't', name: 'AI', weight: 1 }],
   };
 
   it('filters, pages and counts', () => {
-    expect(buildFeed(input, { filter: 'lesson' }, NOW).items.map((i) => i.id)).toEqual(['a']);
+    expect(buildFeed(input, { filter: 'whatif' }, NOW).items.map((i) => i.id)).toEqual(['a']);
     expect(buildFeed(input, { filter: 'recipe' }, NOW).items.map((i) => i.id)).toEqual(['b']);
     expect(buildFeed(input, { filter: 'unread' }, NOW).items.map((i) => i.id)).toEqual(['b', 'c']);
     expect(buildFeed(input, { topicId: 't' }, NOW).items.map((i) => i.id)).toEqual(['c']);
@@ -268,8 +310,9 @@ describe('buildFeed', () => {
     expect(next.items.map((i) => i.id)).toEqual(['c']);
     expect(next.hasMore).toBe(false);
 
-    expect(page.counts).toEqual({ unread: 2, lesson: 1 });
-    expect(page.upNext).toMatchObject({ item: { id: 'a' }, reason: 'lesson' });
+    expect(page.counts).toEqual({ unread: 2, whatif: 1 });
+    // Opened 6 days ago: its first review card (3 days) is due, and that comes before the what-if.
+    expect(page.upNext).toMatchObject({ item: { id: 'a' }, reason: 'review' });
     expect(page.week.saveDays).toBe(1);
   });
 });

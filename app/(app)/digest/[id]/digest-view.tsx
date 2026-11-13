@@ -39,8 +39,15 @@ export function DigestView({ id }: { id: string }) {
       </p>
       <h1 className="text-2xl font-semibold tracking-tight">Your week</h1>
       <p className="mt-1 text-sm text-muted">
-        {d.stats.saved} saved · {d.stats.played} lesson{d.stats.played === 1 ? '' : 's'} played
+        {d.stats.saved} saved{d.stats.played > 0 && ` · ${d.stats.played} lesson${d.stats.played === 1 ? '' : 's'} played`}
       </p>
+
+      {d.whatif && (
+        <a href={href(`/items/${d.whatif.itemId}?whatif=1`)} className="mt-6 block rounded-2xl bg-accent p-4 text-on-accent">
+          <span className="text-sm opacity-80">🤔 What if… — from {d.whatif.itemTitle}</span>
+          <span className="mt-1 block text-lg font-semibold leading-snug">{d.whatif.scenario}</span>
+        </a>
+      )}
 
       {d.lesson && (
         <a

@@ -2,7 +2,6 @@ import 'server-only';
 import { NonRetriableError } from 'inngest';
 import { classify } from '@/lib/ai/classify';
 import { createDiagram } from '@/lib/diagrams/generate';
-import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
 import { recipeText } from '@/lib/handlers/schemas';
@@ -17,11 +16,13 @@ import { getPromptContext, recordItemTopics } from '@/lib/profile';
 import type { ItemRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
 import { getSmartModel } from '@/lib/users';
+import { pendingMainWhatIf, setMainScenario, writeWhatIf } from '@/lib/whatif/service';
 import { inngest, itemQueued } from './client';
 
 /**
  * Shared link → useful version: fetch → classify → handle → (diagram) → index
- * → notify → (lesson).
+ * → notify → (what-if card). Lessons are no longer pre-written: Play writes
+ * one on request (docs/what-if.md, Part C).
  * Each step is retried on its own by Inngest, so a flaky Gemini call doesn't
  * redo the work before it, and every step is safe to re-run.
  */
@@ -86,6 +87,8 @@ export const processItem = inngest.createFunction(
     const meta = await step.run('classify', async () => {
       const result = await classify(rawText, await getPromptContext(userId));
       await update({ kind: result.kind, title: result.title });
+      // Recorded now so the ready push can offer it; the card is written last.
+      await setMainScenario(userId, itemId, result.what_if);
       return result;
     });
 
@@ -171,21 +174,18 @@ export const processItem = inngest.createFunction(
           ingredientCount: Array.isArray(ingredients) ? ingredients.length : null,
           thumbnailUrl: row.thumbnail_url,
           relatedTitle: related?.title ?? null,
+          whatIf: meta.what_if,
         }),
       );
     }
 
-    // Pre-write a lesson so Play opens instantly. After notify, so it never
-    // delays the explainer; best-effort, Play can still generate on demand.
-    if (meta.kind !== 'recipe') {
-      await step.run('lesson', async () => {
-        try {
-          if (await unplayedLesson(userId, itemId)) return null;
-          return await createLesson(userId, itemId);
-        } catch (err) {
-          console.error('lesson pre-generation failed', err);
-          return null;
-        }
+    // The what-if card: Search + the smart model, so it comes after the push
+    // rather than delaying it (the item page shows it as "thinking" meanwhile).
+    // Best-effort: a card that fails is saved as failed and offers Try again.
+    if (meta.what_if) {
+      await step.run('whatif', async () => {
+        const id = await pendingMainWhatIf(userId, itemId);
+        return id ? (await writeWhatIf(userId, id)).status : 'done';
       });
     }
 

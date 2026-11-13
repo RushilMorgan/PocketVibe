@@ -1,9 +1,28 @@
 # What if… + AI usage tracking — spec and plan
 
-Status (2026-11-13): **Part A (usage tracking) built and live** (migration `20261113124054_ai_usage`); B–E planned.
+Status (2026-11-13): **Part A (usage tracking) built and live** (migration `20261113124054_ai_usage`);
+**Parts B and C built** (what-if card, lessons moved out of the way), not yet deployed; D–E planned.
+
 Part A as built: no budget alert yet (left for later), and the card shows Google searches separately
 because the 5,000 free a month are per Google account. Gemini prices were copied on 2026-11-13; Argon's
 launch price doubles on 1 Dec 2026 and 3.8 Flash's on 1 Jan 2027, so the table is dated.
+
+Parts B and C as built — where they differ from the plan below:
+- **No CHECK constraints changed.** What-ifs live in their own `whatifs` table (several per save, a
+  pending/failed state), and "opened" is `whatifs.opened_at` instead of new `events` types. Asked
+  scenarios are rows with kind `alternative` or `custom`. So no explicit yes was needed.
+- **The card is written after the ready push**, not before, so the push isn't delayed by Search; the
+  scenario is known from the classify step, so the push still has its What if button. The item page
+  shows "thinking" and polls for up to 3 minutes; a card still pending after that offers Try again.
+- **"Today" facts are picked, not written:** the Search step's lines that grounding backed are
+  numbered, and the smart model picks 2–3 by number. Lines Search didn't back are dropped.
+- **Up next order:** fresh → review due → read with a what-if not yet opened → oldest unread (a due
+  review card comes before a what-if).
+- **No per-save what-if reminder yet:** it needs a new `nudges.kind`, which is a CHECK change (needs
+  a yes). Meanwhile the Wednesday check-in counts what-ifs waiting and the streak nudge links to them.
+  The old lesson reminder code stays; it only fires for a lesson you started and left.
+- **Other scenarios:** capped at 5 per save; not counted against the daily save cap.
+- The What-if button on the push is logged as nudge action `play` (no CHECK change).
 
 ## Why
 

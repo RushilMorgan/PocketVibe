@@ -94,9 +94,9 @@ export function Home({
     <div className="flex flex-col gap-4">
       <header className="flex items-end justify-between">
         <h1 className="text-3xl font-extrabold tracking-tight">Your saves</h1>
-        {feed && feed.counts.lesson > 0 && (
-          <button onClick={() => pick({ filter: 'lesson', topic: null })} className="text-sm font-medium text-accent">
-            {feed.counts.lesson} lesson{feed.counts.lesson === 1 ? '' : 's'} waiting
+        {feed && feed.counts.whatif > 0 && (
+          <button onClick={() => pick({ filter: 'whatif', topic: null })} className="text-sm font-medium text-accent">
+            {feed.counts.whatif} what-if{feed.counts.whatif === 1 ? '' : 's'} waiting
           </button>
         )}
       </header>
@@ -113,7 +113,7 @@ export function Home({
             📬
           </span>
           <span className="text-sm">
-            <span className="font-semibold">Your week is ready</span> — what you saved, new finds and a 2-minute lesson.
+            <span className="font-semibold">Your week is ready</span> — what you saved, new finds and a what-if to chew on.
           </span>
         </Link>
       )}
@@ -130,8 +130,8 @@ export function Home({
           <Chip active={sel.filter === 'unread'} onClick={() => pick({ filter: 'unread', topic: null })} count={feed?.counts.unread}>
             To read
           </Chip>
-          <Chip active={sel.filter === 'lesson'} onClick={() => pick({ filter: 'lesson', topic: null })} count={feed?.counts.lesson}>
-            Lessons
+          <Chip active={sel.filter === 'whatif'} onClick={() => pick({ filter: 'whatif', topic: null })} count={feed?.counts.whatif}>
+            What ifs
           </Chip>
           <Chip active={sel.filter === 'recipe'} onClick={() => pick({ filter: 'recipe', topic: null })}>
             Recipes
@@ -177,7 +177,7 @@ export function Home({
           </p>
           <h2 className="mt-3 text-lg font-bold">Share your first video</h2>
           <p className="mt-1 text-sm text-muted">
-            In YouTube or TikTok tap Share → HeyToolie. You&apos;ll get the useful version back, plus a 2-minute lesson.
+            In YouTube or TikTok tap Share → HeyToolie. You&apos;ll get the useful version back, plus a what-if on where it could lead.
           </p>
         </div>
       )}

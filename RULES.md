@@ -40,15 +40,16 @@ changing code.
 | `lib/ai` | Gemini client (`generateJson`, `streamText`, `embed`, `generateGrounded`), prompt loader, AI usage tracking (`usage.ts`; dated list prices in `pricing.ts`; the Settings card's numbers in `usage-summary.ts`) |
 | `lib/handlers` | Recipe + explainer handlers and the client-safe output schemas |
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
-| `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results |
+| `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results — written on request only |
+| `lib/whatif` | What if… cards ([docs/what-if.md](docs/what-if.md)): client-safe schema and helpers (`schema.ts`), Search facts → only lines Search backed (`facts.ts`, pure), main scenario + writing + other/custom scenarios (`service.ts`); `components/item/whatif.tsx` renders them |
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights); the Topics page data, Flash-made themes (cached on `users.topic_themes`) and merge |
 | `lib/topic-view.ts`, `lib/time.ts` | Pure: Topics page shaping (trends, themes, mix, `displayTopic` for acronyms) and local dates/times in the user's time zone |
 | `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
 | `lib/digest` | Weekly digest: your week, Search-grounded finds, suggested lesson, email, tracking links |
 | `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
-| `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min round the clock; each user's slots are in their own time zone) — registered in `functions.ts` |
+| `lib/jobs` | Inngest functions: `process-item` (… → notify → what-if card), `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min round the clock; each user's slots are in their own time zone) — registered in `functions.ts` |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet); `components/item` is the item page header (full-bleed image) and helpers |
-| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / Play buttons), reminders (`reminders.ts` picks lesson / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
+| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / What if buttons; the What-if tap is logged as action `play`), reminders (`reminders.ts` picks lesson / review / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
 | `lib/reviews` | Bringing old saves back: the 3 → 10 → 30-day schedule from `reviews` rows (`schedule.ts`, pure), recall and Then-and-now cards (`service.ts`; the connection note is cached on `items.related.note`) |
 | `lib/items/feed.ts` | Saves feed logic, pure and tested: item states, Up next pick, streak with weekly freeze, week progress ([docs/saves-redesign.md](docs/saves-redesign.md)) |
 | `prompts/*.md` | Every AI prompt, editable without touching code |
@@ -67,7 +68,11 @@ changing code.
 - Every AI JSON response goes through a Zod schema (`generateJson`). Lessons are generated one
   template at a time: Flash picks the template, Pro writes JSON for just that schema.
 - Nothing fails silently: a job that gives up sets `items.status = 'failed'` with a user-readable
-  `error`. Best-effort extras (diagram, lesson pre-write, push) catch and log instead of failing the item.
+  `error`. Best-effort extras (diagram, push) catch and log instead of failing the item; a what-if
+  that can't be written is saved as `failed` with an `error` and the card offers Try again.
+- A what-if's "Today" facts are only lines of the Search answer that Search's grounding backed, picked
+  by number by the smart model — never facts the model writes itself. Source links come from the
+  grounding chunks (redirects resolved best-effort).
 - Chat threads are server-owned: the client sends only the new question; `lib/chat.ts` loads earlier
   turns from `chat_messages`, saves the question, and saves the answer when the stream ends (or
   whatever arrived, if it breaks). An item's thread has its `item_id`; the Ask tab's is `null`.

@@ -43,17 +43,18 @@ function item(id: string, over: Partial<FeedItem> = {}): FeedItem {
     ingredientCount: null,
     reviewDueAt: null,
     reviewFormat: null,
+    whatIf: null,
     ...over,
   };
 }
 
 const streakOk: Streak = { days: 4, freezeLeft: 1, activeToday: true, atRisk: false, milestone: 3 };
-const week: WeekProgress = { saveDays: 2, lessonsPlayed: 0, savedOn: [true, true, false, false, false, false, false] };
-const feed = (items: FeedItem[], over: { streak?: Streak; week?: WeekProgress; lessons?: number } = {}) => ({
+const week: WeekProgress = { saveDays: 2, whatIfsOpened: 0, savedOn: [true, true, false, false, false, false, false] };
+const feed = (items: FeedItem[], over: { streak?: Streak; week?: WeekProgress; whatifs?: number } = {}) => ({
   items,
   streak: over.streak ?? streakOk,
   week: over.week ?? week,
-  counts: { unread: 0, lesson: over.lessons ?? items.filter((i) => i.lessonId).length },
+  counts: { unread: 0, whatif: over.whatifs ?? items.filter((i) => i.whatIf === 'ready').length },
 });
 const sent = (kind: NudgeHistory['kind'], sent_at: string, tapped = false, item_id: string | null = null): NudgeHistory => ({
   kind,
@@ -153,12 +154,16 @@ describe('pickReminder', () => {
 
   it("doesn't nudge about a 1-day streak", () => {
     const oneDay: Streak = { days: 1, freezeLeft: 0, activeToday: false, atRisk: true, milestone: null };
-    expect(pickReminder({ ...base, feed: feed([], { streak: oneDay, lessons: 0 }), now: THU_18 })).toBeNull();
+    expect(pickReminder({ ...base, feed: feed([], { streak: oneDay }), now: THU_18 })).toBeNull();
   });
 
   it('sends the mid-week check-in on Wednesday when there is something to say', () => {
-    expect(pickReminder({ ...base, feed: feed([item('a')]), now: WED_18 })).toEqual({ kind: 'midweek', lessonsWaiting: 1, saveDays: 2 });
-    expect(pickReminder({ ...base, feed: feed([], { lessons: 0 }), now: WED_18 })).toBeNull();
+    expect(pickReminder({ ...base, feed: feed([item('a', { whatIf: 'ready' })]), now: WED_18 })).toEqual({
+      kind: 'midweek',
+      whatIfsWaiting: 1,
+      saveDays: 2,
+    });
+    expect(pickReminder({ ...base, feed: feed([]), now: WED_18 })).toBeNull();
   });
 
   it('stays quiet while backed off', () => {
@@ -173,7 +178,7 @@ describe('review reminders', () => {
 
   it('come after waiting lessons, longest-waiting first', () => {
     const items = [due('late', '2026-11-11T10:00:00Z'), due('early', '2026-11-08T10:00:00Z')];
-    expect(pickReminder({ history: [], times: [1080], feed: feed(items, { lessons: 0 }), now: THU_18 })).toMatchObject({
+    expect(pickReminder({ history: [], times: [1080], feed: feed(items), now: THU_18 })).toMatchObject({
       kind: 'review',
       itemId: 'early',
       format: 'recall',
@@ -213,13 +218,14 @@ describe('reminderMessage', () => {
 
   it('words the streak and mid-week reminders', () => {
     expect(reminderMessage({ kind: 'streak', days: 6 }, 'n1').title).toBe('🔥 Keep your 6-day streak');
-    expect(reminderMessage({ kind: 'midweek', lessonsWaiting: 3, saveDays: 1 }, 'n1').body).toBe(
-      '1 save day so far, 3 lessons waiting — about 6 minutes.',
+    expect(reminderMessage({ kind: 'streak', days: 6 }, 'n1').url).toBe('/?filter=whatif&n=n1&a=open');
+    expect(reminderMessage({ kind: 'midweek', whatIfsWaiting: 1, saveDays: 1 }, 'n1').body).toBe(
+      '1 save day so far, 1 what-if waiting — a minute to read.',
     );
-    expect(reminderMessage({ kind: 'midweek', lessonsWaiting: 11, saveDays: 1 }, 'n1').body).toBe(
-      '1 save day so far, 11 lessons waiting — start with one, it takes 2 minutes.',
+    expect(reminderMessage({ kind: 'midweek', whatIfsWaiting: 4, saveDays: 1 }, 'n1').body).toBe(
+      '1 save day so far, 4 what-ifs waiting — pick the one that grabs you.',
     );
-    expect(reminderMessage({ kind: 'midweek', lessonsWaiting: 0, saveDays: 0 }, 'n1').body).toBe(
+    expect(reminderMessage({ kind: 'midweek', whatIfsWaiting: 0, saveDays: 0 }, 'n1').body).toBe(
       'Nothing saved yet this week — share one video today?',
     );
   });

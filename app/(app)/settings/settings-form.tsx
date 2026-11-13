@@ -91,7 +91,7 @@ export function SettingsForm({ initial, defaultModel }: { initial: Settings; def
       <section>
         <h2 className="font-semibold">AI model</h2>
         <p className="mt-1 text-sm text-muted">
-          Writes your explanations, lessons, diagrams and chat answers. Watching videos and reading recipes always
+          Writes your explanations, what-ifs, lessons, diagrams and chat answers. Watching videos and reading recipes always
           uses Gemini 3.8 Flash.
         </p>
         <div className="mt-3 flex flex-col gap-2">
@@ -158,7 +158,7 @@ export function SettingsForm({ initial, defaultModel }: { initial: Settings; def
       <section>
         <h2 className="font-semibold">Weekly digest</h2>
         <p className="mt-1 text-sm text-muted">
-          Sundays at 18:00 by notification and email: what you saved, 3 new finds per top topic, and a lesson to play.
+          Sundays at 18:00 by notification and email: what you saved, 3 new finds per top topic, and a what-if you haven&apos;t opened.
         </p>
         <button
           onClick={sendDigest}
@@ -205,7 +205,7 @@ function Reminders({ times, timezone, onChange }: { times: number[]; timezone: s
     <section>
       <h2 className="font-semibold">Reminders</h2>
       <p className="mt-1 text-sm text-muted">
-        A nudge when a lesson is waiting, a Wednesday check-in, and a heads-up before your streak breaks. Never more
+        A nudge when a review card is due, a Wednesday check-in, and a heads-up before your streak breaks. Never more
         than you pick here, and they pause if you ignore a few.
       </p>
       <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1">

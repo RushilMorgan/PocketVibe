@@ -25,8 +25,10 @@ export const digestContent = z.object({
   ),
   /** "New for you": up to 3 finds for each of the top 3 topics. */
   finds: z.array(z.object({ topic: z.string(), items: z.array(find) })),
-  /** One lesson from something saved but never opened. */
+  /** Older digests: one lesson from something saved but never opened. New ones have null (docs/what-if.md, Part C). */
   lesson: z.object({ itemId: z.string(), itemTitle: z.string(), lessonId: z.string() }).nullable(),
+  /** A what-if written but not yet opened (absent on digests from before what-ifs). */
+  whatif: z.object({ itemId: z.string(), itemTitle: z.string(), scenario: z.string() }).nullable().optional(),
   stats: z.object({ saved: z.number(), played: z.number() }),
 });
 

@@ -1,7 +1,7 @@
 import type { Streak, WeekProgress } from '@/components/types';
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const TARGET = { saveDays: 5, lessons: 1 };
+const TARGET = { saveDays: 5, whatIfs: 1 };
 
 const MILESTONE: Record<number, string> = {
   3: 'Three days running',
@@ -16,15 +16,15 @@ const MILESTONE: Record<number, string> = {
 export function StreakStrip({ streak, week, todayIndex }: { streak: Streak; week: WeekProgress; todayIndex: number }) {
   const { days, freezeLeft, activeToday, atRisk, milestone } = streak;
   const sub = atRisk
-    ? `Save or play one thing tonight to keep your ${days}-day streak`
+    ? `Save something or open a what-if tonight to keep your ${days}-day streak`
     : days === 0
-      ? 'Save or play something today to start one'
+      ? 'Save something or open a what-if today to start one'
       : activeToday
         ? milestone === days
           ? MILESTONE[days]
           : 'Done for today ✓'
         : 'Keep it going today';
-  const onTrack = week.saveDays >= TARGET.saveDays && week.lessonsPlayed >= TARGET.lessons;
+  const onTrack = week.saveDays >= TARGET.saveDays && week.whatIfsOpened >= TARGET.whatIfs;
   const flameRing = days >= 30 ? 'bg-accent/20' : days >= 7 ? 'bg-warm/30' : days > 0 ? 'bg-warm/15' : 'bg-line';
 
   return (
@@ -67,9 +67,9 @@ export function StreakStrip({ streak, week, todayIndex }: { streak: Streak; week
                 <span className="font-semibold">{week.saveDays}</span>
                 <span className="text-muted">/{TARGET.saveDays} save days</span>
               </p>
-              <p className={week.lessonsPlayed >= TARGET.lessons ? 'text-success' : ''}>
-                <span className="font-semibold">▶ {week.lessonsPlayed}</span>
-                <span className="text-muted">/{TARGET.lessons} lesson</span>
+              <p className={week.whatIfsOpened >= TARGET.whatIfs ? 'text-success' : ''}>
+                <span className="font-semibold">🤔 {week.whatIfsOpened}</span>
+                <span className="text-muted">/{TARGET.whatIfs} what-if</span>
               </p>
             </>
           )}

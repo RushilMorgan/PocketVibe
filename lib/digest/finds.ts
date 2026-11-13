@@ -40,7 +40,7 @@ export async function findsFor(
   const { text, sources } = await generateGrounded(await prompt('finds', { ...ctx, topic, exclude }), { feature: 'digest' });
 
   const typed = [...text.matchAll(/https?:\/\/[^\s)\]>"'—]+/g)].map((m) => m[0].replace(/[.,;:]+$/, ''));
-  const raw = [...new Set([...sources.map((s) => s.uri), ...typed])].slice(0, MAX_CANDIDATES * 2);
+  const raw = [...new Set([...sources.map((s) => s.uri).filter(Boolean), ...typed])].slice(0, MAX_CANDIDATES * 2);
 
   const resolved = (await Promise.all(raw.map(resolvePage))).filter((p): p is Page => p !== null);
   const unique = [...new Map(resolved.map((p) => [p.url, p])).values()].filter((p) => !seen.has(p.url));

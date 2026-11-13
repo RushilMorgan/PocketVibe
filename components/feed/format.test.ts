@@ -28,6 +28,7 @@ function item(over: Partial<FeedItem>): FeedItem {
     topTopic: null,
     readMinutes: null,
     ingredientCount: null,
+    whatIf: null,
     reviewDueAt: null,
     reviewFormat: null,
     ...over,
@@ -67,5 +68,12 @@ describe('feed format', () => {
   it('labels fallback tiles by topic, then site', () => {
     expect(tileLabel({ topTopic: 'AI', url: 'https://x.com' })).toBe('AI');
     expect(tileLabel({ topTopic: null, url: 'https://www.example.com/a' })).toBe('example.com');
+  });
+});
+
+describe('metaLine with a what-if', () => {
+  it('says when a read save has a what-if waiting', () => {
+    expect(metaLine(item({ whatIf: 'ready' }), NOW)).toBe('What if… waiting · 3h');
+    expect(metaLine(item({ whatIf: 'opened' }), NOW)).toBe('Read · 3h');
   });
 });

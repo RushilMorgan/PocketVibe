@@ -20,6 +20,7 @@ function allTargets(d: DigestContent): string[] {
     ...d.groups.flatMap((g) => g.items.map((i) => `/items/${i.id}`)),
     ...d.finds.flatMap((f) => f.items.map((i) => i.url)),
     ...(d.lesson ? [`/play/${d.lesson.lessonId}`] : []),
+    ...(d.whatif ? [`/items/${d.whatif.itemId}?whatif=1`] : []),
   ];
 }
 

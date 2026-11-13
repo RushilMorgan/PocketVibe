@@ -58,6 +58,8 @@ function StateMark({ item }: { item: FeedItem }) {
       return <Pill>{scoreLabel(item.bestScore)}</Pill>;
     case 'mastered':
       return <span className="rounded-full bg-success px-2 py-1 text-[11px] font-semibold text-on-accent">✓ Mastered</span>;
+    case 'read':
+      return item.whatIf === 'ready' ? <Pill>🤔 What if</Pill> : null;
     default:
       return null;
   }

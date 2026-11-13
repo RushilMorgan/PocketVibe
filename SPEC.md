@@ -268,7 +268,21 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 **Lessons**
 - A cheap Flash call picks the template, then Gemini Pro writes JSON for that one template's schema
   (simpler and more reliable than one union schema). Quiz answers are shuffled server-side.
-- A lesson is pre-written in the background after each non-recipe save so Play opens instantly.
+- Lessons are no longer pre-written (11 written, 0 played by 11 Nov): Play lives under "More on
+  this" on the item page and writes one when tapped. The What if… card took their place
+  ([docs/what-if.md](docs/what-if.md)).
+
+**What if… (not in the spec; [docs/what-if.md](docs/what-if.md))**
+- The classifier also suggests a "What if…?" question for news, tech and (where it fits) other saves.
+  After the ready push, Search gathers today's facts and the smart model writes the card: where it
+  stands today (only facts Search backed, with links), first and knock-on effects, winners and
+  losers, a timeline, how likely, and three signals to watch. Labelled speculation; global, not one
+  country.
+- Under it: two suggested other scenarios, your own (up to 5 extra per save), Debate it (a Council
+  session) and Ask about this (the item's chat). Table `whatifs`; opening a card sets `opened_at`.
+- It replaces lessons in the feed (the "What ifs" filter, Up next, the streak and the week target),
+  the ready push, the Wednesday reminder and the digest. The day-30 line "played at least 1 lesson
+  a week" becomes "opened a what-if on at least half of the saves that have one".
 
 **Digest**
 - Vercel Cron triggers it, but the work runs as an Inngest job with one step per topic (each topic's
@@ -298,20 +312,20 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 
 **Saves redesign (not in the spec; [docs/saves-redesign.md](docs/saves-redesign.md))**
 - The feed is image-led: a 2-column grid of portrait cards (YouTube Shorts use their real 9:16
-  frame, `oar2`), each showing its state (new, lesson ready, score, mastered). Images are the
+  frame, `oar2`), each showing its state (new, what-if waiting, score, mastered). Images are the
   sources' own, linked not copied; TikTok's oEmbed no longer returns one, so TikTok saves get a
   coloured tile.
-- Above the grid: a streak (days with a save, a lesson or a review; one missed day a week is
-  covered) with this week's progress against the day-30 targets, an **Up next** card (fresh →
-  lesson waiting → review due → oldest unread, with a synced "Not now"), and filter chips.
-- The item page has a full-bleed header, a big Play card, the explainer as a numbered path with
+- Above the grid: a streak (days with a save, a lesson, an opened what-if or a review; one missed
+  day a week is covered) with this week's progress against the day-30 targets, an **Up next** card
+  (fresh → review due → what-if waiting → oldest unread, with a synced "Not now"), and filter chips.
+- The item page has a full-bleed header, the What if… card, the explainer as a numbered path with
   coloured callouts, and recipes you can cook from (checklist, tap-through steps, Cook mode).
-- The "ready" push shows the thumbnail and has Read / Play buttons. Every push except the digest is
+- The "ready" push shows the thumbnail and has Read / What if buttons. Every push except the digest is
   logged in `nudges` and taps are recorded, so we can see which ones work.
 - **Connects to**: a save links to its closest other save when best-chunk similarity is ≥ 0.80
   (measured: related pairs 0.82–0.87, unrelated up to 0.77) — in the push, feed and item page.
-- **Reminders** at times you pick in Settings (once or twice a day, 07:00–21:30): a waiting lesson,
-  the Wednesday check-in, or a streak (2+ days) about to break; at most one per slot, and they pause
+- **Reminders** at times you pick in Settings (once or twice a day, 07:00–21:30): a review card that's
+  due, the Wednesday check-in (what-ifs waiting), or a streak (2+ days) about to break; at most one per slot, and they pause
   after three untapped in a row.
 - **Review cards** bring saves back 3, 10 and 30 days after you first opened them: recall the key
   ideas and flip, or — for connected saves — "Then and now", a short note on how the two connect.

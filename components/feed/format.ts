@@ -41,7 +41,8 @@ export function metaLine(item: FeedItem, now = Date.now()): string {
     case 'mastered':
       return `Mastered · ${age}`;
     case 'read':
-      return item.ingredientCount ? `${item.ingredientCount} ingredients · ${age}` : `Read · ${age}`;
+      if (item.ingredientCount) return `${item.ingredientCount} ingredients · ${age}`;
+      return item.whatIf === 'ready' ? `What if… waiting · ${age}` : `Read · ${age}`;
   }
 }
 

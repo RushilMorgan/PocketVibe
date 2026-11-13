@@ -110,13 +110,22 @@ export interface GroundingSource {
   title: string;
 }
 
+/** A stretch of the grounded answer and the sources (indexes into `sources`) Search backed it with. */
+export interface GroundingSupport {
+  text: string;
+  sources: number[];
+}
+
 /**
  * A call grounded in live Google Search results. Returns the model's text
  * plus the pages Search actually used — those links are real, unlike URLs the
  * model types into its answer. JSON mode can't be combined with tools, so
  * callers parse the text themselves.
  */
-export async function generateGrounded(text: string, opts: GenerateOptions): Promise<{ text: string; sources: GroundingSource[] }> {
+export async function generateGrounded(
+  text: string,
+  opts: GenerateOptions,
+): Promise<{ text: string; sources: GroundingSource[]; supports: GroundingSupport[] }> {
   const { model, config } = baseConfig(opts);
   const res = await ai().models.generateContent({
     model,
@@ -124,9 +133,14 @@ export async function generateGrounded(text: string, opts: GenerateOptions): Pro
     config: { ...config, tools: [{ googleSearch: {} }] },
   });
   await logUsage(opts.feature, model, res);
-  const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
-  const sources = chunks.flatMap((c) => (c.web?.uri ? [{ uri: c.web.uri, title: c.web.title ?? '' }] : []));
-  return { text: res.text?.trim() ?? '', sources };
+  const meta = res.candidates?.[0]?.groundingMetadata;
+  // Keep chunk positions so support indexes still point at the right source.
+  const chunks = meta?.groundingChunks ?? [];
+  const sources = chunks.map((c) => ({ uri: c.web?.uri ?? '', title: c.web?.title ?? '' }));
+  const supports = (meta?.groundingSupports ?? []).flatMap((s) =>
+    s.segment?.text ? [{ text: s.segment.text, sources: (s.groundingChunkIndices ?? []).filter((i) => sources[i]?.uri) }] : [],
+  );
+  return { text: res.text?.trim() ?? '', sources, supports };
 }
 
 export interface ChatTurn {

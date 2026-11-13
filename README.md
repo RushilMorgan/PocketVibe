@@ -2,8 +2,8 @@
 
 A personal web app at **[heytoolie.com](https://heytoolie.com)**. Share any article, YouTube video
 or recipe link to it from the Android share sheet and get the useful version back: a clean recipe, a
-plain-language explanation with a diagram, a 2-minute playable lesson, and a chat that answers from
-everything you've saved. Every Sunday it sends a digest of your week plus new finds on your topics.
+plain-language explanation with a diagram, a **What if…** card on where it could lead, and a chat
+that answers from everything you've saved. Every Sunday it sends a digest of your week plus new finds on your topics.
 
 - **What and why:** [SPEC.md](SPEC.md) — the product spec, phases, and the day-30 success test.
 - **How we build it:** [RULES.md](RULES.md) — architecture, conventions and hard-won gotchas.
@@ -17,16 +17,20 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
    system also get a **diagram** (Mermaid → PNG).
 4. The text is **chunked and embedded** (pgvector) for "Ask" and "Similar", the item's tags feed
    your **topic profile**, and it's linked to the closest other save it **connects to**.
-5. You get a **push notification** with its thumbnail and Read / Play buttons, and a **lesson**
-   (quiz, simulator, put-in-order or spot-the-bug) is pre-written so Play opens instantly.
+5. You get a **push notification** with its thumbnail and Read / What if buttons. Then the
+   **What if…** card is written: Google Search finds where things stand today, and the smart model
+   thinks through effects, winners and losers, a timeline, how likely it is and three signals to
+   watch. You can ask the suggested other scenarios or your own, debate one in the Council, or ask
+   about it in the chat. A 2-minute **lesson** (quiz, simulator, put-in-order or spot-the-bug) is
+   still there under "More on this", written when you tap it.
 6. The **saves feed** is an image grid with a streak, an **Up next** card and filters. **Reminders**
-   (at the times you pick in Settings, in your phone's time zone) nudge you about a waiting lesson, a Wednesday check-in or a
+   (at the times you pick in Settings, in your phone's time zone) nudge you about a review card, a Wednesday check-in or a
    streak about to break, and **review cards** bring saves back after 3, 10 and 30 days (recall the
    key ideas, or "Then and now" for connected saves).
 7. **Council** tab: describe an idea and five models from different labs (through OpenRouter)
    research it, argue it out and vote on a verdict with next steps; then ask follow-ups.
 8. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
-   for each of your top 3 topics, and one lesson from something you never opened.
+   for each of your top 3 topics, and a what-if you haven't opened yet.
 
 ## Stack
 

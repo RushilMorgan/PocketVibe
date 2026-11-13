@@ -17,6 +17,7 @@ export const FEATURES = {
   review: 'Review cards',
   topics: 'Topics',
   digest: 'Weekly digest',
+  whatif: 'What if',
   council: 'Council',
   other: 'Other',
 } as const;

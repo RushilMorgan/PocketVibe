@@ -76,3 +76,25 @@ describe('renderDigestEmail', () => {
     for (const h of hrefs) expect(h.startsWith('https://heytoolie.com/d/x?to=')).toBe(true);
   });
 });
+describe('renderDigestEmail with a what-if', () => {
+  const link = (to: string) => `https://heytoolie.com/d/x?to=${encodeURIComponent(to)}`;
+  const withWhatIf: DigestContent = {
+    ...digest,
+    lesson: null,
+    whatif: { itemId: 'i3', itemTitle: 'Solid-state <batteries>', scenario: 'What if they are in most new cars by 2030?' },
+  };
+
+  it('offers the what-if instead of a lesson, escaped and tracked', () => {
+    const email = renderDigestEmail(withWhatIf, link);
+    expect(digestContent.safeParse(withWhatIf).success).toBe(true);
+    expect(email.html).toContain('What if they are in most new cars by 2030?');
+    expect(email.html).toContain('Solid-state &lt;batteries&gt;');
+    expect(email.html).toContain(encodeURIComponent('/items/i3?whatif=1'));
+    expect(email.html).not.toContain('2-minute lesson');
+    expect(email.text).toContain('WHAT IF: What if they are in most new cars by 2030?');
+  });
+
+  it('still reads digests saved before what-ifs existed', () => {
+    expect(digestContent.safeParse(digest).success).toBe(true);
+  });
+});

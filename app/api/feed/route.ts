@@ -5,7 +5,7 @@ import { route } from '@/lib/http';
 import { getFeed } from '@/lib/items/feed-service';
 
 const query = z.object({
-  filter: z.enum(['unread', 'lesson', 'recipe']).optional(),
+  filter: z.enum(['unread', 'whatif', 'recipe']).optional(),
   topic: z.uuid().optional(),
   before: z.iso.datetime({ offset: true }).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),

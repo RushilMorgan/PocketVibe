@@ -18,13 +18,16 @@ export async function extractRecipe(input: { url?: string; text: string; tone?: 
 
   if (watchUrl) {
     try {
-      return await generateJson(recipe, [youtubePart(watchUrl), { text: instructions }], { lowMediaResolution: true });
+      return await generateJson(recipe, [youtubePart(watchUrl), { text: instructions }], {
+        feature: 'recipe',
+        lowMediaResolution: true,
+      });
     } catch (err) {
       console.warn('recipe: video extraction failed, falling back to text', err);
     }
   }
   if (!input.text.trim()) throw new Error('No recipe text to work from');
-  return generateJson(recipe, [{ text: instructions }, { text: `Content:\n${input.text}` }]);
+  return generateJson(recipe, [{ text: instructions }, { text: `Content:\n${input.text}` }], { feature: 'recipe' });
 }
 
 /**

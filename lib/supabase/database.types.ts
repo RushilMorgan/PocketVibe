@@ -201,6 +201,37 @@ export type CouncilTurnRow = {
   created_at: string;
 }
 
+export type AiUsageRow = {
+  id: string;
+  user_id: string;
+  item_id: string | null;
+  /** lib/ai/usage-summary.ts FEATURES; no CHECK, so new features need no migration. */
+  feature: string;
+  provider: 'gemini' | 'openrouter';
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  thinking_tokens: number;
+  cached_tokens: number;
+  search_queries: number;
+  /** Estimated (Gemini) or reported (OpenRouter); null = the model had no price when logged. */
+  cost_usd: number | null;
+  created_at: string;
+}
+
+type UsageGroupRow = {
+  provider: 'gemini' | 'openrouter';
+  model: string;
+  priced: boolean;
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  thinking_tokens: number;
+  cached_tokens: number;
+  search_queries: number;
+  cost_usd: number;
+}
+
 export type AllowedEmailRow = {
   email: string;
   created_at: string;
@@ -224,6 +255,7 @@ export interface Database {
       nudges: Table<NudgeRow, 'user_id' | 'kind'>;
       reviews: Table<ReviewRow, 'user_id' | 'item_id' | 'format' | 'rating'>;
       council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
+      ai_usage: Table<AiUsageRow, 'user_id' | 'feature' | 'provider' | 'model'>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -242,6 +274,14 @@ export interface Database {
       take_public_tool_use: {
         Args: { p_visitor: string; p_tool: string; p_day: string; p_limit: number };
         Returns: boolean;
+      };
+      ai_usage_by_feature: {
+        Args: { p_user_id: string; p_since: string; p_tz: string };
+        Returns: (UsageGroupRow & { month: string; feature: string })[];
+      };
+      ai_usage_by_item: {
+        Args: { p_user_id: string; p_since: string; p_tz: string; p_month: string };
+        Returns: (UsageGroupRow & { item_id: string })[];
       };
       refund_public_tool_use: {
         Args: { p_visitor: string; p_tool: string; p_day: string };

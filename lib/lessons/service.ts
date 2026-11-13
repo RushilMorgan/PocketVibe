@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { generateJson } from '@/lib/ai/gemini';
+import { withUsage } from '@/lib/ai/usage';
 import { prompt } from '@/lib/ai/prompts';
 import { logEvent } from '@/lib/events';
 import { HttpError } from '@/lib/http';
@@ -29,7 +30,11 @@ export interface LessonView {
  * once, then it gives up. Concepts already covered by earlier lessons are
  * passed as "avoid", so "Another on this topic" teaches something new.
  */
-export async function createLesson(userId: string, itemId: string, chosen?: Template): Promise<string> {
+export function createLesson(userId: string, itemId: string, chosen?: Template): Promise<string> {
+  return withUsage({ itemId }, () => writeLesson(userId, itemId, chosen));
+}
+
+async function writeLesson(userId: string, itemId: string, chosen?: Template): Promise<string> {
   const item = await getItem(userId, itemId);
   if (!item.raw_text) throw new HttpError(409, "This one hasn't been read yet.");
   if (item.kind === 'recipe') throw new HttpError(400, 'Recipes have no lesson.');
@@ -57,7 +62,7 @@ export async function createLesson(userId: string, itemId: string, chosen?: Temp
   let content: Lesson | undefined;
   for (let attempt = 0; attempt < 2 && !content; attempt++) {
     try {
-      content = await generateJson(schema, [{ text: instructions }, source], { model: 'pro', modelId, thinking: 'high' });
+      content = await generateJson(schema, [{ text: instructions }, source], { feature: 'lesson', model: 'pro', modelId, thinking: 'high' });
     } catch (err) {
       console.warn('lesson: attempt', attempt + 1, 'invalid', template, err);
     }
@@ -71,7 +76,7 @@ export async function createLesson(userId: string, itemId: string, chosen?: Temp
 /** Flash picks the template; quiz if the call fails (it fits any concept). */
 async function pickTemplate(source: { text: string }): Promise<Template> {
   try {
-    const { template } = await generateJson(pick, [{ text: await prompt('lesson-pick', {}) }, source]);
+    const { template } = await generateJson(pick, [{ text: await prompt('lesson-pick', {}) }, source], { feature: 'lesson' });
     return template;
   } catch (err) {
     console.warn('lesson: template pick failed, using quiz', err);

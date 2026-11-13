@@ -1,4 +1,5 @@
 import 'server-only';
+import { withUsage } from '@/lib/ai/usage';
 import { logEvent } from '@/lib/events';
 import { explain } from '@/lib/handlers/explainer';
 import { createDiagram } from '@/lib/diagrams/generate';
@@ -16,7 +17,9 @@ export async function reExplain(userId: string, itemId: string, mode: ExplainMod
   const item = await getItem(userId, itemId);
   if (!item.raw_text) throw new HttpError(409, "This one hasn't been read yet.");
   if (item.kind === 'recipe') throw new HttpError(400, 'Recipes have no explainer.');
-  const explainer = await explain(item.raw_text, await getPromptContext(userId), mode, await getSmartModel(userId));
+  const text = item.raw_text;
+  const [ctx, modelId] = await Promise.all([getPromptContext(userId), getSmartModel(userId)]);
+  const explainer = await withUsage({ itemId }, () => explain(text, ctx, mode, modelId));
   await saveOutput(userId, itemId, 'explainer', explainer);
   return explainer;
 }

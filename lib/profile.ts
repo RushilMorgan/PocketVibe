@@ -52,7 +52,7 @@ export async function recordItemTopics(userId: string, itemId: string, tags: str
 
   const names = [...new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))];
   if (!names.length) return [];
-  const embeddings = await embed(names, 'SEMANTIC_SIMILARITY');
+  const embeddings = await embed(names, 'SEMANTIC_SIMILARITY', 'topics');
 
   const topicIds = new Set<string>();
   for (const [i, name] of names.entries()) {

@@ -1,6 +1,9 @@
 # What if… + AI usage tracking — spec and plan
 
-Status (2026-11-12): **planned, not built.**
+Status (2026-11-13): **Part A (usage tracking) built**, not yet deployed; B–E planned.
+Part A as built: no budget alert yet (left for later), and the card shows Google searches separately
+because the 5,000 free a month are per Google account. Gemini prices were copied on 2026-11-13; Argon's
+launch price doubles on 1 Dec 2026 and 3.8 Flash's on 1 Jan 2027, so the table is dated.
 
 ## Why
 

@@ -37,7 +37,7 @@ changing code.
 | `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
 | `app/api/**` | Route handlers: parse input → call `/lib` → JSON |
 | `lib/items` | Saving links, source detection, fetching (Gemini video / Jina Reader), item actions |
-| `lib/ai` | Gemini client (`generateJson`, `streamText`, `embed`, `generateGrounded`), prompt loader |
+| `lib/ai` | Gemini client (`generateJson`, `streamText`, `embed`, `generateGrounded`), prompt loader, AI usage tracking (`usage.ts`; dated list prices in `pricing.ts`; the Settings card's numbers in `usage-summary.ts`) |
 | `lib/handlers` | Recipe + explainer handlers and the client-safe output schemas |
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
 | `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results |
@@ -74,6 +74,12 @@ changing code.
 - Council turns are the job's cache: `run.ts` returns an existing `council_turns` row instead of
   calling the model again, so Retry only pays for unfinished stages. A member whose step gives up
   is dropped (quorum 3); research is best-effort.
+- Every AI call is logged to `ai_usage` (tokens, Google searches, estimated cost). Gemini calls take a
+  required `feature` (the list is `FEATURES` in `lib/ai/usage-summary.ts`); the user and save come from
+  an AsyncLocalStorage scope that `route()` + `requireUser()` open for API routes, the Inngest middleware
+  in `lib/jobs/client.ts` opens per step from the event's `userId`/`itemId`, and `withUsage({ itemId })`
+  narrows for work on one save. A call outside any scope is warned about and not logged. Logging never
+  fails the call. When Google changes a price (or a model), update `lib/ai/pricing.ts` — prices are dated.
 - Job steps must be safe to re-run (Inngest retries each step): replace outputs/chunks rather than
   append, and guard weight changes (`recordItemTopics` skips already-linked items).
 

@@ -11,7 +11,7 @@ import { chunkText } from './chunk';
 export async function indexItem(item: { id: string; user_id: string; title: string; text: string }): Promise<number> {
   const db = adminClient();
   const chunks = chunkText(item.text).map((c) => `${item.title}\n\n${c}`);
-  const embeddings = chunks.length ? await embed(chunks, 'RETRIEVAL_DOCUMENT') : [];
+  const embeddings = chunks.length ? await embed(chunks, 'RETRIEVAL_DOCUMENT', 'index') : [];
 
   const { error: deleteError } = await db.from('chunks').delete().eq('item_id', item.id).eq('user_id', item.user_id);
   if (deleteError) throw deleteError;

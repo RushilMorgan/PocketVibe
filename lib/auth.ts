@@ -1,6 +1,7 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+import { setUsageUser } from '@/lib/ai/usage';
 import { env } from '@/lib/env';
 import { HttpError } from '@/lib/http';
 import { adminClient, createSessionClient } from '@/lib/supabase/server';
@@ -96,6 +97,7 @@ export const getCurrentUser = cache(async (): Promise<UserRow | null> => {
 export async function requireUser(): Promise<UserRow> {
   const user = await getCurrentUser();
   if (!user) throw new HttpError(401, 'Please sign in.');
+  setUsageUser(user.id);
   return user;
 }
 

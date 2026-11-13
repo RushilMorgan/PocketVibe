@@ -1,7 +1,16 @@
 import 'server-only';
-import { GoogleGenAI, MediaResolution, ThinkingLevel, type GenerateContentConfig, type Part } from '@google/genai';
+import {
+  GoogleGenAI,
+  MediaResolution,
+  ThinkingLevel,
+  type GenerateContentConfig,
+  type GenerateContentResponse,
+  type Part,
+} from '@google/genai';
 import { z } from 'zod';
 import { env } from '@/lib/env';
+import { currentUsage, recordUsage, type UsageScope } from './usage';
+import type { Feature } from './usage-summary';
 
 let client: GoogleGenAI | undefined;
 
@@ -44,6 +53,8 @@ export function youtubePart(watchUrl: string): Part {
 }
 
 interface GenerateOptions {
+  /** What the call is for, for AI usage tracking (lib/ai/usage.ts). */
+  feature: Feature;
   model?: Model;
   /** An exact model id overriding the tier's default (the user's Settings choice). */
   modelId?: string;
@@ -53,7 +64,7 @@ interface GenerateOptions {
 }
 
 /** Shared per-call config: thinking depth and video resolution. */
-function baseConfig(opts: GenerateOptions): { model: string; config: GenerateContentConfig } {
+function baseConfig(opts: Omit<GenerateOptions, 'feature'>): { model: string; config: GenerateContentConfig } {
   const tier = opts.model ?? 'fast';
   const model = opts.modelId ?? modelId(tier);
   return {
@@ -65,9 +76,29 @@ function baseConfig(opts: GenerateOptions): { model: string; config: GenerateCon
   };
 }
 
-export async function generateText(parts: Part[], opts: GenerateOptions = {}): Promise<string> {
+/** Logs a response's token counts (and any Google searches it ran) against the current user and save. */
+async function logUsage(feature: Feature, model: string, res: Pick<GenerateContentResponse, 'usageMetadata' | 'candidates'>, at?: UsageScope) {
+  const u = res.usageMetadata;
+  await recordUsage(
+    {
+      feature,
+      provider: 'gemini',
+      model,
+      // Search results the model read (tool-use tokens) are billed as input.
+      inputTokens: (u?.promptTokenCount ?? 0) + (u?.toolUsePromptTokenCount ?? 0),
+      cachedTokens: u?.cachedContentTokenCount ?? 0,
+      outputTokens: u?.candidatesTokenCount ?? 0,
+      thinkingTokens: u?.thoughtsTokenCount ?? 0,
+      searchQueries: res.candidates?.[0]?.groundingMetadata?.webSearchQueries?.length ?? 0,
+    },
+    at,
+  );
+}
+
+export async function generateText(parts: Part[], opts: GenerateOptions): Promise<string> {
   const { model, config } = baseConfig(opts);
   const res = await ai().models.generateContent({ model, contents: [{ role: 'user', parts }], config });
+  await logUsage(opts.feature, model, res);
   const text = res.text?.trim();
   if (!text) throw new Error('Gemini returned no text');
   return text;
@@ -85,16 +116,14 @@ export interface GroundingSource {
  * model types into its answer. JSON mode can't be combined with tools, so
  * callers parse the text themselves.
  */
-export async function generateGrounded(
-  text: string,
-  opts: GenerateOptions = {},
-): Promise<{ text: string; sources: GroundingSource[] }> {
+export async function generateGrounded(text: string, opts: GenerateOptions): Promise<{ text: string; sources: GroundingSource[] }> {
   const { model, config } = baseConfig(opts);
   const res = await ai().models.generateContent({
     model,
     contents: [{ role: 'user', parts: [{ text }] }],
     config: { ...config, tools: [{ googleSearch: {} }] },
   });
+  await logUsage(opts.feature, model, res);
   const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
   const sources = chunks.flatMap((c) => (c.web?.uri ? [{ uri: c.web.uri, title: c.web.title ?? '' }] : []));
   return { text: res.text?.trim() ?? '', sources };
@@ -105,17 +134,31 @@ export interface ChatTurn {
   text: string;
 }
 
-/** Streams a multi-turn answer as plain text chunks. */
-export async function* streamText(system: string, turns: ChatTurn[], opts: GenerateOptions = {}): AsyncGenerator<string> {
-  const { model, config } = baseConfig(opts);
-  const stream = await ai().models.generateContentStream({
-    model,
-    contents: turns.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-    config: { ...config, systemInstruction: system },
-  });
-  for await (const chunk of stream) {
-    if (chunk.text) yield chunk.text;
-  }
+/**
+ * Streams a multi-turn answer as plain text chunks. Usage is logged when the
+ * stream ends or is abandoned, against the scope at the time of the call (the
+ * stream is read after the route has returned).
+ */
+export function streamText(system: string, turns: ChatTurn[], opts: GenerateOptions): AsyncGenerator<string> {
+  const at = currentUsage();
+  return (async function* () {
+    const { model, config } = baseConfig(opts);
+    const stream = await ai().models.generateContentStream({
+      model,
+      contents: turns.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+      config: { ...config, systemInstruction: system },
+    });
+    // The final chunk carries the totals.
+    let last: GenerateContentResponse | undefined;
+    try {
+      for await (const chunk of stream) {
+        if (chunk.usageMetadata) last = chunk;
+        if (chunk.text) yield chunk.text;
+      }
+    } finally {
+      if (last) await logUsage(opts.feature, model, last, at);
+    }
+  })();
 }
 
 /** Matches the vector(768) columns. */
@@ -124,15 +167,22 @@ const EMBED_BATCH = 100;
 
 export type EmbedTask = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY' | 'SEMANTIC_SIMILARITY';
 
+/** The embeddings API reports no token counts; Gemini text runs about 4 characters a token. */
+const CHARS_PER_TOKEN = 4;
+
 /** Embeds many texts (batched); returns pgvector literals in input order. */
-export async function embed(texts: string[], taskType: EmbedTask): Promise<string[]> {
+export async function embed(texts: string[], taskType: EmbedTask, feature: Feature): Promise<string[]> {
   const out: string[] = [];
+  const model = env().GEMINI_EMBED_MODEL;
   for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+    const batch = texts.slice(i, i + EMBED_BATCH);
     const res = await ai().models.embedContent({
-      model: env().GEMINI_EMBED_MODEL,
-      contents: texts.slice(i, i + EMBED_BATCH),
+      model,
+      contents: batch,
       config: { taskType, outputDimensionality: EMBED_DIMS },
     });
+    const chars = batch.reduce((sum, t) => sum + t.length, 0);
+    await recordUsage({ feature, provider: 'gemini', model, inputTokens: Math.ceil(chars / CHARS_PER_TOKEN), outputTokens: 0 });
     for (const e of res.embeddings ?? []) {
       if (e.values?.length !== EMBED_DIMS) throw new Error('Unexpected embedding size');
       out.push(`[${e.values.join(',')}]`);
@@ -143,13 +193,15 @@ export async function embed(texts: string[], taskType: EmbedTask): Promise<strin
 }
 
 /** JSON-mode call validated against a Zod schema; throws if the model strays. */
-export async function generateJson<T>(schema: z.ZodType<T>, parts: Part[], opts: GenerateOptions = {}): Promise<T> {
+export async function generateJson<T>(schema: z.ZodType<T>, parts: Part[], opts: GenerateOptions): Promise<T> {
   const { model, config } = baseConfig(opts);
   const res = await ai().models.generateContent({
     model,
     contents: [{ role: 'user', parts }],
     config: { ...config, responseMimeType: 'application/json', responseJsonSchema: z.toJSONSchema(schema) },
   });
+  // Before parsing: a reply that fails validation was still paid for.
+  await logUsage(opts.feature, model, res);
   // Not a ZodError: route() would report that as the caller's bad request.
   let json: unknown;
   try {

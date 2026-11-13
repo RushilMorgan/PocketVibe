@@ -41,7 +41,7 @@ async function digestVideo(url: string): Promise<FetchedContent> {
     throw new UnreadableError("That video's over 20 minutes — HeyToolie only reads shorter ones for now.");
   }
   const instructions = await prompt('video-digest', {});
-  const text = await generateText([youtubePart(watchUrl), { text: instructions }], { lowMediaResolution: true });
+  const text = await generateText([youtubePart(watchUrl), { text: instructions }], { feature: 'watch', lowMediaResolution: true });
   return { text, durationSeconds: seconds };
 }
 

@@ -149,7 +149,7 @@ export async function answer(
   return {
     sources,
     // Pro model, light thinking: smart answers that still start streaming quickly.
-    stream: streamText(system, turns, { model: 'pro', modelId: await getSmartModel(userId), thinking: 'low' }),
+    stream: streamText(system, turns, { feature: 'chat', model: 'pro', modelId: await getSmartModel(userId), thinking: 'low' }),
     finish: (text) => (text.trim() ? saveMessage(userId, req.itemId, 'assistant', text, sources) : Promise.resolve()),
   };
 }
@@ -167,7 +167,7 @@ async function libraryContext(userId: string, question: string) {
   const db = adminClient();
   // The whole question plus each clause of a compound one, in one embed call.
   const queries = [question, ...splitQuestion(question)];
-  const embeddings = await embed(queries, 'RETRIEVAL_QUERY');
+  const embeddings = await embed(queries, 'RETRIEVAL_QUERY', 'chat');
   const perQuery = await Promise.all(
     embeddings.map(async (p_embedding) => {
       const { data, error } = await db.rpc('match_chunks', { p_user_id: userId, p_embedding, p_match_count: CANDIDATES });

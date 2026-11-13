@@ -50,7 +50,7 @@ export async function listTopics(userId: string): Promise<TopicSummary[]> {
 export async function renameTopic(userId: string, topicId: string, rawName: string): Promise<void> {
   const name = rawName.trim().toLowerCase();
   if (!name) throw new HttpError(400, 'Give the topic a name.');
-  const [embedding] = await embed([name], 'SEMANTIC_SIMILARITY');
+  const [embedding] = await embed([name], 'SEMANTIC_SIMILARITY', 'topics');
   const { data, error } = await adminClient()
     .from('topics')
     .update({ name, embedding })
@@ -148,7 +148,7 @@ async function cachedThemes(userId: string, topics: TopicView[], cache: TopicThe
   if (cache?.hash === hash) return cache.themes;
   try {
     const list = topics.map((t) => `- ${t.name} (${t.itemCount})`).join('\n');
-    const result = await generateJson(themesSchema, [{ text: await prompt('topic-themes', { topics: list }) }]);
+    const result = await generateJson(themesSchema, [{ text: await prompt('topic-themes', { topics: list }) }], { feature: 'topics' });
     const themes = assignThemes(topics, result.themes);
     await adminClient().from('users').update({ topic_themes: { hash, themes } }).eq('id', userId);
     return themes;

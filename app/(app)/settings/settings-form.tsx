@@ -6,6 +6,7 @@ import { api } from '@/components/api';
 import { SMART_MODELS } from '@/lib/ai/models';
 import { formatSlot, REMINDER_SLOTS } from '@/lib/nudges/reminders';
 import type { Level } from '@/lib/supabase/database.types';
+import { UsageCard } from './usage-card';
 
 const LEVELS: { value: Level; label: string; hint: string }[] = [
   { value: 'beginner', label: 'Beginner', hint: 'No tech background — everyday words only' },
@@ -119,6 +120,8 @@ export function SettingsForm({ initial, defaultModel }: { initial: Settings; def
           })}
         </div>
       </section>
+
+      <UsageCard />
 
       <section>
         <h2 className="font-semibold">Tone</h2>

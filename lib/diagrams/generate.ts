@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { generateJson } from '@/lib/ai/gemini';
+import { withUsage } from '@/lib/ai/usage';
 import { prompt } from '@/lib/ai/prompts';
 import { diagram, type Diagram } from '@/lib/handlers/schemas';
 import { saveOutput } from '@/lib/items/service';
@@ -27,7 +28,7 @@ export async function draftDiagram(text: string, ctx: PromptContext, modelId?: s
   for (let attempt = 0; attempt < 2; attempt++) {
     const parts = [{ text: instructions }, content];
     if (feedback) parts.push({ text: feedback });
-    const draft = await generateJson(diagram, parts, { model: 'pro', modelId });
+    const draft = await generateJson(diagram, parts, { feature: 'diagram', model: 'pro', modelId });
     const code = cleanMermaid(draft.mermaid);
     const problems = lintMermaid(code);
     const error = problems.length ? problems.join(' ') : await parseError(code);
@@ -48,7 +49,8 @@ export async function createDiagram(
   text: string,
   ctx: PromptContext,
 ): Promise<{ content: Diagram; fileUrl: string } | null> {
-  const draft = await draftDiagram(text, ctx, await getSmartModel(userId));
+  const modelId = await getSmartModel(userId);
+  const draft = await withUsage({ itemId }, () => draftDiagram(text, ctx, modelId));
   if (!draft) return null;
 
   const png = await renderPng(draft.mermaid);

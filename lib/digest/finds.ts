@@ -37,7 +37,7 @@ export async function findsFor(
   already: string[] = [],
 ): Promise<Find[]> {
   const exclude = [...seen].slice(0, 40).map((u) => `  - ${u}`).join('\n') || '  (nothing yet)';
-  const { text, sources } = await generateGrounded(await prompt('finds', { ...ctx, topic, exclude }));
+  const { text, sources } = await generateGrounded(await prompt('finds', { ...ctx, topic, exclude }), { feature: 'digest' });
 
   const typed = [...text.matchAll(/https?:\/\/[^\s)\]>"'—]+/g)].map((m) => m[0].replace(/[.,;:]+$/, ''));
   const raw = [...new Set([...sources.map((s) => s.uri), ...typed])].slice(0, MAX_CANDIDATES * 2);
@@ -55,7 +55,7 @@ export async function findsFor(
     topic,
     already: already.length ? already.map((t) => `- ${t}`).join('\n') : '(nothing yet)',
   });
-  const { picks: chosen } = await generateJson(picks, [{ text: instructions }, { text: list }]);
+  const { picks: chosen } = await generateJson(picks, [{ text: instructions }, { text: list }], { feature: 'digest' });
 
   const out: Find[] = [];
   for (const { index, why } of chosen) {

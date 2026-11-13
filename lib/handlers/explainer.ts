@@ -22,5 +22,5 @@ export async function explain(
   modelId?: string,
 ): Promise<Explainer> {
   const instructions = await prompt('explainer', { ...ctx, mode_instruction: MODE_INSTRUCTIONS[mode] });
-  return generateJson(explainer, [{ text: instructions }, { text: `Content:\n${text}` }], { model: 'pro', modelId });
+  return generateJson(explainer, [{ text: instructions }, { text: `Content:\n${text}` }], { feature: 'explainer', model: 'pro', modelId });
 }

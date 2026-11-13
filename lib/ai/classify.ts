@@ -21,6 +21,6 @@ export async function classify(text: string, ctx: PromptContext): Promise<Classi
   const result = await generateJson(classification, [
     { text: instructions },
     { text: `Content:\n${text.slice(0, CLASSIFY_CHARS)}` },
-  ]);
+  ], { feature: 'classify' });
   return { ...result, tags: [...new Set(result.tags.map((t) => t.trim().toLowerCase()))] };
 }

@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { generateJson } from '@/lib/ai/gemini';
+import { withUsage } from '@/lib/ai/usage';
 import { prompt } from '@/lib/ai/prompts';
 import { HttpError } from '@/lib/http';
 import { getPromptContext } from '@/lib/profile';
@@ -79,7 +80,7 @@ export async function getReviewCard(userId: string, itemId: string, now = new Da
 
   try {
     const other = await loadSave(userId, related.itemId);
-    const connection = related.note?.lines?.length ? related.note.lines : await writeConnection(userId, item, ideas, other, now);
+    const connection = related.note?.lines?.length ? related.note.lines : await withUsage({ itemId }, () => writeConnection(userId, item, ideas, other, now));
     if (!related.note?.lines?.length) {
       await adminClient()
         .from('items')
@@ -120,7 +121,7 @@ async function writeConnection(
     now_title: next.title ?? 'Untitled',
     now_text: next.ideas.join('\n'),
   });
-  const result = await generateJson(connection, [{ text: instructions }]);
+  const result = await generateJson(connection, [{ text: instructions }], { feature: 'review' });
   return result.lines;
 }
 

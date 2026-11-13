@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { councilEnv, env } from '@/lib/env';
+import { recordUsage } from './usage';
 
 /**
  * Models from every vendor through one OpenAI-compatible gateway (OpenRouter
@@ -54,7 +55,15 @@ const response = z.object({
       }),
     )
     .min(1),
-  usage: z.object({ cost: z.number().optional() }).optional(),
+  usage: z
+    .object({
+      cost: z.number().optional(),
+      prompt_tokens: z.number().optional(),
+      completion_tokens: z.number().optional(),
+      prompt_tokens_details: z.object({ cached_tokens: z.number().optional() }).nullish(),
+      completion_tokens_details: z.object({ reasoning_tokens: z.number().optional() }).nullish(),
+    })
+    .optional(),
 });
 
 async function call(opts: OrOptions, extra: Record<string, unknown>): Promise<OrResult<string>> {
@@ -86,6 +95,19 @@ async function call(opts: OrOptions, extra: Record<string, unknown>): Promise<Or
   }
   const parsed = response.safeParse(await res.json());
   if (!parsed.success) throw new Error(`${opts.model} returned an unexpected response`);
+  const usage = parsed.data.usage;
+  const reasoning = usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+  // The gateway's own cost (web search included), so no price table is needed.
+  await recordUsage({
+    feature: 'council',
+    provider: 'openrouter',
+    model: opts.model,
+    inputTokens: usage?.prompt_tokens ?? 0,
+    cachedTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    outputTokens: Math.max(0, (usage?.completion_tokens ?? 0) - reasoning),
+    thinkingTokens: reasoning,
+    costUsd: usage?.cost ?? 0,
+  });
   const message = parsed.data.choices[0].message;
   const citations = (message.annotations ?? []).flatMap((a) =>
     a.type === 'url_citation' && a.url_citation ? [{ url: a.url_citation.url, title: a.url_citation.title ?? '' }] : [],

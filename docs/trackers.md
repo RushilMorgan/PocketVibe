@@ -1,6 +1,7 @@
 # Trackers — spec and plan
 
-Status (2026-11-14): **planned, nothing built.** Not yet agreed; the open decisions are at the top.
+Status (2026-11-14): **planned, nothing built.** The recommendations in "Decisions needed" were
+agreed on 2026-11-14; what-if Parts B and C go first.
 
 ## Why
 

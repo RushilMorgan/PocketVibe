@@ -1,9 +1,9 @@
 # What if… + AI usage tracking — spec and plan
 
 Status (2026-11-14): **Part A (usage tracking) built and live** (migration `20261113124054_ai_usage`).
-**Parts B and C are built on a branch, not live**: the migration `20261114120000_whatif` is written
-but not applied (it widens four CHECK constraints, which needs a yes), and nothing has been run
-against real Gemini yet. D–E planned.
+**Parts B and C are built on a branch, not live**: the migration `20261114200418_whatif` is applied
+(agreed 2026-11-14), but the code is not on `main` and nothing has been run against real Gemini yet.
+D–E planned.
 
 B and C as built, where they differ from the plan below:
 - The scenario is also stored on the save (`items.what_if`, a new column), so the item page can offer

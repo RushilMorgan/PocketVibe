@@ -5,7 +5,7 @@ import { notifyUser } from '@/lib/notify';
 import { adminClient } from '@/lib/supabase/server';
 import { renderDigestEmail } from './email';
 import { trackedPath, trackedUrl } from './links';
-import { digestContent, type DigestContent } from './schema';
+import { digestContent, whatIfTarget, type DigestContent } from './schema';
 
 export interface DigestView {
   id: string;
@@ -20,6 +20,7 @@ function allTargets(d: DigestContent): string[] {
     ...d.groups.flatMap((g) => g.items.map((i) => `/items/${i.id}`)),
     ...d.finds.flatMap((f) => f.items.map((i) => i.url)),
     ...(d.lesson ? [`/play/${d.lesson.lessonId}`] : []),
+    ...(d.whatIf ? [whatIfTarget(d.whatIf.itemId)] : []),
   ];
 }
 
@@ -100,7 +101,7 @@ export async function recordDigestTap(digestId: string, to: string): Promise<str
   if (error) throw error;
   if (!data) throw new HttpError(404, 'Digest not found.');
 
-  const itemId = to.match(/^\/items\/([0-9a-f-]{36})$/i)?.[1];
+  const itemId = to.match(/^\/items\/([0-9a-f-]{36})(?:\?whatif=1)?$/i)?.[1];
   await logEvent(data.user_id, 'digest_open', { itemId });
   if (!data.opened_at) await db.from('digests').update({ opened_at: new Date().toISOString() }).eq('id', digestId);
   return to;

@@ -9,12 +9,22 @@
 export type ItemSource = 'youtube' | 'article' | 'tiktok' | 'other';
 export type ItemKind = 'recipe' | 'tech' | 'news' | 'other';
 export type ItemStatus = 'queued' | 'processing' | 'done' | 'failed';
-export type OutputType = 'recipe' | 'explainer' | 'diagram' | 'lesson';
+export type OutputType = 'recipe' | 'explainer' | 'diagram' | 'lesson' | 'whatif';
 export type ReviewFormat = 'recall' | 'connect';
 export type ReviewRating = 'got' | 'fuzzy' | 'forgot';
-export type NudgeKind = 'ready' | 'lesson' | 'review' | 'midweek' | 'streak';
-export type NudgeAction = 'open' | 'read' | 'play';
-export type EventType = 'saved' | 'opened' | 'played' | 'score' | 'thumbs' | 'digest_open';
+/** 'lesson' is no longer sent (docs/what-if.md Part C); old rows keep it. */
+export type NudgeKind = 'ready' | 'lesson' | 'review' | 'midweek' | 'streak' | 'whatif';
+export type NudgeAction = 'open' | 'read' | 'play' | 'whatif';
+export type EventType =
+  | 'saved'
+  | 'opened'
+  | 'played'
+  | 'score'
+  | 'thumbs'
+  | 'digest_open'
+  | 'whatif_open'
+  | 'whatif_scenario'
+  | 'whatif_signal';
 export type Level = 'beginner' | 'some-code' | 'dev';
 
 type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -64,6 +74,8 @@ export type ItemRow = {
   error: string | null;
   raw_text: string | null;
   summary: string | null;
+  /** The scenario question the classifier chose (lib/whatif); null = no sensible what-if. */
+  what_if: string | null;
   /** The source's own preview image, linked not copied; null = none found. */
   thumbnail_url: string | null;
   /** YouTube video length; null for articles or when it couldn't be read. */

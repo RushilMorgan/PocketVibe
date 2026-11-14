@@ -46,7 +46,7 @@ export async function sendReminder(userId: string, now: Date): Promise<{ sent: b
     .from('nudges')
     .insert({
       user_id: userId,
-      // Lesson and review reminders are per save; "never twice" checks read this.
+      // What-if and review reminders are per save; "never twice" checks read this.
       item_id: 'itemId' in choice ? choice.itemId : null,
       kind: choice.kind,
       slot: slotAt(now, user.timezone).key,
@@ -59,17 +59,6 @@ export async function sendReminder(userId: string, now: Date): Promise<{ sent: b
     throw insertError;
   }
 
-  let template: string | null = null;
-  if (choice.kind === 'lesson') {
-    const { data: lesson } = await db
-      .from('item_outputs')
-      .select('template:content->>template')
-      .eq('id', choice.lessonId)
-      .eq('user_id', userId)
-      .maybeSingle();
-    template = (lesson as { template?: string } | null)?.template ?? null;
-  }
-
-  await notifyUser(userId, reminderMessage(choice, row.id, template));
+  await notifyUser(userId, reminderMessage(choice, row.id));
   return { sent: true, kind: choice.kind };
 }

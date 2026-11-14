@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/components/api';
-import type { DigestContent } from '@/lib/digest/schema';
+import { whatIfTarget, type DigestContent } from '@/lib/digest/schema';
 
 interface Digest {
   id: string;
@@ -39,7 +39,8 @@ export function DigestView({ id }: { id: string }) {
       </p>
       <h1 className="text-2xl font-semibold tracking-tight">Your week</h1>
       <p className="mt-1 text-sm text-muted">
-        {d.stats.saved} saved · {d.stats.played} lesson{d.stats.played === 1 ? '' : 's'} played
+        {d.stats.saved} saved
+        {d.stats.played > 0 && ` · ${d.stats.played} lesson${d.stats.played === 1 ? '' : 's'} played`}
       </p>
 
       {d.lesson && (
@@ -49,6 +50,14 @@ export function DigestView({ id }: { id: string }) {
         >
           <span className="text-sm opacity-80">2-minute lesson from something you haven&apos;t opened</span>
           <span className="mt-1 block text-lg font-semibold leading-snug">▶ {d.lesson.itemTitle}</span>
+        </a>
+      )}
+
+      {d.whatIf && (
+        <a href={href(whatIfTarget(d.whatIf.itemId))} className="mt-6 block rounded-2xl bg-accent p-4 text-on-accent">
+          <span className="text-sm opacity-80">💭 A what-if you haven&apos;t opened</span>
+          <span className="mt-1 block text-lg font-semibold leading-snug">{d.whatIf.scenario}</span>
+          <span className="mt-1 block text-sm opacity-80">From {d.whatIf.itemTitle}</span>
         </a>
       )}
 

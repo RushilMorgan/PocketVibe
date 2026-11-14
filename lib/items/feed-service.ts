@@ -8,29 +8,29 @@ import { findThumbnail } from './fetch';
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 const ITEM_COLUMNS =
-  'id, url, source, kind, title, status, error, summary, thumbnail_url, duration_seconds, snoozed_until, related, created_at';
+  'id, url, source, kind, title, status, error, summary, what_if, thumbnail_url, duration_seconds, snoozed_until, related, created_at';
 /** PostgREST returns at most this many rows per request. */
 const PAGE = 1000;
 
-/** The saves feed for one user: rows from five tables, shaped by lib/items/feed.ts. */
+/** The saves feed for one user: rows from six tables, shaped by lib/items/feed.ts. */
 export async function getFeed(userId: string, opts: FeedOptions, now = new Date()): Promise<Feed> {
   const db = adminClient();
-  const [items, events, lessons, recipes, itemTopics, topics, reviews, user] = await Promise.all([
+  const [items, events, whatIfs, recipes, itemTopics, topics, reviews, user] = await Promise.all([
     db.from('items').select(ITEM_COLUMNS).eq('user_id', userId),
     allEvents(userId),
-    db.from('item_outputs').select('id, item_id, created_at').eq('user_id', userId).eq('type', 'lesson'),
+    db.from('item_outputs').select('item_id').eq('user_id', userId).eq('type', 'whatif'),
     db.from('item_outputs').select('item_id, ingredients:content->ingredients').eq('user_id', userId).eq('type', 'recipe'),
     db.from('item_topics').select('item_id, topic_id').eq('user_id', userId),
     db.from('topics').select('id, name, weight').eq('user_id', userId),
     db.from('reviews').select('item_id, rating, format, created_at').eq('user_id', userId),
     db.from('users').select('timezone').eq('id', userId).maybeSingle(),
   ]);
-  for (const r of [items, lessons, recipes, itemTopics, topics, reviews, user]) if (r.error) throw r.error;
+  for (const r of [items, whatIfs, recipes, itemTopics, topics, reviews, user]) if (r.error) throw r.error;
 
   const input: FeedInput = {
     items: items.data ?? [],
     events,
-    lessons: lessons.data ?? [],
+    whatIfs: whatIfs.data ?? [],
     recipes: ((recipes.data ?? []) as { item_id: string; ingredients: unknown }[]).map((r) => ({
       item_id: r.item_id,
       ingredientCount: Array.isArray(r.ingredients) ? r.ingredients.length : 0,
@@ -51,7 +51,7 @@ async function allEvents(userId: string): Promise<FeedInput['events']> {
       .from('events')
       .select('item_id, type, value, created_at')
       .eq('user_id', userId)
-      .in('type', ['saved', 'opened', 'played', 'score'])
+      .in('type', ['saved', 'opened', 'played', 'score', 'whatif_open'])
       .order('created_at')
       .range(from, from + PAGE - 1);
     if (error) throw error;

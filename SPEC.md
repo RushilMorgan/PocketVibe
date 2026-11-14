@@ -18,7 +18,7 @@ It's built for one user first, so opening it to strangers later means flipping a
 ### Success test (decide on day 30)
 
 - [ ] Saved something on at least 4–5 days a week for 4 weeks
-- [ ] Played at least 1 lesson a week
+- [ ] Opened a what-if on at least half of the saves that have one (was: played at least 1 lesson a week; see [docs/what-if.md](docs/what-if.md))
 - [ ] Opened at least 3 of the 4 weekly digests
 
 All three ticked → open it to strangers. Fewer → it stays a personal tool.
@@ -268,7 +268,8 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 **Lessons**
 - A cheap Flash call picks the template, then Gemini Pro writes JSON for that one template's schema
   (simpler and more reliable than one union schema). Quiz answers are shuffled server-side.
-- A lesson is pre-written in the background after each non-recipe save so Play opens instantly.
+- Lessons are written only when asked for, from Tools on the item page. They used to be pre-written
+  after every save; 11 were written and none played, so the what-if card took their place.
 
 **Digest**
 - Vercel Cron triggers it, but the work runs as an Inngest job with one step per topic (each topic's
@@ -296,7 +297,21 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   follow-up questions, each answered by every member and ratified. Web research only; it doesn't
   read your saves. Tables `council_sessions` and `council_turns`.
 
+**What if… (not in the spec; [docs/what-if.md](docs/what-if.md))**
+- News and tech saves (and others with an obvious scenario; never recipes) get a **What if…** card:
+  the classifier picks a scenario question, a Search-grounded call gathers where things stand today,
+  and the smart model writes first and knock-on effects, winners and losers, a timeline, how likely
+  it is, and exactly three signals to watch. Always labelled Speculation. "Today" facts are shown
+  only with a source Search actually read.
+- Under the card: two other scenarios, your own what-if, Debate it (starts a Council session) and
+  Ask about this. At most 5 extra scenarios per save, each counted against the daily save cap.
+- It replaced the lesson everywhere a lesson was pushed: the item page's big card, the ready push
+  (Read / What if), Up next (review due → newest unread with a what-if → oldest unread), the
+  reminder slot, the streak (an opened what-if counts) and the digest's suggestion.
+
 **Saves redesign (not in the spec; [docs/saves-redesign.md](docs/saves-redesign.md))**
+(Where this section mentions lessons in the feed, push, Up next and reminders, the what-if has since
+taken that place; see above.)
 - The feed is image-led: a 2-column grid of portrait cards (YouTube Shorts use their real 9:16
   frame, `oar2`), each showing its state (new, lesson ready, score, mastered). Images are the
   sources' own, linked not copied; TikTok's oEmbed no longer returns one, so TikTok saves get a

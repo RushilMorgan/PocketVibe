@@ -2,7 +2,6 @@ import 'server-only';
 import { NonRetriableError } from 'inngest';
 import { classify } from '@/lib/ai/classify';
 import { createDiagram } from '@/lib/diagrams/generate';
-import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { explain } from '@/lib/handlers/explainer';
 import { extractRecipe } from '@/lib/handlers/recipe';
 import { recipeText } from '@/lib/handlers/schemas';
@@ -17,11 +16,12 @@ import { getPromptContext, recordItemTopics } from '@/lib/profile';
 import type { ItemRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
 import { getSmartModel } from '@/lib/users';
+import { ensureAutoWhatIf } from '@/lib/whatif/service';
 import { inngest, itemQueued } from './client';
 
 /**
  * Shared link → useful version: fetch → classify → handle → (diagram) → index
- * → notify → (lesson).
+ * → (what-if) → notify.
  * Each step is retried on its own by Inngest, so a flaky Gemini call doesn't
  * redo the work before it, and every step is safe to re-run.
  */
@@ -85,7 +85,7 @@ export const processItem = inngest.createFunction(
 
     const meta = await step.run('classify', async () => {
       const result = await classify(rawText, await getPromptContext(userId));
-      await update({ kind: result.kind, title: result.title });
+      await update({ kind: result.kind, title: result.title, what_if: result.what_if });
       return result;
     });
 
@@ -132,9 +132,23 @@ export const processItem = inngest.createFunction(
       }
     });
     await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
+
+    // What if… (docs/what-if.md B2): written before the push so it's there on open.
+    // Best-effort — the item page offers "Try again" if this gives up.
+    const scenario = meta.kind !== 'recipe' ? (meta.what_if ?? null) : null;
+    const hasWhatIf = scenario
+      ? await step.run('whatif', async () => {
+          try {
+            return await ensureAutoWhatIf(userId, itemId, { title: meta.title, text: rawText, scenario });
+          } catch (err) {
+            console.error('what-if failed, item stays without one', err);
+            return false;
+          }
+        })
+      : false;
     await step.run('finish', () => update({ status: 'done' }));
 
-    // Rich push with the thumbnail and Read / Play buttons, logged as a 'ready' nudge for tap stats.
+    // Rich push with the thumbnail and Read / What if buttons, logged as a 'ready' nudge for tap stats.
     // Best-effort: the item is already done, so a push problem must never fail it.
     await step.run('notify', async () => {
       try {
@@ -171,22 +185,9 @@ export const processItem = inngest.createFunction(
           ingredientCount: Array.isArray(ingredients) ? ingredients.length : null,
           thumbnailUrl: row.thumbnail_url,
           relatedTitle: related?.title ?? null,
+          whatIf: hasWhatIf ? scenario : null,
         }),
       );
-    }
-
-    // Pre-write a lesson so Play opens instantly. After notify, so it never
-    // delays the explainer; best-effort, Play can still generate on demand.
-    if (meta.kind !== 'recipe') {
-      await step.run('lesson', async () => {
-        try {
-          if (await unplayedLesson(userId, itemId)) return null;
-          return await createLesson(userId, itemId);
-        } catch (err) {
-          console.error('lesson pre-generation failed', err);
-          return null;
-        }
-      });
     }
 
     return { itemId, kind: meta.kind, tags: meta.tags };

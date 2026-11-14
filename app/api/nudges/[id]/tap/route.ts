@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth';
 import { route } from '@/lib/http';
 import { markTapped } from '@/lib/nudges/service';
 
-const body = z.object({ action: z.enum(['open', 'read', 'play']).default('open') });
+const body = z.object({ action: z.enum(['open', 'read', 'play', 'whatif']).default('open') });
 
 /** A notification was tapped: components/nudge-tap.tsx sends this from the ?n= in its URL. */
 export const POST = route(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {

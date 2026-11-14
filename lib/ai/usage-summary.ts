@@ -11,6 +11,8 @@ export const FEATURES = {
   explainer: 'Explainers',
   recipe: 'Recipes',
   diagram: 'Diagrams',
+  whatif: 'What ifs',
+  whatif_search: 'What-if research',
   lesson: 'Lessons',
   index: 'Indexing for Ask',
   chat: 'Ask and chat',

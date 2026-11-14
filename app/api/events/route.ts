@@ -5,7 +5,7 @@ import { logEvent } from '@/lib/events';
 import { route } from '@/lib/http';
 
 // Only the passive signals; saves, thumbs and plays are logged by their own actions.
-const body = z.object({ type: z.enum(['opened', 'digest_open']), itemId: z.uuid().optional() });
+const body = z.object({ type: z.enum(['opened', 'digest_open', 'whatif_open']), itemId: z.uuid().optional() });
 
 export const POST = route(async (req: Request) => {
   const user = await requireUser();

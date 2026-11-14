@@ -1,5 +1,6 @@
 /**
- * Reminders (docs/saves-redesign.md B0, B2, B5 and the streak nudge). Pure:
+ * Reminders (docs/saves-redesign.md B0, B2, B5 and the streak nudge; the
+ * what-if slot from docs/what-if.md Part C). Pure:
  * which reminder, if any, goes out in a slot, and its wording. The cron in
  * lib/jobs/reminders.ts loads the data and sends it via lib/nudges/send.ts.
  */
@@ -17,9 +18,9 @@ export const REMINDER_SLOTS: readonly number[] = Array.from({ length: 30 }, (_, 
 export const DEFAULT_REMINDER_TIMES = [1080];
 export const MAX_REMINDERS_A_DAY = 2;
 
-/** A lesson nudge waits this long after you opened the save, and gives up after LESSON_MAX_AGE. */
-const LESSON_MIN_AGE = 18 * HOUR_MS;
-const LESSON_MAX_AGE = 7 * DAY_MS;
+/** A what-if nudge waits this long after the save, and gives up after WHATIF_MAX_AGE. */
+const WHATIF_MIN_AGE = 18 * HOUR_MS;
+const WHATIF_MAX_AGE = 7 * DAY_MS;
 /** After this many untapped reminders in a row, pause… */
 const BACKOFF_AFTER = 3;
 /** …for this long after the last one. */
@@ -57,8 +58,8 @@ export interface NudgeHistory {
 
 export type ReminderChoice =
   | { kind: 'streak'; days: number }
-  | { kind: 'midweek'; lessonsWaiting: number; saveDays: number }
-  | { kind: 'lesson'; itemId: string; lessonId: string; title: string | null }
+  | { kind: 'midweek'; whatIfsWaiting: number; saveDays: number }
+  | { kind: 'whatif'; itemId: string; title: string | null; scenario: string }
   | { kind: 'review'; itemId: string; title: string | null; format: 'recall' | 'connect'; relatedTitle: string | null };
 
 /** Three untapped reminders in a row → quiet for two days after the last one. */
@@ -71,18 +72,18 @@ export function backedOff(history: NudgeHistory[], now: Date): boolean {
   return now.getTime() - Date.parse(recent[0].sent_at) < BACKOFF_FOR;
 }
 
-/** Opened 18h–7d ago, lesson waiting and never played, never nudged about before. Most recently opened first. */
-export function lessonCandidate(items: FeedItem[], history: NudgeHistory[], now: Date): FeedItem | null {
-  const nudged = new Set(history.filter((h) => h.kind === 'lesson').map((h) => h.item_id));
+/** Saved 18h–7d ago, with a what-if that's never been opened and never nudged about. Newest first. */
+export function whatIfCandidate(items: FeedItem[], history: NudgeHistory[], now: Date): FeedItem | null {
+  const nudged = new Set(history.filter((h) => h.kind === 'whatif').map((h) => h.item_id));
   const t = now.getTime();
   return (
     items
-      .filter((i) => i.state === 'lesson_ready' && i.lessonId && i.openedAt && !nudged.has(i.id))
+      .filter((i) => i.whatIf && !i.whatIfOpened && !nudged.has(i.id))
       .filter((i) => {
-        const age = t - Date.parse(i.openedAt!);
-        return age >= LESSON_MIN_AGE && age <= LESSON_MAX_AGE;
+        const age = t - Date.parse(i.created_at);
+        return age >= WHATIF_MIN_AGE && age <= WHATIF_MAX_AGE;
       })
-      .sort((a, b) => b.openedAt!.localeCompare(a.openedAt!))[0] ?? null
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null
   );
 }
 
@@ -103,8 +104,8 @@ export function reviewCandidate(items: FeedItem[], history: NudgeHistory[], now:
 /**
  * The reminder for this slot, or null. Only in one of your chosen slots, not
  * while backed off. In your last slot of the day: a streak about to break
- * wins, then (Wednesdays) the mid-week check-in; otherwise a waiting lesson,
- * then a review card that's due.
+ * wins, then (Wednesdays) the mid-week check-in; otherwise an unopened
+ * what-if, then a review card that's due.
  */
 export function pickReminder(input: {
   feed: Pick<Feed, 'items' | 'streak' | 'week' | 'counts'>;
@@ -123,11 +124,11 @@ export function pickReminder(input: {
   if (lastSlot && streak.days >= STREAK_NUDGE_MIN && !streak.activeToday && streak.freezeLeft === 0) {
     return { kind: 'streak', days: streak.days };
   }
-  if (lastSlot && slot.weekday === 2 && (counts.lesson > 0 || week.saveDays === 0)) {
-    return { kind: 'midweek', lessonsWaiting: counts.lesson, saveDays: week.saveDays };
+  if (lastSlot && slot.weekday === 2 && (counts.whatif > 0 || week.saveDays === 0)) {
+    return { kind: 'midweek', whatIfsWaiting: counts.whatif, saveDays: week.saveDays };
   }
-  const item = lessonCandidate(feed.items, history, now);
-  if (item?.lessonId) return { kind: 'lesson', itemId: item.id, lessonId: item.lessonId, title: item.title };
+  const item = whatIfCandidate(feed.items, history, now);
+  if (item?.whatIf) return { kind: 'whatif', itemId: item.id, title: item.title, scenario: item.whatIf };
   const due = reviewCandidate(feed.items, history, now);
   if (due) {
     return {
@@ -141,25 +142,18 @@ export function pickReminder(input: {
   return null;
 }
 
-/** How each lesson format is pitched in a reminder. */
-const TEMPLATE_PITCH: Record<string, string> = {
-  quiz: 'A few quick questions on what you saved.',
-  simulator: 'Try it yourself in a 2-minute simulator.',
-  order: 'Put the steps back in order — 2 minutes.',
-  spot_bug: 'Spot the bug — a 2-minute challenge.',
-};
-
-export function reminderMessage(choice: ReminderChoice, nudgeId: string, template?: string | null): PushMessage {
+export function reminderMessage(choice: ReminderChoice, nudgeId: string): PushMessage {
   switch (choice.kind) {
-    case 'lesson': {
-      const play = `/play/${choice.lessonId}`;
+    case 'whatif': {
+      const item = `/items/${choice.itemId}`;
+      const card = `${item}?whatif=1`;
       return {
-        title: choice.title ? `2 minutes on “${clip(choice.title, 45)}”?` : 'Your 2-minute lesson is waiting',
-        body: (template && TEMPLATE_PITCH[template]) || 'A 2-minute lesson on something you saved.',
-        url: trackedUrl(play, nudgeId, 'open'),
+        title: `💭 ${clip(choice.scenario, 70)}`,
+        body: choice.title ? `From “${clip(choice.title, 50)}”: who wins, who loses, and 3 signs to watch.` : 'Who wins, who loses, and 3 signs to watch.',
+        url: trackedUrl(card, nudgeId, 'open'),
         actions: [
-          { action: 'play', title: '▶ Play', url: trackedUrl(play, nudgeId, 'play') },
-          { action: 'read', title: 'Read it first', url: trackedUrl(`/items/${choice.itemId}`, nudgeId, 'read') },
+          { action: 'whatif', title: '💭 What if', url: trackedUrl(card, nudgeId, 'whatif') },
+          { action: 'read', title: 'Read it first', url: trackedUrl(item, nudgeId, 'read') },
         ],
       };
     }
@@ -179,12 +173,12 @@ export function reminderMessage(choice: ReminderChoice, nudgeId: string, templat
     case 'streak':
       return {
         title: `🔥 Keep your ${choice.days}-day streak`,
-        body: 'Save a video or play one lesson before midnight — this week’s freeze is already used.',
-        url: trackedUrl('/?filter=lesson', nudgeId, 'open'),
-        actions: [{ action: 'play', title: '▶ Play a lesson', url: trackedUrl('/?filter=lesson', nudgeId, 'play') }],
+        body: 'Save something or open a what-if before midnight — this week’s freeze is already used.',
+        url: trackedUrl('/?filter=whatif', nudgeId, 'open'),
+        actions: [{ action: 'whatif', title: '💭 Open a what-if', url: trackedUrl('/?filter=whatif', nudgeId, 'whatif') }],
       };
     case 'midweek': {
-      const { lessonsWaiting: n, saveDays } = choice;
+      const { whatIfsWaiting: n, saveDays } = choice;
       if (n === 0) {
         return {
           title: 'Halfway through the week',
@@ -194,12 +188,12 @@ export function reminderMessage(choice: ReminderChoice, nudgeId: string, templat
       }
       const days = `${saveDays} save day${saveDays === 1 ? '' : 's'} so far`;
       // A big backlog reads like homework: ask for one.
-      const ask = n > 3 ? 'start with one, it takes 2 minutes' : `about ${n * 2} minutes`;
+      const ask = n > 3 ? 'start with one, it takes a minute' : 'a minute each';
       return {
         title: 'Halfway through the week',
-        body: `${days}, ${n} lesson${n === 1 ? '' : 's'} waiting — ${ask}.`,
-        url: trackedUrl('/?filter=lesson', nudgeId, 'open'),
-        actions: [{ action: 'play', title: '▶ Play one', url: trackedUrl('/?filter=lesson', nudgeId, 'play') }],
+        body: `${days}, ${n} what-if${n === 1 ? '' : 's'} unopened — ${ask}.`,
+        url: trackedUrl('/?filter=whatif', nudgeId, 'open'),
+        actions: [{ action: 'whatif', title: '💭 Open one', url: trackedUrl('/?filter=whatif', nudgeId, 'whatif') }],
       };
     }
   }

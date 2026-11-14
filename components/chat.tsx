@@ -16,11 +16,23 @@ interface Message {
  * the whole library. The conversation is saved server-side and reloaded here,
  * so answers survive leaving the page. Citations like [2] link to the item.
  */
-export function Chat({ itemId, placeholder, empty }: { itemId?: string; placeholder: string; empty?: React.ReactNode }) {
+export function Chat({
+  itemId,
+  placeholder,
+  empty,
+  draft,
+}: {
+  itemId?: string;
+  placeholder: string;
+  empty?: React.ReactNode;
+  /** A question to put in the box (not sent); a new `n` puts it there again. */
+  draft?: { text: string; n: number };
+}) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const box = useRef<HTMLInputElement>(null);
   const thread = itemId ? `?itemId=${itemId}` : '';
 
   useEffect(() => {
@@ -29,6 +41,13 @@ export function Chat({ itemId, placeholder, empty }: { itemId?: string; placehol
       () => setMessages([]),
     );
   }, [thread]);
+
+  useEffect(() => {
+    if (!draft) return;
+    setInput(draft.text);
+    box.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    box.current?.focus({ preventScroll: true });
+  }, [draft]);
 
   async function clear() {
     if (!confirm('Clear this conversation?')) return;
@@ -94,6 +113,7 @@ export function Chat({ itemId, placeholder, empty }: { itemId?: string; placehol
       </ol>
       <form onSubmit={send} className="mt-4 flex gap-2">
         <input
+          ref={box}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={placeholder}

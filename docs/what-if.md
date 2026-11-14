@@ -1,6 +1,24 @@
 # What if… + AI usage tracking — spec and plan
 
-Status (2026-11-13): **Part A (usage tracking) built and live** (migration `20261113124054_ai_usage`); B–E planned.
+Status (2026-11-14): **Part A (usage tracking) built and live** (migration `20261113124054_ai_usage`).
+**Parts B and C are built on a branch, not live**: the migration `20261114120000_whatif` is written
+but not applied (it widens four CHECK constraints, which needs a yes), and nothing has been run
+against real Gemini yet. D–E planned.
+
+B and C as built, where they differ from the plan below:
+- The scenario is also stored on the save (`items.what_if`, a new column), so the item page can offer
+  "Think it through" when the card is missing, and saves from before what-ifs can get one (the
+  classifier is asked again for a scenario).
+- "Today" facts: Search's own citations are put into the notes as [n] marks, the writer copies the
+  mark, and code swaps in the real link. A fact whose source is missing or dead is dropped.
+- `whatif_signal` is in the database rule but nothing logs it yet: signals have nothing to tap until Part D.
+- The reminder and the ready push needed a new nudge kind and action (`whatif`), so `nudges` has two
+  widened CHECKs as well as `item_outputs` and `events`.
+- The Wednesday check-in counts unopened what-ifs where it counted lessons.
+- The feed's "Lessons" chip is now "What ifs" (written but not opened). The week strip shows what-ifs
+  opened, with no target.
+- The Settings usage card does not yet show the average cost per what-if on its own; the `whatif` and
+  `whatif_search` lines are there.
 Part A as built: no budget alert yet (left for later), and the card shows Google searches separately
 because the 5,000 free a month are per Google account. Gemini prices were copied on 2026-11-13; Argon's
 launch price doubles on 1 Dec 2026 and 3.8 Flash's on 1 Jan 2027, so the table is dated.

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { KIND_LABEL, type FeedItem } from '@/components/types';
-import { formatDuration, metaLine, scoreLabel } from './format';
+import { formatDuration, metaLine } from './format';
 import { Thumb } from './thumb';
 
 /** One save in the grid: a 4:5 image with its kind and state on top, title and one meta line below. */
@@ -52,10 +52,13 @@ function StateMark({ item }: { item: FeedItem }) {
   switch (item.state) {
     case 'new':
       return <span aria-label="New" className="mt-1 mr-1 h-3 w-3 rounded-full bg-accent ring-2 ring-white" />;
-    case 'lesson_ready':
-      return <span className="rounded-full bg-accent px-2 py-1 text-[11px] font-semibold text-on-accent">▶ Lesson</span>;
-    case 'played':
-      return <Pill>{scoreLabel(item.bestScore)}</Pill>;
+    case 'read':
+      // Read, but its what-if hasn't been opened yet.
+      return item.whatIf && !item.whatIfOpened ? (
+        <span className="rounded-full bg-accent px-2 py-1 text-[11px] font-semibold text-on-accent">💭 What if</span>
+      ) : null;
+    case 'reviewed':
+      return <Pill>🧠 Reviewed</Pill>;
     case 'mastered':
       return <span className="rounded-full bg-success px-2 py-1 text-[11px] font-semibold text-on-accent">✓ Mastered</span>;
     default:

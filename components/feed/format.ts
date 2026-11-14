@@ -20,10 +20,6 @@ export function shortAgo(iso: string, now = Date.now()): string {
   return `${Math.floor(s / (365 * 86400))}y`;
 }
 
-export function scoreLabel(score: number | null): string | null {
-  return score === null ? null : `${Math.round(score * 100)}%`;
-}
-
 /** The small line under a card's title. */
 export function metaLine(item: FeedItem, now = Date.now()): string {
   const age = shortAgo(item.created_at, now);
@@ -34,10 +30,8 @@ export function metaLine(item: FeedItem, now = Date.now()): string {
       return "Couldn't read it · tap to retry";
     case 'new':
       return item.kind === 'recipe' && item.ingredientCount ? `New · ${item.ingredientCount} ingredients · ${age}` : `New · ${age}`;
-    case 'lesson_ready':
-      return `Lesson ready · ${age}`;
-    case 'played':
-      return `Played · ${scoreLabel(item.bestScore)} · ${age}`;
+    case 'reviewed':
+      return `Reviewed · ${age}`;
     case 'mastered':
       return `Mastered · ${age}`;
     case 'read':

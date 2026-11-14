@@ -4,13 +4,12 @@ import { formatDuration } from './format';
 import { Thumb } from './thumb';
 
 const REASON: Record<UpNextReason, string> = {
-  fresh: 'Fresh from today',
-  lesson: 'Your lesson is waiting',
   review: 'Still remember this?',
+  whatif: 'Read it, then think it through',
   unread: 'Still unread',
 };
 
-/** The one save to do next: a big image card with Play / Read and "Not now". */
+/** The one save to do next: a big image card with Read (and its what-if or review card) and "Not now". */
 export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpNextReason; onSnooze: () => void }) {
   const firstLine = item.summary?.split('\n')[0];
   const duration = formatDuration(item.duration_seconds);
@@ -32,7 +31,11 @@ export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpN
         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
           <p className="text-xs font-medium text-white/80">{REASON[reason]}</p>
           <h2 className="mt-1 line-clamp-3 text-xl font-bold leading-tight">{item.title}</h2>
-          {firstLine && <p className="mt-1.5 line-clamp-2 text-sm text-white/85">{firstLine}</p>}
+          {reason === 'whatif' && item.whatIf ? (
+            <p className="mt-1.5 line-clamp-2 text-sm text-white/85">💭 {item.whatIf}</p>
+          ) : (
+            firstLine && <p className="mt-1.5 line-clamp-2 text-sm text-white/85">{firstLine}</p>
+          )}
         </div>
       </Link>
       {item.related && (
@@ -60,16 +63,13 @@ export function UpNext({ item, reason, onSnooze }: { item: FeedItem; reason: UpN
               {read}
             </Link>
           </>
-        ) : item.lessonId ? (
+        ) : item.whatIf && !item.whatIfOpened ? (
           <>
-            <Link
-              href={`/play/${item.lessonId}`}
-              className="flex-1 rounded-xl bg-accent py-2.5 text-center text-sm font-semibold text-on-accent"
-            >
-              ▶ Play lesson
-            </Link>
-            <Link href={`/items/${item.id}`} className="flex-1 rounded-xl border border-line py-2.5 text-center text-sm font-medium">
+            <Link href={`/items/${item.id}`} className="flex-1 rounded-xl bg-accent py-2.5 text-center text-sm font-semibold text-on-accent">
               {read}
+            </Link>
+            <Link href={`/items/${item.id}?whatif=1`} className="flex-1 rounded-xl border border-line py-2.5 text-center text-sm font-medium">
+              💭 What if
             </Link>
           </>
         ) : (

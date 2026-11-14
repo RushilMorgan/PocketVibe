@@ -10,7 +10,9 @@ import { ExplainerCard, SectionLabel } from '@/components/explainer-card';
 import { Thumb } from '@/components/feed/thumb';
 import { ItemHero } from '@/components/item/item-hero';
 import { RecipeCard } from '@/components/recipe-card';
+import { WhatIfSection } from '@/components/whatif-card';
 import type { Item, SimilarItem } from '@/components/types';
+import type { ItemOutputRow } from '@/lib/supabase/database.types';
 import type { Diagram, ExplainMode, Explainer, Recipe } from '@/lib/handlers/schemas';
 import { TEMPLATE_LABEL, TEMPLATES, type Template } from '@/lib/lessons/schema';
 
@@ -21,7 +23,8 @@ type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, file
 
 /**
  * One saved item: a full-bleed header with its picture, then — once read —
- * the lesson card, the explainer or recipe, tools, similar saves and a chat.
+ * the what-if card, the explainer or recipe, tools (re-explain, diagram, a
+ * lesson on request), similar saves and a chat.
  * While it's being read it shows progress; on failure, Retry.
  */
 export function ItemView({ id }: { id: string }) {
@@ -29,6 +32,7 @@ export function ItemView({ id }: { id: string }) {
   const [thumbs, setThumbs] = useState(0);
   const [playLessonId, setPlayLessonId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [chatDraft, setChatDraft] = useState<{ text: string; n: number } | undefined>();
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +82,10 @@ export function ItemView({ id }: { id: string }) {
     });
   };
 
+  /** A new what-if card (the save's own, another scenario, or a custom one). */
+  const addOutput = (output: ItemOutputRow) =>
+    setItem((prev) => (prev ? { ...prev, outputs: [...prev.outputs.filter((o) => o.id !== output.id), output] } : prev));
+
   if (error) {
     return (
       <div className="pt-2">
@@ -93,6 +101,7 @@ export function ItemView({ id }: { id: string }) {
   const recipe = item.outputs.find((o) => o.type === 'recipe');
   const explainer = item.outputs.find((o) => o.type === 'explainer');
   const diagram = item.outputs.find((o) => o.type === 'diagram');
+  const whatIfs = item.outputs.filter((o) => o.type === 'whatif');
 
   return (
     <div className="pb-6">
@@ -115,7 +124,15 @@ export function ItemView({ id }: { id: string }) {
 
       {item.status === 'done' && (
         <>
-          {explainer && <LessonCard item={item} playLessonId={playLessonId} />}
+          {explainer && (
+            <WhatIfSection
+              itemId={item.id}
+              itemTitle={item.title}
+              outputs={whatIfs}
+              onAdded={addOutput}
+              onAsk={(text) => setChatDraft((d) => ({ text, n: (d?.n ?? 0) + 1 }))}
+            />
+          )}
 
           <div className="mt-7">
             {recipe && <RecipeCard recipe={recipe.content as unknown as Recipe} showTitle={false} />}
@@ -128,7 +145,7 @@ export function ItemView({ id }: { id: string }) {
             )}
           </div>
 
-          {explainer && <Tools item={item} onOutput={putOutput} hasDiagram={Boolean(diagram)} />}
+          {explainer && <Tools item={item} onOutput={putOutput} hasDiagram={Boolean(diagram)} playLessonId={playLessonId} />}
           <Feedback itemId={item.id} thumbs={thumbs} setThumbs={setThumbs} />
           <Similar itemId={item.id} />
 
@@ -136,7 +153,7 @@ export function ItemView({ id }: { id: string }) {
             <h2 className="mb-3 flex items-center gap-2 font-bold">
               <span aria-hidden>💬</span> Ask about this
             </h2>
-            <Chat itemId={item.id} placeholder="e.g. what's the catch?" />
+            <Chat itemId={item.id} placeholder="e.g. what's the catch?" draft={chatDraft} />
           </section>
         </>
       )}
@@ -147,8 +164,10 @@ export function ItemView({ id }: { id: string }) {
 /** Progress while the job runs: it has the text once `raw_text` is in. */
 function Working({ item }: { item: Item }) {
   const video = item.source === 'youtube' || item.source === 'tiktok';
-  const stage = item.raw_text ? 1 : 0;
-  const steps = [video ? 'Watching the video' : 'Reading the page', item.kind === 'recipe' ? 'Writing your recipe card' : 'Writing your explainer', 'Making your 2-min lesson'];
+  // The explainer's first lines land in `summary`; the scenario is known once it's classified.
+  const stage = !item.raw_text ? 0 : item.summary && item.what_if ? 2 : 1;
+  const steps = [video ? 'Watching the video' : 'Reading the page', item.kind === 'recipe' ? 'Writing your recipe card' : 'Writing your explainer'];
+  if (item.what_if && item.kind !== 'recipe') steps.push('Thinking through what if…');
   return (
     <div className="mt-6 rounded-3xl border border-line bg-surface p-5">
       <p className="text-lg font-bold">Working on it…</p>
@@ -172,82 +191,21 @@ function Working({ item }: { item: Item }) {
   );
 }
 
-/** The big call to action: play the 2-minute lesson (or pick a format). */
-function LessonCard({ item, playLessonId }: { item: Item; playLessonId: string | null }) {
+/** Re-explain simpler / deeper, draw a diagram, or play a 2-minute lesson (written when asked for). */
+function Tools({
+  item,
+  onOutput,
+  hasDiagram,
+  playLessonId,
+}: {
+  item: Item;
+  onOutput: OnOutput;
+  hasDiagram: boolean;
+  /** A lesson already written and not yet played, if any. */
+  playLessonId: string | null;
+}) {
   const router = useRouter();
-  const [playing, setPlaying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  /** Opens the ready lesson (usually pre-written by the pipeline), else writes one. */
-  async function play(template?: Template) {
-    if (!template && playLessonId) {
-      router.push(`/play/${playLessonId}`);
-      return;
-    }
-    setPlaying(true);
-    setError(null);
-    try {
-      const { lessonId } = await api<{ lessonId: string }>('/api/lessons', { body: { itemId: item.id, template } });
-      router.push(`/play/${lessonId}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-      setPlaying(false);
-    }
-  }
-
-  // ?play=1 comes from the notification's "Play lesson" button: start the lesson
-  // without a tap. Read from the live URL (not a server prop, which Next caches)
-  // and dropped first, so Back from the lesson lands here instead of looping.
-  const autoPlayed = useRef(false);
-  useEffect(() => {
-    if (autoPlayed.current) return;
-    if (new URLSearchParams(window.location.search).get('play') !== '1') return;
-    autoPlayed.current = true;
-    const rest = new URLSearchParams(window.location.search);
-    rest.delete('play');
-    const query = rest.toString();
-    window.history.replaceState(window.history.state, '', `/items/${item.id}${query ? `?${query}` : ''}`);
-    play();
-    // Runs once on mount; play() only reads props from this render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <section className="mt-5">
-      <button
-        onClick={() => play()}
-        disabled={playing}
-        className="flex w-full items-center gap-4 rounded-3xl bg-accent p-4 text-left text-on-accent shadow-lg shadow-accent/25 active:scale-[0.99] disabled:opacity-80"
-      >
-        <span aria-hidden className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-on-accent/15 text-2xl">
-          {playing ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-on-accent border-t-transparent" /> : '▶'}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-lg font-extrabold leading-tight">{playing ? 'Getting your lesson ready…' : 'Play the 2-minute lesson'}</span>
-          <span className="mt-0.5 block text-sm opacity-85">{playLessonId ? 'Ready to go · see what stuck' : 'Test what stuck, in 2 minutes'}</span>
-        </span>
-      </button>
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-muted">or play as</span>
-        {TEMPLATES.filter((t) => t !== 'spot_bug' || item.kind === 'tech').map((t) => (
-          <button
-            key={t}
-            onClick={() => play(t)}
-            disabled={playing}
-            className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium disabled:opacity-50"
-          >
-            {TEMPLATE_LABEL[t]}
-          </button>
-        ))}
-      </div>
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-    </section>
-  );
-}
-
-/** Re-explain simpler / deeper, or draw a diagram. */
-function Tools({ item, onOutput, hasDiagram }: { item: Item; onOutput: OnOutput; hasDiagram: boolean }) {
-  const [busy, setBusy] = useState<ExplainMode | 'diagram' | null>(null);
+  const [busy, setBusy] = useState<ExplainMode | 'diagram' | 'lesson' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reExplain(mode: ExplainMode) {
@@ -279,15 +237,33 @@ function Tools({ item, onOutput, hasDiagram }: { item: Item; onOutput: OnOutput;
     }
   }
 
-  const tiles: { key: ExplainMode | 'diagram'; icon: string; label: string; working: string; run: () => void }[] = [
+  /** Opens the lesson that's ready, else writes one (in the chosen format, if any). */
+  async function playLesson(template?: Template) {
+    if (!template && playLessonId) {
+      router.push(`/play/${playLessonId}`);
+      return;
+    }
+    setBusy('lesson');
+    setError(null);
+    try {
+      const { lessonId } = await api<{ lessonId: string }>('/api/lessons', { body: { itemId: item.id, template } });
+      router.push(`/play/${lessonId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setBusy(null);
+    }
+  }
+
+  const tiles: { key: ExplainMode | 'diagram' | 'lesson'; icon: string; label: string; working: string; run: () => void }[] = [
     { key: 'simpler', icon: '🐣', label: 'Simpler', working: 'Simplifying…', run: () => reExplain('simpler') },
     { key: 'deeper', icon: '🔬', label: 'Go deeper', working: 'Digging in…', run: () => reExplain('deeper') },
   ];
   if (!hasDiagram) tiles.push({ key: 'diagram', icon: '🗺️', label: 'Diagram', working: 'Drawing…', run: drawDiagram });
+  tiles.push({ key: 'lesson', icon: '🎮', label: '2-min lesson', working: 'Writing it…', run: () => playLesson() });
 
   return (
     <section className="mt-8">
-      <SectionLabel>Explain it again</SectionLabel>
+      <SectionLabel>Tools</SectionLabel>
       <div className={`mt-3 grid gap-2 ${tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {tiles.map((t) => (
           <button
@@ -300,6 +276,19 @@ function Tools({ item, onOutput, hasDiagram }: { item: Item; onOutput: OnOutput;
               {t.icon}
             </span>
             <span className="text-sm font-semibold">{busy === t.key ? t.working : t.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted">Lesson as</span>
+        {TEMPLATES.filter((t) => t !== 'spot_bug' || item.kind === 'tech').map((t) => (
+          <button
+            key={t}
+            onClick={() => playLesson(t)}
+            disabled={busy !== null}
+            className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium disabled:opacity-50"
+          >
+            {TEMPLATE_LABEL[t]}
           </button>
         ))}
       </div>

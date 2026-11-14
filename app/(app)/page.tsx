@@ -7,7 +7,7 @@ const NOTICES: Record<string, string> = {
   cap: "That's today's limit — save it again tomorrow.",
 };
 
-const FILTERS: FeedFilter[] = ['unread', 'lesson', 'recipe'];
+const FILTERS: FeedFilter[] = ['unread', 'whatif', 'recipe'];
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await pageUser('/');

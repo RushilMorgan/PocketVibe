@@ -25,12 +25,17 @@ export const digestContent = z.object({
   ),
   /** "New for you": up to 3 finds for each of the top 3 topics. */
   finds: z.array(z.object({ topic: z.string(), items: z.array(find) })),
-  /** One lesson from something saved but never opened. */
+  /** Digests from before what-ifs suggested a lesson here; new ones leave it null. */
   lesson: z.object({ itemId: z.string(), itemTitle: z.string(), lessonId: z.string() }).nullable(),
+  /** One what-if that hasn't been opened yet (docs/what-if.md Part C). Missing on older digests. */
+  whatIf: z.object({ itemId: z.string(), itemTitle: z.string(), scenario: z.string() }).nullable().optional(),
   stats: z.object({ saved: z.number(), played: z.number() }),
 });
 
 export type DigestContent = z.infer<typeof digestContent>;
+
+/** Where the digest's what-if link goes: the save, opened at its what-if card. */
+export const whatIfTarget = (itemId: string) => `/items/${itemId}?whatif=1`;
 
 /** Monday 00:00 SAST of the week a moment falls in, as YYYY-MM-DD. */
 export function weekStart(now: Date): string {

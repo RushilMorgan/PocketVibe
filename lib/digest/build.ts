@@ -1,5 +1,4 @@
 import 'server-only';
-import { createLesson, unplayedLesson } from '@/lib/lessons/service';
 import { getPromptContext } from '@/lib/profile';
 import { adminClient } from '@/lib/supabase/server';
 import { findsFor } from './finds';
@@ -86,33 +85,30 @@ export async function findsForTopic(
 }
 
 /**
- * One lesson from something saved but never opened: the newest such item
- * (not a recipe). Reuses its pre-written lesson or writes one.
+ * One what-if that hasn't been opened: from the newest save that has one
+ * (docs/what-if.md Part C; this slot used to suggest a lesson).
  */
-export async function suggestedLesson(userId: string): Promise<DigestContent['lesson']> {
+export async function suggestedWhatIf(userId: string): Promise<DigestContent['whatIf']> {
   const db = adminClient();
-  const [{ data: items, error }, { data: opened, error: openedError }] = await Promise.all([
+  const [{ data: cards, error }, { data: opened, error: openedError }] = await Promise.all([
     db
-      .from('items')
-      .select('id, title, url')
+      .from('item_outputs')
+      .select('item_id, scenario:content->>scenario, items(title, url, status)')
       .eq('user_id', userId)
-      .eq('status', 'done')
-      .neq('kind', 'recipe')
+      .eq('type', 'whatif')
+      .eq('content->>origin', 'auto')
       .order('created_at', { ascending: false })
       .limit(50),
-    db.from('events').select('item_id').eq('user_id', userId).eq('type', 'opened').not('item_id', 'is', null),
+    db.from('events').select('item_id').eq('user_id', userId).eq('type', 'whatif_open').not('item_id', 'is', null),
   ]);
   if (error) throw error;
   if (openedError) throw openedError;
 
   const openedIds = new Set((opened ?? []).map((o) => o.item_id));
-  for (const item of (items ?? []).filter((i) => !openedIds.has(i.id)).slice(0, 3)) {
-    try {
-      const lessonId = (await unplayedLesson(userId, item.id)) ?? (await createLesson(userId, item.id));
-      return { itemId: item.id, itemTitle: item.title ?? item.url, lessonId };
-    } catch (err) {
-      console.warn('digest: no lesson for', item.id, err);
-    }
+  type Card = { item_id: string; scenario: string | null; items: { title: string | null; url: string; status: string } | null };
+  for (const card of (cards ?? []) as unknown as Card[]) {
+    if (openedIds.has(card.item_id) || !card.scenario || card.items?.status !== 'done') continue;
+    return { itemId: card.item_id, itemTitle: card.items.title ?? card.items.url, scenario: card.scenario };
   }
   return null;
 }

@@ -3,13 +3,13 @@ import type { FeedItem, Streak, WeekProgress } from '@/lib/items/feed';
 import {
   backedOff,
   formatSlot,
-  lessonCandidate,
   normalizeReminderTimes,
   pickReminder,
   REMINDER_SLOTS,
   reviewCandidate,
   reminderMessage,
   slotAt,
+  whatIfCandidate,
   type NudgeHistory,
 } from './reminders';
 
@@ -27,16 +27,18 @@ function item(id: string, over: Partial<FeedItem> = {}): FeedItem {
     status: 'done',
     error: null,
     summary: null,
+    what_if: `What if ${id}?`,
     thumbnail_url: null,
     duration_seconds: null,
     snoozed_until: null,
     related: null,
-    created_at: '2026-11-08T10:00:00Z',
-    state: 'lesson_ready',
+    created_at: '2026-11-11T08:00:00Z', // 8h before WED_18
+    state: 'read',
     thumbnailShape: 'portrait',
     opened: true,
-    openedAt: '2026-11-11T08:00:00Z', // 8h before WED_18
-    lessonId: `lesson-${id}`,
+    openedAt: '2026-11-11T08:00:00Z',
+    whatIf: `What if ${id}?`,
+    whatIfOpened: false,
     bestScore: null,
     topTopic: null,
     readMinutes: 1,
@@ -48,12 +50,12 @@ function item(id: string, over: Partial<FeedItem> = {}): FeedItem {
 }
 
 const streakOk: Streak = { days: 4, freezeLeft: 1, activeToday: true, atRisk: false, milestone: 3 };
-const week: WeekProgress = { saveDays: 2, lessonsPlayed: 0, savedOn: [true, true, false, false, false, false, false] };
-const feed = (items: FeedItem[], over: { streak?: Streak; week?: WeekProgress; lessons?: number } = {}) => ({
+const week: WeekProgress = { saveDays: 2, whatIfsOpened: 0, savedOn: [true, true, false, false, false, false, false] };
+const feed = (items: FeedItem[], over: { streak?: Streak; week?: WeekProgress; whatIfs?: number } = {}) => ({
   items,
   streak: over.streak ?? streakOk,
   week: over.week ?? week,
-  counts: { unread: 0, lesson: over.lessons ?? items.filter((i) => i.lessonId).length },
+  counts: { unread: 0, whatif: over.whatIfs ?? items.filter((i) => i.whatIf && !i.whatIfOpened).length },
 });
 const sent = (kind: NudgeHistory['kind'], sent_at: string, tapped = false, item_id: string | null = null): NudgeHistory => ({
   kind,
@@ -107,22 +109,22 @@ describe('backedOff', () => {
   });
 });
 
-describe('lessonCandidate', () => {
-  it('waits 18h after opening and gives up after a week', () => {
-    expect(lessonCandidate([item('a')], [], WED_18)).toBeNull(); // opened 8h ago
-    expect(lessonCandidate([item('a')], [], THU_18)?.id).toBe('a'); // 32h
-    expect(lessonCandidate([item('a', { openedAt: '2026-11-01T08:00:00Z' })], [], THU_18)).toBeNull();
+describe('whatIfCandidate', () => {
+  it('waits 18h after the save and gives up after a week', () => {
+    expect(whatIfCandidate([item('a')], [], WED_18)).toBeNull(); // saved 8h ago
+    expect(whatIfCandidate([item('a')], [], THU_18)?.id).toBe('a'); // 32h
+    expect(whatIfCandidate([item('a', { created_at: '2026-11-01T08:00:00Z' })], [], THU_18)).toBeNull();
   });
 
-  it('never nudges the same save twice and prefers the most recently opened', () => {
-    const items = [item('old', { openedAt: '2026-11-09T08:00:00Z' }), item('new', { openedAt: '2026-11-10T08:00:00Z' })];
-    expect(lessonCandidate(items, [], THU_18)?.id).toBe('new');
-    expect(lessonCandidate(items, [sent('lesson', '2026-11-11T16:00:00Z', false, 'new')], THU_18)?.id).toBe('old');
+  it('never nudges the same save twice and prefers the newest save', () => {
+    const items = [item('old', { created_at: '2026-11-09T08:00:00Z' }), item('new', { created_at: '2026-11-10T08:00:00Z' })];
+    expect(whatIfCandidate(items, [], THU_18)?.id).toBe('new');
+    expect(whatIfCandidate(items, [sent('whatif', '2026-11-11T16:00:00Z', false, 'new')], THU_18)?.id).toBe('old');
   });
 
-  it('skips played or recipe-like saves', () => {
-    expect(lessonCandidate([item('a', { state: 'played' })], [], THU_18)).toBeNull();
-    expect(lessonCandidate([item('a', { lessonId: null, state: 'read' })], [], THU_18)).toBeNull();
+  it('skips saves whose what-if was opened, or that have none', () => {
+    expect(whatIfCandidate([item('a', { whatIfOpened: true })], [], THU_18)).toBeNull();
+    expect(whatIfCandidate([item('a', { whatIf: null })], [], THU_18)).toBeNull();
   });
 });
 
@@ -132,12 +134,12 @@ describe('pickReminder', () => {
   it('fires at 18:00 local wherever you are', () => {
     // 18:00 in London is 18:00Z; at that moment it's 20:00 in Johannesburg.
     const london18 = new Date('2026-11-12T18:00:00Z');
-    expect(pickReminder({ ...base, tz: 'Europe/London', feed: feed([item('a')]), now: london18 })).toMatchObject({ kind: 'lesson' });
+    expect(pickReminder({ ...base, tz: 'Europe/London', feed: feed([item('a')]), now: london18 })).toMatchObject({ kind: 'whatif' });
     expect(pickReminder({ ...base, feed: feed([item('a')]), now: london18 })).toBeNull();
   });
 
   it('only fires in a chosen slot', () => {
-    expect(pickReminder({ ...base, feed: feed([item('a')]), now: THU_18 })).toMatchObject({ kind: 'lesson', itemId: 'a' });
+    expect(pickReminder({ ...base, feed: feed([item('a')]), now: THU_18 })).toMatchObject({ kind: 'whatif', itemId: 'a', scenario: 'What if a?' });
     expect(pickReminder({ ...base, times: [600], feed: feed([item('a')]), now: THU_18 })).toBeNull();
     expect(pickReminder({ ...base, times: [], feed: feed([item('a')]), now: THU_18 })).toBeNull();
   });
@@ -147,39 +149,42 @@ describe('pickReminder', () => {
     expect(pickReminder({ ...base, feed: feed([item('a')], { streak: atRisk }), now: THU_18 })).toEqual({ kind: 'streak', days: 6 });
     // Not in an earlier slot of the day.
     expect(pickReminder({ ...base, times: [1080, 1200], feed: feed([item('a')], { streak: atRisk }), now: THU_18 })).toMatchObject({
-      kind: 'lesson',
+      kind: 'whatif',
     });
   });
 
   it("doesn't nudge about a 1-day streak", () => {
     const oneDay: Streak = { days: 1, freezeLeft: 0, activeToday: false, atRisk: true, milestone: null };
-    expect(pickReminder({ ...base, feed: feed([], { streak: oneDay, lessons: 0 }), now: THU_18 })).toBeNull();
+    expect(pickReminder({ ...base, feed: feed([], { streak: oneDay, whatIfs: 0 }), now: THU_18 })).toBeNull();
   });
 
   it('sends the mid-week check-in on Wednesday when there is something to say', () => {
-    expect(pickReminder({ ...base, feed: feed([item('a')]), now: WED_18 })).toEqual({ kind: 'midweek', lessonsWaiting: 1, saveDays: 2 });
-    expect(pickReminder({ ...base, feed: feed([], { lessons: 0 }), now: WED_18 })).toBeNull();
+    expect(pickReminder({ ...base, feed: feed([item('a')]), now: WED_18 })).toEqual({ kind: 'midweek', whatIfsWaiting: 1, saveDays: 2 });
+    expect(pickReminder({ ...base, feed: feed([], { whatIfs: 0 }), now: WED_18 })).toBeNull();
   });
 
   it('stays quiet while backed off', () => {
-    const h = [sent('lesson', '2026-11-11T05:00:00Z'), sent('lesson', '2026-11-11T06:00:00Z'), sent('lesson', '2026-11-12T06:00:00Z')];
+    const h = [sent('whatif', '2026-11-11T05:00:00Z'), sent('whatif', '2026-11-11T06:00:00Z'), sent('whatif', '2026-11-12T06:00:00Z')];
     expect(pickReminder({ ...base, history: h, feed: feed([item('a')]), now: THU_18 })).toBeNull();
   });
 });
 
 describe('review reminders', () => {
   const due = (id: string, reviewDueAt: string, over: Partial<FeedItem> = {}) =>
-    item(id, { state: 'read', lessonId: null, reviewDueAt, reviewFormat: 'recall', ...over });
+    item(id, { whatIf: null, reviewDueAt, reviewFormat: 'recall', ...over });
 
-  it('come after waiting lessons, longest-waiting first', () => {
+  it('come after unopened what-ifs, longest-waiting first', () => {
     const items = [due('late', '2026-11-11T10:00:00Z'), due('early', '2026-11-08T10:00:00Z')];
-    expect(pickReminder({ history: [], times: [1080], feed: feed(items, { lessons: 0 }), now: THU_18 })).toMatchObject({
+    expect(pickReminder({ history: [], times: [1080], feed: feed(items, { whatIfs: 0 }), now: THU_18 })).toMatchObject({
       kind: 'review',
       itemId: 'early',
       format: 'recall',
     });
-    expect(lessonCandidate(items, [], THU_18)).toBeNull();
-    expect(reviewCandidate([...items, item('lesson', { openedAt: '2026-11-11T08:00:00Z' })], [], THU_18)?.id).toBe('early');
+    expect(whatIfCandidate(items, [], THU_18)).toBeNull();
+    expect(reviewCandidate([...items, item('whatif')], [], THU_18)?.id).toBe('early');
+    // With a what-if old enough to nudge about, that goes first.
+    const withWhatIf = [...items, item('whatif', { created_at: '2026-11-10T08:00:00Z' })];
+    expect(pickReminder({ history: [], times: [1080], feed: feed(withWhatIf), now: THU_18 })).toMatchObject({ kind: 'whatif', itemId: 'whatif' });
   });
 
   it("aren't sent twice for the same due date", () => {
@@ -203,23 +208,27 @@ describe('review reminders', () => {
 });
 
 describe('reminderMessage', () => {
-  it('pitches a lesson by its format, with Play and Read buttons', () => {
-    const m = reminderMessage({ kind: 'lesson', itemId: 'i1', lessonId: 'l1', title: 'How vector databases work' }, 'n1', 'order');
-    expect(m.title).toBe('2 minutes on “How vector databases work”?');
-    expect(m.body).toBe('Put the steps back in order — 2 minutes.');
-    expect(m.url).toBe('/play/l1?n=n1&a=open');
-    expect(m.actions?.map((a) => a.url)).toEqual(['/play/l1?n=n1&a=play', '/items/i1?n=n1&a=read']);
+  it('leads a what-if with its scenario, with What if and Read buttons', () => {
+    const m = reminderMessage(
+      { kind: 'whatif', itemId: 'i1', title: 'How vector databases work', scenario: 'What if every app ships with a vector database by 2028?' },
+      'n1',
+    );
+    expect(m.title).toBe('💭 What if every app ships with a vector database by 2028?');
+    expect(m.body).toBe('From “How vector databases work”: who wins, who loses, and 3 signs to watch.');
+    expect(m.url).toBe('/items/i1?whatif=1&n=n1&a=open');
+    expect(m.actions?.map((a) => a.url)).toEqual(['/items/i1?whatif=1&n=n1&a=whatif', '/items/i1?n=n1&a=read']);
   });
 
   it('words the streak and mid-week reminders', () => {
     expect(reminderMessage({ kind: 'streak', days: 6 }, 'n1').title).toBe('🔥 Keep your 6-day streak');
-    expect(reminderMessage({ kind: 'midweek', lessonsWaiting: 3, saveDays: 1 }, 'n1').body).toBe(
-      '1 save day so far, 3 lessons waiting — about 6 minutes.',
+    expect(reminderMessage({ kind: 'streak', days: 6 }, 'n1').url).toBe('/?filter=whatif&n=n1&a=open');
+    expect(reminderMessage({ kind: 'midweek', whatIfsWaiting: 3, saveDays: 1 }, 'n1').body).toBe(
+      '1 save day so far, 3 what-ifs unopened — a minute each.',
     );
-    expect(reminderMessage({ kind: 'midweek', lessonsWaiting: 11, saveDays: 1 }, 'n1').body).toBe(
-      '1 save day so far, 11 lessons waiting — start with one, it takes 2 minutes.',
+    expect(reminderMessage({ kind: 'midweek', whatIfsWaiting: 11, saveDays: 1 }, 'n1').body).toBe(
+      '1 save day so far, 11 what-ifs unopened — start with one, it takes a minute.',
     );
-    expect(reminderMessage({ kind: 'midweek', lessonsWaiting: 0, saveDays: 0 }, 'n1').body).toBe(
+    expect(reminderMessage({ kind: 'midweek', whatIfsWaiting: 0, saveDays: 0 }, 'n1').body).toBe(
       'Nothing saved yet this week — share one video today?',
     );
   });

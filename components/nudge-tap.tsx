@@ -4,14 +4,14 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { api } from './api';
 
-const ACTIONS = new Set(['open', 'read', 'play']);
+const ACTIONS = new Set(['open', 'read', 'play', 'whatif']);
 
 /**
- * Notifications open pages with ?n=<nudge id>&a=<open|read|play>. This reports
+ * Notifications open pages with ?n=<nudge id>&a=<open|read|play|whatif>. This reports
  * the tap once, then removes those two params from the live URL (keeping any
- * others, like ?play=1) so a reload or Back doesn't count it again.
+ * others, like ?whatif=1) so a reload or Back doesn't count it again.
  * history.replaceState is synchronous and Next keeps its router in step, so
- * this can't race with the item page dropping ?play=1.
+ * this can't race with the item page dropping ?whatif=1.
  */
 export function NudgeTap() {
   const params = useSearchParams();

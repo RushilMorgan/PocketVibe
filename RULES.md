@@ -37,18 +37,19 @@ changing code.
 | `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
 | `app/api/**` | Route handlers: parse input → call `/lib` → JSON |
 | `lib/items` | Saving links, source detection, fetching (Gemini video / Jina Reader), item actions |
-| `lib/ai` | Gemini client (`generateJson`, `streamText`, `embed`, `generateGrounded`), prompt loader, AI usage tracking (`usage.ts`; dated list prices in `pricing.ts`; the Settings card's numbers in `usage-summary.ts`) |
+| `lib/ai` | Gemini client (`generateJson`, `streamText`, `embed`, `generateGrounded` — text, the pages Search read, and which text each backs), prompt loader, AI usage tracking (`usage.ts`; dated list prices in `pricing.ts`; the Settings card's numbers in `usage-summary.ts`) |
 | `lib/handlers` | Recipe + explainer handlers and the client-safe output schemas |
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
-| `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results |
+| `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results. Written only on request (Tools on the item page) |
+| `lib/whatif` | What if… cards ([docs/what-if.md](docs/what-if.md)): schema (client-safe), pure shaping and citation helpers (`shape.ts`), the Search + write calls (`generate.ts`), and the service (the save's own card, extra scenarios, caps) |
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights); the Topics page data, Flash-made themes (cached on `users.topic_themes`) and merge |
 | `lib/topic-view.ts`, `lib/time.ts` | Pure: Topics page shaping (trends, themes, mix, `displayTopic` for acronyms) and local dates/times in the user's time zone |
 | `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
-| `lib/digest` | Weekly digest: your week, Search-grounded finds, suggested lesson, email, tracking links |
+| `lib/digest` | Weekly digest: your week, Search-grounded finds, an unopened what-if, email, tracking links |
 | `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min round the clock; each user's slots are in their own time zone) — registered in `functions.ts` |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet); `components/item` is the item page header (full-bleed image) and helpers |
-| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / Play buttons), reminders (`reminders.ts` picks lesson / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
+| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / What if buttons), reminders (`reminders.ts` picks what-if / review / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
 | `lib/reviews` | Bringing old saves back: the 3 → 10 → 30-day schedule from `reviews` rows (`schedule.ts`, pure), recall and Then-and-now cards (`service.ts`; the connection note is cached on `items.related.note`) |
 | `lib/items/feed.ts` | Saves feed logic, pure and tested: item states, Up next pick, streak with weekly freeze, week progress ([docs/saves-redesign.md](docs/saves-redesign.md)) |
 | `prompts/*.md` | Every AI prompt, editable without touching code |
@@ -64,6 +65,9 @@ changing code.
   `adminClient()` (service role, bypasses RLS — **always filter by `user_id`**).
 - Wrap route handlers in `route()` from `lib/http.ts`; throw `HttpError` for user-facing failures.
   `generateJson` never throws a `ZodError` (that would be reported as the caller's bad request).
+- A what-if's "Today" facts are shown only with a source Search actually read: the writer cites a
+  numbered source and `finishWhatIf` drops any fact whose source is missing or dead. Never show a
+  link the model typed.
 - Every AI JSON response goes through a Zod schema (`generateJson`). Lessons are generated one
   template at a time: Flash picks the template, Pro writes JSON for just that schema.
 - Nothing fails silently: a job that gives up sets `items.status = 'failed'` with a user-readable

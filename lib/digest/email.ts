@@ -1,4 +1,4 @@
-import type { DigestContent } from './schema';
+import { whatIfTarget, type DigestContent } from './schema';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -50,13 +50,19 @@ export function renderDigestEmail(d: DigestContent, link: Linker): { subject: st
       `<p style="margin:12px 0"><a href="${esc(link(`/play/${d.lesson.lessonId}`))}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:600">▶ Play it</a></p>`
     : '';
 
+  const whatIf = d.whatIf
+    ? h2('What if…') +
+      `<p style="margin:4px 0"><strong>${esc(d.whatIf.scenario)}</strong><br><span style="color:#78716c">From ${esc(d.whatIf.itemTitle)}. Speculation, with 3 signs to watch.</span></p>` +
+      `<p style="margin:12px 0"><a href="${esc(link(whatIfTarget(d.whatIf.itemId)))}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:600">Think it through</a></p>`
+    : '';
+
   const html = `<!doctype html><html><body style="margin:0;background:#fafaf9">
 <div style="max-width:560px;margin:0 auto;padding:24px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.5;color:#1c1917">
 <p style="font-size:22px;font-weight:600;margin:0">Your week in HeyToolie</p>
 <p style="color:#78716c;margin:4px 0 0">${esc(d.from)} – ${esc(d.to)}</p>
 ${h2('Your week')}${week}
 ${h2('New for you')}${finds}
-${lesson}
+${lesson}${whatIf}
 <p style="margin:32px 0 0;font-size:13px;color:#78716c">${a('/settings', 'Settings')} · You get this every Sunday.</p>
 </div></body></html>`;
 
@@ -69,6 +75,7 @@ ${lesson}
     'NEW FOR YOU',
     ...d.finds.flatMap((f) => [`${f.topic}:`, ...f.items.map((i) => `- ${i.title} — ${i.why} ${link(i.url)}`)]),
     ...(d.lesson ? ['', `2-MINUTE LESSON: ${d.lesson.itemTitle} ${link(`/play/${d.lesson.lessonId}`)}`] : []),
+    ...(d.whatIf ? ['', `WHAT IF: ${d.whatIf.scenario} ${link(whatIfTarget(d.whatIf.itemId))}`] : []),
   ].join('\n');
 
   return { subject, html, text };

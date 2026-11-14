@@ -20,6 +20,28 @@ function startOfSastDay(now = new Date()): string {
 }
 
 /**
+ * What counts against today's cap (SAST day): saves, plus extra what-if
+ * scenarios asked for on the item page (docs/what-if.md B4).
+ */
+export async function usedToday(userId: string): Promise<number> {
+  const db = adminClient();
+  const since = startOfSastDay();
+  const [items, extras] = await Promise.all([
+    db.from('items').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', since),
+    db
+      .from('item_outputs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('type', 'whatif')
+      .in('content->>origin', ['other', 'custom'])
+      .gte('created_at', since),
+  ]);
+  if (items.error) throw items.error;
+  if (extras.error) throw extras.error;
+  return (items.count ?? 0) + (extras.count ?? 0);
+}
+
+/**
  * Saves a shared link and queues processing. Re-sharing a link you already
  * saved returns the existing item (re-queued if it had failed) instead of
  * creating a duplicate.
@@ -40,13 +62,7 @@ export async function saveItem(userId: string, rawUrl: string): Promise<ItemRow>
   if (findError) throw findError;
   if (existing) return existing.status === 'failed' ? retryItem(userId, existing.id) : existing;
 
-  const { count, error: countError } = await db
-    .from('items')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', startOfSastDay());
-  if (countError) throw countError;
-  if ((count ?? 0) >= env().DAILY_ITEM_CAP) {
+  if ((await usedToday(userId)) >= env().DAILY_ITEM_CAP) {
     throw new HttpError(429, "That's today's limit — save it again tomorrow.");
   }
 

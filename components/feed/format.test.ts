@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FeedItem } from '@/components/types';
-import { formatDuration, metaLine, scoreLabel, shortAgo, tileLabel } from './format';
+import { formatDuration, metaLine, shortAgo, tileLabel } from './format';
 
 const NOW = Date.parse('2026-11-11T12:00:00Z');
 
@@ -14,6 +14,7 @@ function item(over: Partial<FeedItem>): FeedItem {
     status: 'done',
     error: null,
     summary: null,
+    what_if: null,
     thumbnail_url: null,
     duration_seconds: null,
     snoozed_until: null,
@@ -23,7 +24,8 @@ function item(over: Partial<FeedItem>): FeedItem {
     thumbnailShape: 'landscape',
     opened: true,
     openedAt: null,
-    lessonId: null,
+    whatIf: null,
+    whatIfOpened: false,
     bestScore: null,
     topTopic: null,
     readMinutes: null,
@@ -51,16 +53,11 @@ describe('feed format', () => {
     expect(shortAgo('2026-08-01T12:00:00Z', NOW)).toBe('3mo');
   });
 
-  it('labels scores', () => {
-    expect(scoreLabel(0.6)).toBe('60%');
-    expect(scoreLabel(null)).toBeNull();
-  });
-
   it('writes the card meta line per state', () => {
     expect(metaLine(item({ state: 'working', source: 'youtube' }), NOW)).toBe('Watching…');
     expect(metaLine(item({ state: 'working' }), NOW)).toBe('Reading…');
-    expect(metaLine(item({ state: 'lesson_ready' }), NOW)).toBe('Lesson ready · 3h');
-    expect(metaLine(item({ state: 'played', bestScore: 0.4 }), NOW)).toBe('Played · 40% · 3h');
+    expect(metaLine(item({ state: 'reviewed' }), NOW)).toBe('Reviewed · 3h');
+    expect(metaLine(item({ state: 'mastered' }), NOW)).toBe('Mastered · 3h');
     expect(metaLine(item({ state: 'read', kind: 'recipe', ingredientCount: 6 }), NOW)).toBe('6 ingredients · 3h');
   });
 

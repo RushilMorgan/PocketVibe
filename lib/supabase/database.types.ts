@@ -82,6 +82,8 @@ export type ItemRow = {
   duration_seconds: number | null;
   /** Hidden from the feed's Up next card until then ("Not now"). */
   snoozed_until: string | null;
+  /** When this recipe was put on the Want to cook list (lib/recipes); null = not on it. */
+  cook_list_at: string | null;
   /** The closest other save above the similarity bar (lib/items/related.ts); null = none. */
   related: RelatedSave | null;
   created_at: string;
@@ -187,6 +189,17 @@ export type ReviewRow = {
   created_at: string;
 }
 
+export type CookRow = {
+  id: string;
+  user_id: string;
+  item_id: string;
+  /** 1–5; null = not rated. */
+  rating: number | null;
+  /** A note for next time, e.g. "less salt". */
+  note: string | null;
+  created_at: string;
+}
+
 export type NudgeRow = {
   id: string;
   user_id: string;
@@ -266,6 +279,7 @@ export interface Database {
       council_sessions: Table<CouncilSessionRow, 'user_id' | 'idea'>;
       nudges: Table<NudgeRow, 'user_id' | 'kind'>;
       reviews: Table<ReviewRow, 'user_id' | 'item_id' | 'format' | 'rating'>;
+      cooks: Table<CookRow, 'user_id' | 'item_id'>;
       council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
       ai_usage: Table<AiUsageRow, 'user_id' | 'feature' | 'provider' | 'model'>;
     };

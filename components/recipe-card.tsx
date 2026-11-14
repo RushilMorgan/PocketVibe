@@ -1,25 +1,34 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { api } from '@/components/api';
 import { SectionLabel } from '@/components/explainer-card';
+import { shortAgo } from '@/components/feed/format';
+import { CookedForm, Stars } from '@/components/recipes/cooked-form';
+import { toggled, useCookProgress } from '@/components/recipes/use-cook-progress';
 import type { Recipe } from '@/lib/handlers/schemas';
+import type { Cook } from '@/lib/recipes/view';
+
+/** What a saved recipe adds to the card: the cooking view, the Want to cook list and the cooked log. */
+export interface SavedRecipe {
+  itemId: string;
+  wantToCookAt: string | null;
+  cooks: Cook[];
+}
 
 /**
- * A recipe you can cook from: stat tiles, an ingredient checklist, steps you
- * tap through (the next one is highlighted), and Cook mode, which keeps the
- * screen on. Ticks are per visit; nothing is saved.
+ * A recipe you can cook from: stat tiles, an ingredient checklist and steps you
+ * tap through (the next one is highlighted). A saved recipe (`saved`) also gets
+ * Start cooking (the step-by-step view), Want to cook, and "I cooked this" with
+ * your last note; its ticks are remembered on this device for the sitting.
+ * Without `saved` (the standalone tool) there's a Cook mode toggle instead.
  */
-export function RecipeCard({ recipe, showTitle = true }: { recipe: Recipe; showTitle?: boolean }) {
-  const [have, setHave] = useState<Set<number>>(new Set());
-  const [done, setDone] = useState<Set<number>>(new Set());
+export function RecipeCard({ recipe, showTitle = true, saved }: { recipe: Recipe; showTitle?: boolean; saved?: SavedRecipe }) {
+  const [progress, update] = useCookProgress(saved?.itemId ?? null);
+  const have = new Set(progress.have);
+  const done = new Set(progress.done);
   const current = recipe.steps.findIndex((_, i) => !done.has(i));
-
-  const toggle = (set: Set<number>, i: number) => {
-    const next = new Set(set);
-    if (next.has(i)) next.delete(i);
-    else next.add(i);
-    return next;
-  };
 
   return (
     <article>
@@ -32,7 +41,7 @@ export function RecipeCard({ recipe, showTitle = true }: { recipe: Recipe; showT
         <Stat icon="🔥" label="Cook" value={recipe.cookTime || '—'} />
       </div>
 
-      <CookMode />
+      {saved ? <SavedActions saved={saved} started={progress.screen > 0 || progress.done.length > 0} /> : <CookMode />}
 
       <section className="mt-7">
         <div className="flex items-baseline justify-between">
@@ -50,7 +59,7 @@ export function RecipeCard({ recipe, showTitle = true }: { recipe: Recipe; showT
             return (
               <li key={i}>
                 <button
-                  onClick={() => setHave((s) => toggle(s, i))}
+                  onClick={() => update({ have: toggled(progress.have, i) })}
                   aria-pressed={got}
                   className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left"
                 >
@@ -80,7 +89,7 @@ export function RecipeCard({ recipe, showTitle = true }: { recipe: Recipe; showT
         <div className="flex items-baseline justify-between">
           <SectionLabel>Method · {recipe.steps.length} steps</SectionLabel>
           {done.size > 0 && (
-            <button onClick={() => setDone(new Set())} className="text-xs font-medium text-accent">
+            <button onClick={() => update({ done: [], screen: 0 })} className="text-xs font-medium text-accent">
               Start over
             </button>
           )}
@@ -92,7 +101,7 @@ export function RecipeCard({ recipe, showTitle = true }: { recipe: Recipe; showT
             return (
               <li key={i}>
                 <button
-                  onClick={() => setDone((s) => toggle(s, i))}
+                  onClick={() => update({ done: toggled(progress.done, i) })}
                   aria-pressed={finished}
                   className={`flex w-full gap-3 rounded-2xl border p-3.5 text-left transition-colors ${
                     isCurrent ? 'border-accent bg-accent/10' : 'border-line bg-surface'
@@ -136,6 +145,81 @@ export function RecipeCard({ recipe, showTitle = true }: { recipe: Recipe; showT
         </ul>
       )}
     </article>
+  );
+}
+
+/** Start cooking, Want to cook, I cooked this, and what you said last time. */
+function SavedActions({ saved, started }: { saved: SavedRecipe; started: boolean }) {
+  const [want, setWant] = useState(saved.wantToCookAt !== null);
+  const [cooks, setCooks] = useState(saved.cooks);
+  const [logging, setLogging] = useState(false);
+  const last = cooks[0];
+
+  async function toggleWant() {
+    const next = !want;
+    setWant(next);
+    try {
+      await api(`/api/recipes/${saved.itemId}/want`, { body: { on: next } });
+    } catch {
+      setWant(!next);
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <Link
+        href={`/cook/${saved.itemId}`}
+        className="flex items-center gap-4 rounded-3xl bg-accent p-4 text-on-accent shadow-lg shadow-accent/25 active:scale-[0.99]"
+      >
+        <span aria-hidden className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-on-accent/15 text-2xl">
+          👩‍🍳
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-lg font-extrabold leading-tight">{started ? 'Carry on cooking' : 'Start cooking'}</span>
+          <span className="mt-0.5 block text-sm opacity-85">One step at a time, with timers. The screen stays on.</span>
+        </span>
+      </Link>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={toggleWant}
+          aria-pressed={want}
+          className={`rounded-xl border py-2.5 text-sm font-medium ${want ? 'border-accent bg-accent/10 text-accent' : 'border-line bg-surface'}`}
+        >
+          {want ? '🔖 On your list' : '🔖 Want to cook'}
+        </button>
+        <button onClick={() => setLogging((v) => !v)} aria-expanded={logging} className="rounded-xl border border-line bg-surface py-2.5 text-sm font-medium">
+          ✓ I cooked this
+        </button>
+      </div>
+
+      {logging && (
+        <CookedForm
+          itemId={saved.itemId}
+          onCancel={() => setLogging(false)}
+          onSaved={(cook) => {
+            setCooks((c) => [cook, ...c]);
+            setWant(false);
+            setLogging(false);
+          }}
+        />
+      )}
+
+      {last && (
+        <div className="rounded-2xl border border-success/30 bg-success/10 p-3.5">
+          <p className="text-sm font-bold text-success">
+            Cooked {cooks.length === 1 ? 'once' : `${cooks.length} times`} · last {shortAgo(last.created_at) === 'now' ? 'just now' : `${shortAgo(last.created_at)} ago`}
+            {last.rating !== null && (
+              <>
+                {' · '}
+                <Stars rating={last.rating} />
+              </>
+            )}
+          </p>
+          {last.note && <p className="mt-1 leading-relaxed">“{last.note}”</p>}
+        </div>
+      )}
+    </div>
   );
 }
 

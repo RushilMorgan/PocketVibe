@@ -13,7 +13,8 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
 1. **Share** a link to HeyToolie (Android share sheet → `POST /share`), or paste it with the **+** button.
 2. A background job (**Inngest**) fetches it — Gemini watches YouTube videos; other pages go through
    Jina Reader — then **classifies** it (recipe / tech / news / other).
-3. **Recipes** become a recipe card. Everything else gets an **explainer**; tech items that explain a
+3. **Recipes** become a recipe card you can cook from: a Recipes page with search and a Want to
+   cook list, a step-by-step cooking view with timers, and "I cooked this" with a note for next time. Everything else gets an **explainer**; tech items that explain a
    system also get a **diagram** (Mermaid → PNG).
 4. The text is **chunked and embedded** (pgvector) for "Ask" and "Similar", the item's tags feed
    your **topic profile**, and it's linked to the closest other save it **connects to**.

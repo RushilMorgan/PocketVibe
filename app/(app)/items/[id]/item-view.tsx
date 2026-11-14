@@ -13,6 +13,7 @@ import { RecipeCard } from '@/components/recipe-card';
 import { WhatIfSection } from '@/components/whatif-card';
 import type { Item, SimilarItem } from '@/components/types';
 import type { ItemOutputRow } from '@/lib/supabase/database.types';
+import type { Cook } from '@/lib/recipes/view';
 import type { Diagram, ExplainMode, Explainer, Recipe } from '@/lib/handlers/schemas';
 import { TEMPLATE_LABEL, TEMPLATES, type Template } from '@/lib/lessons/schema';
 
@@ -31,15 +32,17 @@ export function ItemView({ id }: { id: string }) {
   const [item, setItem] = useState<Item | null>(null);
   const [thumbs, setThumbs] = useState(0);
   const [playLessonId, setPlayLessonId] = useState<string | null>(null);
+  const [cooks, setCooks] = useState<Cook[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState<{ text: string; n: number } | undefined>();
 
   const load = useCallback(async () => {
     try {
-      const res = await api<{ item: Item; thumbs: number; playLessonId: string | null }>(`/api/items/${id}`);
+      const res = await api<{ item: Item; thumbs: number; playLessonId: string | null; cooks?: Cook[] }>(`/api/items/${id}`);
       setItem(res.item);
       setThumbs(res.thumbs);
       setPlayLessonId(res.playLessonId);
+      setCooks(res.cooks ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     }
@@ -135,7 +138,13 @@ export function ItemView({ id }: { id: string }) {
           )}
 
           <div className="mt-7">
-            {recipe && <RecipeCard recipe={recipe.content as unknown as Recipe} showTitle={false} />}
+            {recipe && (
+              <RecipeCard
+                recipe={recipe.content as unknown as Recipe}
+                showTitle={false}
+                saved={{ itemId: item.id, wantToCookAt: item.cook_list_at, cooks }}
+              />
+            )}
             {explainer && <ExplainerCard explainer={explainer.content as unknown as Explainer} />}
             {diagram?.file_url && (
               <section className="mt-7">

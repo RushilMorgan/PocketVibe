@@ -4,15 +4,17 @@ import { route } from '@/lib/http';
 import { getThumbs } from '@/lib/items/actions';
 import { getItem } from '@/lib/items/service';
 import { unplayedLesson } from '@/lib/lessons/service';
+import { cooksFor } from '@/lib/recipes/service';
 
-/** The item, its outputs, your 👍/👎, and the lesson Play should open (so it skips a round trip). */
+/** The item, its outputs, your 👍/👎, the lesson Play should open (so it skips a round trip), and the times you cooked it. */
 export const GET = route(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
   const { id } = await ctx.params;
-  const [item, thumbs, playLessonId] = await Promise.all([
+  const [item, thumbs, playLessonId, cooks] = await Promise.all([
     getItem(user.id, id),
     getThumbs(user.id, id),
     unplayedLesson(user.id, id),
+    cooksFor(user.id, id),
   ]);
-  return NextResponse.json({ item, thumbs, playLessonId });
+  return NextResponse.json({ item, thumbs, playLessonId, cooks });
 });

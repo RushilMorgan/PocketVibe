@@ -13,7 +13,10 @@ const TABS = [
 
 export function TabBar() {
   const path = usePathname();
-  const active = (href: string) => (href === '/' ? path === '/' || path.startsWith('/items') : path.startsWith(href));
+  const active = (href: string) =>
+    href === '/'
+      ? path === '/' || path.startsWith('/items') || path.startsWith('/recipes')
+      : path.startsWith(href) || (href === '/settings' && path.startsWith('/stats'));
   return (
     <nav className="fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <ul className="mx-auto flex max-w-xl">

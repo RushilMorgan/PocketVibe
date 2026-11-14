@@ -133,9 +133,9 @@ export function Home({
           <Chip active={sel.filter === 'whatif'} onClick={() => pick({ filter: 'whatif', topic: null })} count={feed?.counts.whatif}>
             What ifs
           </Chip>
-          <Chip active={sel.filter === 'recipe'} onClick={() => pick({ filter: 'recipe', topic: null })}>
-            Recipes
-          </Chip>
+          <Link href="/recipes" className="shrink-0 rounded-full border border-line bg-surface px-3.5 py-2 text-sm font-medium">
+            🍳 Recipes
+          </Link>
           {topicChips.map((t) => (
             <Chip key={t.id} active={sel.topic === t.id} onClick={() => pick({ filter: null, topic: t.id })}>
               <span>{displayTopic(t.name)}</span>

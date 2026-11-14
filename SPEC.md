@@ -297,6 +297,14 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   follow-up questions, each answered by every member and ratified. Web research only; it doesn't
   read your saves. Tables `council_sessions` and `council_turns`.
 
+**Recipes you come back to, and Stats (not in the spec; [docs/recipes.md](docs/recipes.md))**
+- A Recipes page (`/recipes`) with search by name, tag or ingredient and filters; a Want to cook
+  list; a full-screen cooking view (`/cook/…`) with one step per screen, the ingredients each step
+  uses, tap-to-start timers and progress that survives a locked screen; and "I cooked this" with a
+  rating and a note for next time.
+- A Stats page (`/stats`, from Settings): saves, how many get opened and come back to, by kind,
+  what-ifs, recipes cooked, and the last 8 weeks.
+
 **What if… (not in the spec; [docs/what-if.md](docs/what-if.md))**
 - News and tech saves (and others with an obvious scenario; never recipes) get a **What if…** card:
   the classifier picks a scenario question, a Search-grounded call gathers where things stand today,

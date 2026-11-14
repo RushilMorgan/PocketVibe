@@ -121,6 +121,17 @@ export function SettingsForm({ initial, defaultModel }: { initial: Settings; def
         </div>
       </section>
 
+      <section>
+        <h2 className="font-semibold">Your stats</h2>
+        <p className="mt-1 text-sm text-muted">What you save, what you open, and what you come back to.</p>
+        <Link href="/stats" className="mt-3 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium">
+          <span>📊 See your stats</span>
+          <span aria-hidden className="text-muted">
+            →
+          </span>
+        </Link>
+      </section>
+
       <UsageCard />
 
       <section>

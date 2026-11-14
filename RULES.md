@@ -31,8 +31,8 @@ changing code.
 
 | Path | What |
 |---|---|
-| `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/ask`, `/council`, `/council/[id]`, `/topics`, `/settings`, `/digest/[id]` |
-| `app/play/[lessonId]`, `app/review/[itemId]` | Full-screen lesson player and review card (no tab bar) |
+| `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/recipes`, `/ask`, `/council`, `/council/[id]`, `/topics`, `/settings`, `/stats`, `/digest/[id]` |
+| `app/play/[lessonId]`, `app/review/[itemId]`, `app/cook/[itemId]` | Full-screen lesson player, review card and cooking view (no tab bar) |
 | `app/share`, `app/auth/callback`, `app/d/[id]` | Share target (POST), magic-link landing, signed digest-link tracker |
 | `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
 | `app/api/**` | Route handlers: parse input → call `/lib` → JSON |
@@ -41,6 +41,8 @@ changing code.
 | `lib/handlers` | Recipe + explainer handlers and the client-safe output schemas |
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
 | `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results. Written only on request (Tools on the item page) |
+| `lib/recipes` | Recipes you come back to ([docs/recipes.md](docs/recipes.md)): `view.ts` (pure: times, search, filters, which ingredients a step uses, countdowns) and `service.ts` (the Recipes page list, Want to cook, the `cooks` log) |
+| `lib/stats.ts`, `lib/stats-service.ts` | The Stats page: saves, opens, came-back, what-ifs, recipes and the last 8 weeks, worked out in a pure function from plain rows |
 | `lib/whatif` | What if… cards ([docs/what-if.md](docs/what-if.md)): schema (client-safe), pure shaping and citation helpers (`shape.ts`), the Search + write calls (`generate.ts`), and the service (the save's own card, extra scenarios, caps) |
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights); the Topics page data, Flash-made themes (cached on `users.topic_themes`) and merge |
 | `lib/topic-view.ts`, `lib/time.ts` | Pure: Topics page shaping (trends, themes, mix, `displayTopic` for acronyms) and local dates/times in the user's time zone |
@@ -125,6 +127,9 @@ changing code.
 - The service worker registers **in production only** (dev chunk URLs aren't hashed, so its
   cache-first static cache would serve stale CSS/JS). It re-checks for updates whenever the app
   becomes visible. Bump `VERSION` in `public/sw.js` when its caching changes.
+- Browser storage is only for per-device conveniences that may vanish: cooking progress and timers
+  (`components/recipes/use-cook-progress.ts`). Every access is guarded; anything that must last goes
+  to the database.
 - Notification `badge` and the manifest's `monochrome` icons must be white-on-transparent; Android
   renders them from the alpha channel only.
 

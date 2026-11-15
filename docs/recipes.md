@@ -1,7 +1,8 @@
 # Recipes you come back to — spec and plan
 
-Status (2026-11-14): **first set built** (migration `20261114202426_recipes_cooks`, applied). The second
-set below is planned, not built.
+Status (2026-11-15): **first set live** (migration `20261114202426_recipes_cooks`). **Second set built on a
+branch, not live**: its one migration, `20261115090000_cook_nudge`, widens a CHECK on `nudges.kind`
+and is written but not applied (it needs a yes).
 
 ## Why
 
@@ -32,13 +33,21 @@ Limits:
   mentions in passing.
 - Progress is per device.
 
-## Second set (planned)
+## Second set (built, not live)
 
-- **Servings scaler** and **ingredient groups** ("for the sauce") with a copy-shopping-list button. Both
-  need the recipe prompt to return quantities as numbers and a group per ingredient, and existing
-  recipes re-extracted.
-- **"What can I make?"**: type what you have; recipes ranked by how many ingredients match.
-- **A weekend nudge**, "Cook one this week?", from the Want to cook list. Needs a new nudge kind (a
-  widened CHECK on `nudges.kind`, which needs a yes).
-- **Jump to the video moment** for a step. Depends on Gemini returning reliable timestamps; test first.
-- Cooking counting towards the streak.
+| What | How |
+|---|---|
+| **Servings stepper** on the recipe | − / + on the Serves tile rescales every amount (`scaleQuantity`). Quantities are the text the prompt writes: "1/2", "1 1/2", "2-3" and "½" scale; "a pinch" is left as written. Results are rounded the way a cook would say them (3/4, 1 1/2), not exactly. The choice carries into the cooking view and lasts as long as cooking progress does (12 hours, this device). Works on recipes saved before this. |
+| **Ingredient groups** | The recipe prompt now gives each ingredient its part ("Marinade", "Sauce", "To serve"). Shown as headings when a recipe names at least two parts. **Only recipes saved from now on have them**; older ones stay one list. |
+| **Copy shopping list** | Copies what isn't ticked yet, at the chosen servings, under the group headings, as plain text. |
+| **What can I make?** on the Recipes page | Type what you have ("chicken, rice and garlic"). Recipes are ranked by how many of those they use, then by how few other ingredients they need. Whole words, singular or plural. It does not know about staples: salt and oil count as "more to get" unless typed. |
+| **Weekend cook nudge** | Saturdays, in your reminder slot: the recipe that has waited longest on the Want to cook list, at most once every 6 days, preferring ones not nudged about before. It comes after a streak about to break and before a what-if. New nudge kind `cook`. |
+| **Watch this step** in the cooking view | For YouTube recipes, the prompt now asks for the second each step starts at, and the step links to the video at that moment. **Only recipes saved from now on**, and only steps Gemini could place. |
+| **Cooking counts for the streak** | A day with an "I cooked this" is an active day. |
+
+Not verified against real Gemini (this was built without access to it): whether the model fills in
+groups sensibly, and how accurate the step times in a video are. Check both on the first few new
+recipes; if the times are off, remove `at` from the prompt and the links disappear.
+
+Still open: re-reading older recipes so they get groups and video moments (re-saving one does it today),
+and a true background timer alarm.

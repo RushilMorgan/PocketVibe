@@ -10,6 +10,8 @@ export interface CookProgress {
   done: number[];
   /** The screen the cooking view is on (0 = ingredients). */
   screen: number;
+  /** Servings the amounts are scaled to; unset = the recipe's own. */
+  servings?: number;
   /** Running timers: step position → when it ends (ms since epoch). */
   timers: Record<string, number>;
   savedAt: number;

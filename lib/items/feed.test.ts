@@ -204,6 +204,7 @@ describe('activity days', () => {
       [{ item_id: 'a', rating: 'got', format: 'recall', created_at: '2026-11-08T08:00:00Z' }],
     );
     expect(days.sort()).toEqual(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11']);
+    expect(activityDays([], [], 'Africa/Johannesburg', [{ created_at: '2026-11-06T18:00:00Z' }])).toEqual(['2026-11-06']);
   });
 });
 

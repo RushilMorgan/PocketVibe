@@ -12,10 +12,10 @@ const ITEM_COLUMNS =
 /** PostgREST returns at most this many rows per request. */
 const PAGE = 1000;
 
-/** The saves feed for one user: rows from six tables, shaped by lib/items/feed.ts. */
+/** The saves feed for one user: rows from seven tables, shaped by lib/items/feed.ts. */
 export async function getFeed(userId: string, opts: FeedOptions, now = new Date()): Promise<Feed> {
   const db = adminClient();
-  const [items, events, whatIfs, recipes, itemTopics, topics, reviews, user] = await Promise.all([
+  const [items, events, whatIfs, recipes, itemTopics, topics, reviews, cooks, user] = await Promise.all([
     db.from('items').select(ITEM_COLUMNS).eq('user_id', userId),
     allEvents(userId),
     db.from('item_outputs').select('item_id').eq('user_id', userId).eq('type', 'whatif'),
@@ -23,9 +23,10 @@ export async function getFeed(userId: string, opts: FeedOptions, now = new Date(
     db.from('item_topics').select('item_id, topic_id').eq('user_id', userId),
     db.from('topics').select('id, name, weight').eq('user_id', userId),
     db.from('reviews').select('item_id, rating, format, created_at').eq('user_id', userId),
+    db.from('cooks').select('created_at').eq('user_id', userId),
     db.from('users').select('timezone').eq('id', userId).maybeSingle(),
   ]);
-  for (const r of [items, whatIfs, recipes, itemTopics, topics, reviews, user]) if (r.error) throw r.error;
+  for (const r of [items, whatIfs, recipes, itemTopics, topics, reviews, cooks, user]) if (r.error) throw r.error;
 
   const input: FeedInput = {
     items: items.data ?? [],
@@ -38,6 +39,7 @@ export async function getFeed(userId: string, opts: FeedOptions, now = new Date(
     itemTopics: itemTopics.data ?? [],
     topics: topics.data ?? [],
     reviews: reviews.data ?? [],
+    cooks: cooks.data ?? [],
   };
   return buildFeed(input, opts, now, user.data?.timezone ?? DEFAULT_TZ);
 }

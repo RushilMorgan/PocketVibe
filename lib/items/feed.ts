@@ -51,6 +51,8 @@ export interface FeedInput {
   topics: { id: string; name: string; weight: number }[];
   /** Ratings from review cards (lib/reviews). */
   reviews: (ReviewLog & { item_id: string })[];
+  /** Times a recipe was cooked (lib/recipes); each counts as activity for the streak. */
+  cooks?: { created_at: string }[];
 }
 
 export type FeedItem = FeedSourceItem & {
@@ -241,7 +243,8 @@ export function pickUpNext(items: FeedItem[], now: Date): { item: FeedItem; reas
 // ── streak and week ──────────────────────────────────────────────────────────
 
 /**
- * Consecutive local days with a save, an opened what-if, a lesson played or a review card (A6). One missed day
+ * Consecutive local days with a save, an opened what-if, a lesson played, a review card or a
+ * recipe cooked (A6). One missed day
  * per Mon–Sun week is covered by a freeze; a second miss in that week ends the
  * streak. Today only counts once it has activity, so an empty morning doesn't
  * break yesterday's streak.
@@ -296,11 +299,17 @@ export function weekProgress(events: FeedInput['events'], now: Date, tz: string 
   return { saveDays: savedOn.filter(Boolean).length, whatIfsOpened: opened.size, savedOn };
 }
 
-/** Days with a save, an opened what-if, a lesson played, or a review card done. */
-export function activityDays(events: FeedInput['events'], reviews: FeedInput['reviews'] = [], tz: string = DEFAULT_TZ): string[] {
+/** Days with a save, an opened what-if, a lesson played, a review card done, or a recipe cooked. */
+export function activityDays(
+  events: FeedInput['events'],
+  reviews: FeedInput['reviews'] = [],
+  tz: string = DEFAULT_TZ,
+  cooks: NonNullable<FeedInput['cooks']> = [],
+): string[] {
   return [
     ...events.filter((e) => e.type === 'saved' || e.type === 'played' || e.type === 'whatif_open').map((e) => localDate(e.created_at, tz)),
     ...reviews.map((r) => localDate(r.created_at, tz)),
+    ...cooks.map((c) => localDate(c.created_at, tz)),
   ];
 }
 
@@ -331,7 +340,7 @@ export function buildFeed(input: FeedInput, opts: FeedOptions, now: Date, tz: st
       unread: all.filter((i) => matchesFilter(i, 'unread')).length,
       whatif: all.filter((i) => matchesFilter(i, 'whatif')).length,
     },
-    streak: streak(activityDays(input.events, input.reviews, tz), now, tz),
+    streak: streak(activityDays(input.events, input.reviews, tz, input.cooks), now, tz),
     week: weekProgress(input.events, now, tz),
   };
 }

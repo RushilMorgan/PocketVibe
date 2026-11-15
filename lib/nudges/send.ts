@@ -31,22 +31,25 @@ export async function usersDueAt(now: Date): Promise<string[]> {
 export async function sendReminder(userId: string, now: Date): Promise<{ sent: boolean; kind?: ReminderChoice['kind'] }> {
   const db = adminClient();
   const since = new Date(now.getTime() - HISTORY_DAYS * 24 * 3600_000).toISOString();
-  const [{ data: user, error }, { data: history, error: historyError }, feed] = await Promise.all([
+  const [{ data: user, error }, { data: history, error: historyError }, feed, { data: wanted, error: wantedError }] = await Promise.all([
     db.from('users').select('reminder_times, timezone').eq('id', userId).single(),
     db.from('nudges').select('kind, item_id, sent_at, tapped_at').eq('user_id', userId).gte('sent_at', since),
     getFeed(userId, { limit: 100 }, now),
+    db.from('items').select('id, title, cook_list_at').eq('user_id', userId).eq('kind', 'recipe').eq('status', 'done').not('cook_list_at', 'is', null),
   ]);
   if (error) throw error;
   if (historyError) throw historyError;
+  if (wantedError) throw wantedError;
+  const cookList = (wanted ?? []).map((w) => ({ itemId: w.id, title: w.title, addedAt: w.cook_list_at! }));
 
-  const choice = pickReminder({ feed, history: history ?? [], times: user.reminder_times, now, tz: user.timezone });
+  const choice = pickReminder({ feed, history: history ?? [], times: user.reminder_times, now, tz: user.timezone, cookList });
   if (!choice) return { sent: false };
 
   const { data: row, error: insertError } = await db
     .from('nudges')
     .insert({
       user_id: userId,
-      // What-if and review reminders are per save; "never twice" checks read this.
+      // What-if, cook and review reminders are per save; "never twice" checks read this.
       item_id: 'itemId' in choice ? choice.itemId : null,
       kind: choice.kind,
       slot: slotAt(now, user.timezone).key,

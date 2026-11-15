@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FeedItem, Streak, WeekProgress } from '@/lib/items/feed';
 import {
   backedOff,
+  cookCandidate,
   formatSlot,
   normalizeReminderTimes,
   pickReminder,
@@ -166,6 +167,44 @@ describe('pickReminder', () => {
   it('stays quiet while backed off', () => {
     const h = [sent('whatif', '2026-11-11T05:00:00Z'), sent('whatif', '2026-11-11T06:00:00Z'), sent('whatif', '2026-11-12T06:00:00Z')];
     expect(pickReminder({ ...base, history: h, feed: feed([item('a')]), now: THU_18 })).toBeNull();
+  });
+});
+
+describe('the weekend cook nudge', () => {
+  // Saturday 14 Nov 2026, 18:00 SAST.
+  const SAT_18 = new Date('2026-11-14T16:00:00Z');
+  const list = [
+    { itemId: 'new', title: 'Hot chicken dip', addedAt: '2026-11-12T10:00:00Z' },
+    { itemId: 'old', title: 'Chicken shawarma', addedAt: '2026-11-03T10:00:00Z' },
+  ];
+
+  it('picks the recipe that has waited longest, on Saturdays only', () => {
+    expect(cookCandidate(list, [], SAT_18)?.itemId).toBe('old');
+    expect(cookCandidate(list, [], THU_18)).toBeNull();
+    expect(cookCandidate([], [], SAT_18)).toBeNull();
+    // Saturday in Johannesburg is still Friday in Honolulu.
+    expect(cookCandidate(list, [], new Date('2026-11-14T06:00:00Z'), 'Pacific/Honolulu')).toBeNull();
+  });
+
+  it('goes out at most once every 6 days, and moves on to a recipe not nudged before', () => {
+    expect(cookCandidate(list, [sent('cook', '2026-11-14T08:00:00Z', false, 'old')], SAT_18)).toBeNull();
+    expect(cookCandidate(list, [sent('cook', '2026-11-07T16:00:00Z', false, 'old')], SAT_18)?.itemId).toBe('new');
+    const both = [sent('cook', '2026-10-31T16:00:00Z', false, 'old'), sent('cook', '2026-11-07T16:00:00Z', false, 'new')];
+    expect(cookCandidate(list, both, SAT_18)?.itemId).toBe('old'); // all nudged once: start again
+  });
+
+  it('comes before a what-if on Saturday, and is worded with how long it has waited', () => {
+    const choice = pickReminder({ history: [], times: [1080], feed: feed([item('a', { created_at: '2026-11-12T08:00:00Z' })]), now: SAT_18, cookList: list });
+    expect(choice).toEqual({ kind: 'cook', itemId: 'old', title: 'Chicken shawarma', daysOnList: 11 });
+    const m = reminderMessage(choice!, 'n1');
+    expect(m.title).toBe('🍳 Cook “Chicken shawarma” this weekend?');
+    expect(m.body).toBe("It's been on your Want to cook list for 11 days. Step by step, with timers.");
+    expect(m.url).toBe('/items/old?n=n1&a=open');
+    expect(m.actions?.map((a) => a.url)).toEqual(['/cook/old?n=n1&a=play', '/items/old?n=n1&a=read']);
+  });
+
+  it('leaves Saturday to the what-if when the list is empty', () => {
+    expect(pickReminder({ history: [], times: [1080], feed: feed([item('a', { created_at: '2026-11-12T08:00:00Z' })]), now: SAT_18, cookList: [] })).toMatchObject({ kind: 'whatif' });
   });
 });
 

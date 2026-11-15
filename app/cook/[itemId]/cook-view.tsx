@@ -7,17 +7,21 @@ import { CookedForm } from '@/components/recipes/cooked-form';
 import { toggled, useCookProgress } from '@/components/recipes/use-cook-progress';
 import type { Item } from '@/components/types';
 import type { Recipe } from '@/lib/handlers/schemas';
+import { youtubeVideoId } from '@/lib/items/source';
+import { ingredientGroups } from '@/lib/recipes/scale';
 import { formatClock, parseSeconds, stepIngredients } from '@/lib/recipes/view';
 
 /**
- * Cooking view (docs/recipes.md): the ingredients, then one step per screen
- * in large type with the ingredients it uses, tap-to-start timers, and "I
- * cooked this" at the end. The screen stays on, and your place and running
+ * Cooking view (docs/recipes.md): the ingredients (scaled to the servings
+ * chosen on the recipe), then one step per screen in large type with the
+ * ingredients it uses, tap-to-start timers, a link to that moment in the
+ * video when the recipe has one, and "I cooked this" at the end. The screen stays on, and your place and running
  * timers survive a locked screen or a switch of apps.
  */
 export function CookView({ itemId }: { itemId: string }) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [title, setTitle] = useState('');
+  const [videoId, setVideoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, update, reset] = useCookProgress(itemId);
   const [saved, setSaved] = useState(false);
@@ -30,6 +34,7 @@ export function CookView({ itemId }: { itemId: string }) {
         if (!card) return setError("This save isn't a recipe.");
         setRecipe(card.content as unknown as Recipe);
         setTitle(item.title ?? '');
+        setVideoId(item.source === 'youtube' ? safeVideoId(item.url) : null);
       },
       (err) => setError(err instanceof Error ? err.message : 'Something went wrong'),
     );
@@ -73,7 +78,10 @@ export function CookView({ itemId }: { itemId: string }) {
     window.scrollTo({ top: 0 });
   };
   const names = recipe.ingredients.map((i) => i.name);
-  const amount = (i: number) => [recipe.ingredients[i].quantity, recipe.ingredients[i].unit].filter(Boolean).join(' ');
+  const servings = progress.servings ?? recipe.servings;
+  const groups = ingredientGroups(recipe, servings / recipe.servings);
+  const scaled = new Map(groups.flatMap((g) => g.lines).map((l) => [l.index, l.amount]));
+  const amount = (i: number) => scaled.get(i) ?? '';
 
   function startTimer(step: number, seconds: number) {
     alarm.prime(); // Sound needs a tap to be allowed; this tap is it.
@@ -139,29 +147,35 @@ export function CookView({ itemId }: { itemId: string }) {
           <section>
             <h1 className="text-2xl font-extrabold tracking-tight">Ingredients</h1>
             <p className="mt-1 text-sm text-muted">
-              Serves {recipe.servings}. Tick things off as you get them out.
+              Serves {servings}
+              {servings !== recipe.servings && ` (scaled from ${recipe.servings})`}. Tick things off as you get them out.
             </p>
-            <ul className="mt-4 flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-              {recipe.ingredients.map((ing, i) => {
-                const got = progress.have.includes(i);
-                return (
-                  <li key={i}>
-                    <button onClick={() => update({ have: toggled(progress.have, i) })} aria-pressed={got} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
-                      <span aria-hidden className="text-xl">
-                        {ing.emoji}
-                      </span>
-                      <span className={`min-w-0 flex-1 text-lg ${got ? 'text-muted line-through' : ''}`}>
-                        {amount(i) && <span className="font-semibold">{amount(i)} </span>}
-                        {ing.name}
-                      </span>
-                      <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm ${got ? 'bg-success text-on-accent' : 'border-2 border-line'}`}>
-                        {got ? '✓' : ''}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            {groups.map((group) => (
+              <div key={group.name ?? 'all'}>
+                {group.name && <p className="mt-5 font-bold">{group.name}</p>}
+                <ul className={`${group.name ? 'mt-2' : 'mt-4'} flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface`}>
+                  {group.lines.map((line) => {
+                    const got = progress.have.includes(line.index);
+                    return (
+                      <li key={line.index}>
+                        <button onClick={() => update({ have: toggled(progress.have, line.index) })} aria-pressed={got} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
+                          <span aria-hidden className="text-xl">
+                            {line.emoji}
+                          </span>
+                          <span className={`min-w-0 flex-1 text-lg ${got ? 'text-muted line-through' : ''}`}>
+                            {line.amount && <span className="font-semibold">{line.amount} </span>}
+                            {line.name}
+                          </span>
+                          <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm ${got ? 'bg-success text-on-accent' : 'border-2 border-line'}`}>
+                            {got ? '✓' : ''}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </section>
         )}
 
@@ -171,6 +185,7 @@ export function CookView({ itemId }: { itemId: string }) {
             step={steps[screen - 1]}
             uses={stepIngredients(steps[screen - 1].text, names).map((i) => ({ emoji: recipe.ingredients[i].emoji, name: names[i], amount: amount(i) }))}
             running={progress.timers[String(screen - 1)] !== undefined}
+            videoUrl={videoMoment(videoId, steps[screen - 1].at)}
             onStart={(seconds) => startTimer(screen - 1, seconds)}
           />
         )}
@@ -225,11 +240,14 @@ function StepScreen({
   step,
   uses,
   running,
+  videoUrl,
   onStart,
 }: {
   step: Recipe['steps'][number];
   uses: { emoji: string; name: string; amount: string }[];
   running: boolean;
+  /** The video at the moment this step starts, when the recipe knows it. */
+  videoUrl: string | null;
   onStart: (seconds: number) => void;
 }) {
   const seconds = parseSeconds(step.time);
@@ -258,6 +276,12 @@ function StepScreen({
         step.time && <p className="mt-6 inline-flex rounded-full bg-surface px-3 py-1.5 text-sm font-medium text-muted ring-1 ring-line">⏱ {step.time}</p>
       )}
 
+      {videoUrl && (
+        <a href={videoUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm font-medium">
+          ▶ Watch this step ↗
+        </a>
+      )}
+
       {uses.length > 0 && (
         <div className="mt-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">For this step</p>
@@ -276,6 +300,19 @@ function StepScreen({
       )}
     </section>
   );
+}
+
+function safeVideoId(url: string): string | null {
+  try {
+    return youtubeVideoId(url);
+  } catch {
+    return null;
+  }
+}
+
+/** A YouTube link that starts playing where the step begins; null without a video or a time. */
+function videoMoment(videoId: string | null, at: number | null | undefined): string | null {
+  return videoId && typeof at === 'number' ? `https://www.youtube.com/watch?v=${videoId}&t=${at}s` : null;
 }
 
 /** The current time, ticking twice a second while `active`. */

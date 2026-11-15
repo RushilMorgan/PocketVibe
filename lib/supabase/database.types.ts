@@ -13,7 +13,7 @@ export type OutputType = 'recipe' | 'explainer' | 'diagram' | 'lesson' | 'whatif
 export type ReviewFormat = 'recall' | 'connect';
 export type ReviewRating = 'got' | 'fuzzy' | 'forgot';
 /** 'lesson' is no longer sent (docs/what-if.md Part C); old rows keep it. */
-export type NudgeKind = 'ready' | 'lesson' | 'review' | 'midweek' | 'streak' | 'whatif';
+export type NudgeKind = 'ready' | 'lesson' | 'review' | 'midweek' | 'streak' | 'whatif' | 'cook';
 export type NudgeAction = 'open' | 'read' | 'play' | 'whatif';
 export type EventType =
   | 'saved'

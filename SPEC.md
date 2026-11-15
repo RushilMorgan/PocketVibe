@@ -301,7 +301,10 @@ Deliberate changes, each made for a measured or practical reason. How the code w
 - A Recipes page (`/recipes`) with search by name, tag or ingredient and filters; a Want to cook
   list; a full-screen cooking view (`/cook/…`) with one step per screen, the ingredients each step
   uses, tap-to-start timers and progress that survives a locked screen; and "I cooked this" with a
-  rating and a note for next time.
+  rating and a note for next time. A servings stepper rescales the amounts; ingredients are grouped
+  by part of the dish with a copyable shopping list; "What can I make?" ranks recipes by what you
+  have; YouTube steps link to their moment in the video; a Saturday reminder suggests one from the
+  Want to cook list; and cooking counts for the streak.
 - A Stats page (`/stats`, from Settings): saves, how many get opened and come back to, by kind,
   what-ifs, recipes cooked, and the last 8 weeks.
 

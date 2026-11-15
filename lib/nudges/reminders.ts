@@ -25,6 +25,10 @@ const WHATIF_MAX_AGE = 7 * DAY_MS;
 const BACKOFF_AFTER = 3;
 /** …for this long after the last one. */
 const BACKOFF_FOR = 2 * DAY_MS;
+/** The cook nudge goes out on this local weekday (Mon = 0): Saturday… */
+const COOK_WEEKDAY = 5;
+/** …and not again within this long. */
+const COOK_EVERY = 6 * DAY_MS;
 /** "Keep your 1-day streak" isn't worth a notification. */
 const STREAK_NUDGE_MIN = 2;
 
@@ -60,6 +64,7 @@ export type ReminderChoice =
   | { kind: 'streak'; days: number }
   | { kind: 'midweek'; whatIfsWaiting: number; saveDays: number }
   | { kind: 'whatif'; itemId: string; title: string | null; scenario: string }
+  | { kind: 'cook'; itemId: string; title: string | null; daysOnList: number }
   | { kind: 'review'; itemId: string; title: string | null; format: 'recall' | 'connect'; relatedTitle: string | null };
 
 /** Three untapped reminders in a row → quiet for two days after the last one. */
@@ -87,6 +92,27 @@ export function whatIfCandidate(items: FeedItem[], history: NudgeHistory[], now:
   );
 }
 
+/** A recipe on the Want to cook list (lib/recipes). */
+export interface CookListEntry {
+  itemId: string;
+  title: string | null;
+  addedAt: string;
+}
+
+/**
+ * Saturday's "cook one this weekend?": the recipe that's waited longest on the
+ * Want to cook list, preferring ones not nudged about before. At most one
+ * cook nudge every 6 days.
+ */
+export function cookCandidate(list: CookListEntry[], history: NudgeHistory[], now: Date, tz: string = DEFAULT_TZ): CookListEntry | null {
+  if (slotAt(now, tz).weekday !== COOK_WEEKDAY || !list.length) return null;
+  const sent = history.filter((h) => h.kind === 'cook');
+  if (sent.some((h) => now.getTime() - Date.parse(h.sent_at) < COOK_EVERY)) return null;
+  const nudged = new Set(sent.map((h) => h.item_id));
+  const oldestFirst = [...list].sort((a, b) => a.addedAt.localeCompare(b.addedAt));
+  return oldestFirst.find((e) => !nudged.has(e.itemId)) ?? oldestFirst[0];
+}
+
 /**
  * A save whose review card is due and hasn't been nudged about since it fell
  * due. Longest-waiting first.
@@ -104,8 +130,9 @@ export function reviewCandidate(items: FeedItem[], history: NudgeHistory[], now:
 /**
  * The reminder for this slot, or null. Only in one of your chosen slots, not
  * while backed off. In your last slot of the day: a streak about to break
- * wins, then (Wednesdays) the mid-week check-in; otherwise an unopened
- * what-if, then a review card that's due.
+ * wins, then (Wednesdays) the mid-week check-in; otherwise (Saturdays) a
+ * recipe from the Want to cook list, then an unopened what-if, then a review
+ * card that's due.
  */
 export function pickReminder(input: {
   feed: Pick<Feed, 'items' | 'streak' | 'week' | 'counts'>;
@@ -114,8 +141,10 @@ export function pickReminder(input: {
   now: Date;
   /** The user's time zone; slots and "Wednesday" are local. */
   tz?: string;
+  /** Recipes on the Want to cook list, for Saturday's cook nudge. */
+  cookList?: CookListEntry[];
 }): ReminderChoice | null {
-  const { feed, history, times, now, tz = DEFAULT_TZ } = input;
+  const { feed, history, times, now, tz = DEFAULT_TZ, cookList = [] } = input;
   const slot = slotAt(now, tz);
   if (!times.includes(slot.minutes) || backedOff(history, now)) return null;
   const lastSlot = slot.minutes === Math.max(...times);
@@ -126,6 +155,11 @@ export function pickReminder(input: {
   }
   if (lastSlot && slot.weekday === 2 && (counts.whatif > 0 || week.saveDays === 0)) {
     return { kind: 'midweek', whatIfsWaiting: counts.whatif, saveDays: week.saveDays };
+  }
+  const cook = cookCandidate(cookList, history, now, tz);
+  if (cook) {
+    const daysOnList = Math.max(0, Math.floor((now.getTime() - Date.parse(cook.addedAt)) / DAY_MS));
+    return { kind: 'cook', itemId: cook.itemId, title: cook.title, daysOnList };
   }
   const item = whatIfCandidate(feed.items, history, now);
   if (item?.whatIf) return { kind: 'whatif', itemId: item.id, title: item.title, scenario: item.whatIf };
@@ -154,6 +188,20 @@ export function reminderMessage(choice: ReminderChoice, nudgeId: string): PushMe
         actions: [
           { action: 'whatif', title: '💭 What if', url: trackedUrl(card, nudgeId, 'whatif') },
           { action: 'read', title: 'Read it first', url: trackedUrl(item, nudgeId, 'read') },
+        ],
+      };
+    }
+    case 'cook': {
+      const recipe = `/items/${choice.itemId}`;
+      const cookIt = `/cook/${choice.itemId}`;
+      const waited = choice.daysOnList >= 2 ? `It's been on your Want to cook list for ${choice.daysOnList} days.` : "It's on your Want to cook list.";
+      return {
+        title: choice.title ? `🍳 Cook “${clip(choice.title, 45)}” this weekend?` : '🍳 Cook something this weekend?',
+        body: `${waited} Step by step, with timers.`,
+        url: trackedUrl(recipe, nudgeId, 'open'),
+        actions: [
+          { action: 'play', title: '👩‍🍳 Start cooking', url: trackedUrl(cookIt, nudgeId, 'play') },
+          { action: 'read', title: 'See the recipe', url: trackedUrl(recipe, nudgeId, 'read') },
         ],
       };
     }

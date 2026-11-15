@@ -137,7 +137,17 @@ const GENERIC = new Set(
   'fresh large small medium big chopped sliced diced minced grated ground dried whole extra virgin powder sauce juice paste leaves leaf piece pieces clove cloves boneless skinless optional taste fine finely roughly plain white black green dark light unsalted salted cold warm room temperature'.split(' '),
 );
 
-const stem = (w: string) => (w.length > 4 ? w.replace(/(?:es|s)$/, '') : w);
+/** A word and its likely singulars: "cloves" → cloves, clove, clov; "tomatoes" → …, tomato. */
+export function wordForms(w: string): string[] {
+  if (w.length <= 3 || !w.endsWith('s')) return [w];
+  return w.endsWith('es') ? [w, w.slice(0, -1), w.slice(0, -2)] : [w, w.slice(0, -1)];
+}
+
+/** The same word, singular or plural ("clove" / "cloves", "tomato" / "tomatoes"). */
+export function sameWord(a: string, b: string): boolean {
+  const forms = wordForms(b);
+  return wordForms(a).some((f) => forms.includes(f));
+}
 const words = (text: string) => text.toLowerCase().replace(/\([^)]*\)/g, ' ').match(/[a-zà-ÿ]+/g) ?? [];
 
 /**
@@ -146,12 +156,12 @@ const words = (text: string) => text.toLowerCase().replace(/\([^)]*\)/g, ' ').ma
  * words (not "fresh", "sauce"…) appears in the step, singular or plural.
  */
 export function stepIngredients(stepText: string, ingredientNames: string[]): number[] {
-  const inStep = new Set(words(stepText).map(stem));
+  const inStep = new Set(words(stepText).flatMap(wordForms));
   return ingredientNames.flatMap((name, i) => {
     const own = words(name.split(',')[0]);
     const distinctive = own.filter((w) => w.length >= 3 && !GENERIC.has(w));
     // "Oil" or "salt" alone: nothing distinctive is left, so match the name itself.
     const terms = distinctive.length ? distinctive : own;
-    return terms.some((w) => inStep.has(stem(w))) ? [i] : [];
+    return terms.some((w) => wordForms(w).some((f) => inStep.has(f))) ? [i] : [];
   });
 }

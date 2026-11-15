@@ -41,7 +41,7 @@ changing code.
 | `lib/handlers` | Recipe + explainer handlers and the client-safe output schemas |
 | `lib/diagrams` | Mermaid lint → `mermaid.parse` (jsdom) → Kroki PNG → Storage |
 | `lib/lessons` | Lesson schemas (quiz/simulator/order/spot_bug), template pick, generation, results. Written only on request (Tools on the item page) |
-| `lib/recipes` | Recipes you come back to ([docs/recipes.md](docs/recipes.md)): `view.ts` (pure: times, search, filters, which ingredients a step uses, countdowns) and `service.ts` (the Recipes page list, Want to cook, the `cooks` log) |
+| `lib/recipes` | Recipes you come back to ([docs/recipes.md](docs/recipes.md)): `view.ts` (pure: times, search, filters, which ingredients a step uses, countdowns), `scale.ts` (pure: scaling amounts, ingredient groups, the shopping list, "What can I make?") and `service.ts` (the Recipes page list, Want to cook, the `cooks` log) |
 | `lib/stats.ts`, `lib/stats-service.ts` | The Stats page: saves, opens, came-back, what-ifs, recipes and the last 8 weeks, worked out in a pure function from plain rows |
 | `lib/whatif` | What if… cards ([docs/what-if.md](docs/what-if.md)): schema (client-safe), pure shaping and citation helpers (`shape.ts`), the Search + write calls (`generate.ts`), and the service (the save's own card, extra scenarios, caps) |
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights); the Topics page data, Flash-made themes (cached on `users.topic_themes`) and merge |
@@ -51,7 +51,7 @@ changing code.
 | `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min round the clock; each user's slots are in their own time zone) — registered in `functions.ts` |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet); `components/item` is the item page header (full-bleed image) and helpers |
-| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / What if buttons), reminders (`reminders.ts` picks what-if / review / Wednesday / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
+| `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / What if buttons), reminders (`reminders.ts` picks what-if / review / Wednesday / Saturday cook / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
 | `lib/reviews` | Bringing old saves back: the 3 → 10 → 30-day schedule from `reviews` rows (`schedule.ts`, pure), recall and Then-and-now cards (`service.ts`; the connection note is cached on `items.related.note`) |
 | `lib/items/feed.ts` | Saves feed logic, pure and tested: item states, Up next pick, streak with weekly freeze, week progress ([docs/saves-redesign.md](docs/saves-redesign.md)) |
 | `prompts/*.md` | Every AI prompt, editable without touching code |

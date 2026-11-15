@@ -8,6 +8,7 @@ import { shortAgo } from '@/components/feed/format';
 import { CookedForm, Stars } from '@/components/recipes/cooked-form';
 import { toggled, useCookProgress } from '@/components/recipes/use-cook-progress';
 import type { Recipe } from '@/lib/handlers/schemas';
+import { ingredientGroups, maxServings, shoppingList } from '@/lib/recipes/scale';
 import type { Cook } from '@/lib/recipes/view';
 
 /** What a saved recipe adds to the card: the cooking view, the Want to cook list and the cooked log. */
@@ -18,8 +19,10 @@ export interface SavedRecipe {
 }
 
 /**
- * A recipe you can cook from: stat tiles, an ingredient checklist and steps you
- * tap through (the next one is highlighted). A saved recipe (`saved`) also gets
+ * A recipe you can cook from: stat tiles with a servings stepper that rescales
+ * the amounts, an ingredient checklist (in the recipe's parts, when it has
+ * them) with a copyable shopping list, and steps you tap through (the next
+ * one is highlighted). A saved recipe (`saved`) also gets
  * Start cooking (the step-by-step view), Want to cook, and "I cooked this" with
  * your last note; its ticks are remembered on this device for the sitting.
  * Without `saved` (the standalone tool) there's a Cook mode toggle instead.
@@ -29,6 +32,20 @@ export function RecipeCard({ recipe, showTitle = true, saved }: { recipe: Recipe
   const have = new Set(progress.have);
   const done = new Set(progress.done);
   const current = recipe.steps.findIndex((_, i) => !done.has(i));
+  const servings = progress.servings ?? recipe.servings;
+  const factor = servings / recipe.servings;
+  const groups = ingredientGroups(recipe, factor);
+  const [copied, setCopied] = useState(false);
+
+  async function copyList() {
+    try {
+      await navigator.clipboard.writeText(shoppingList(recipe, { factor, servings, have: progress.have }));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <article>
@@ -36,7 +53,30 @@ export function RecipeCard({ recipe, showTitle = true, saved }: { recipe: Recipe
       <p className={`${showTitle ? 'mt-1' : ''} leading-relaxed text-muted`}>{recipe.description}</p>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <Stat icon="👥" label="Serves" value={String(recipe.servings)} />
+        <div className="rounded-2xl border border-line bg-surface px-1 py-3 text-center">
+          <div className="flex items-center justify-center gap-1">
+            <button
+              onClick={() => update({ servings: servings - 1 })}
+              disabled={servings <= 1}
+              aria-label="Fewer servings"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-lg font-bold disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="w-7 text-lg font-extrabold tabular-nums" aria-live="polite">
+              {servings}
+            </span>
+            <button
+              onClick={() => update({ servings: servings + 1 })}
+              disabled={servings >= maxServings(recipe.servings)}
+              aria-label="More servings"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-lg font-bold disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-muted">{factor === 1 ? 'Serves' : `Serves · was ${recipe.servings}`}</p>
+        </div>
         <Stat icon="🔪" label="Prep" value={recipe.prepTime || '—'} />
         <Stat icon="🔥" label="Cook" value={recipe.cookTime || '—'} />
       </div>
@@ -52,37 +92,44 @@ export function RecipeCard({ recipe, showTitle = true, saved }: { recipe: Recipe
             </span>
           )}
         </div>
-        <ul className="mt-3 flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-          {recipe.ingredients.map((ing, i) => {
-            const got = have.has(i);
-            const amount = [ing.quantity, ing.unit].filter(Boolean).join(' ');
-            return (
-              <li key={i}>
-                <button
-                  onClick={() => update({ have: toggled(progress.have, i) })}
-                  aria-pressed={got}
-                  className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left"
-                >
-                  <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-bg text-lg">
-                    {ing.emoji}
-                  </span>
-                  <span className={`min-w-0 flex-1 ${got ? 'text-muted line-through' : ''}`}>
-                    {amount && <span className="font-semibold">{amount} </span>}
-                    {ing.name}
-                  </span>
-                  <span
-                    aria-hidden
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
-                      got ? 'bg-success text-on-accent' : 'border-2 border-line'
-                    }`}
-                  >
-                    {got ? '✓' : ''}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {groups.map((group) => (
+          <div key={group.name ?? 'all'}>
+            {group.name && <p className="mt-4 text-sm font-bold">{group.name}</p>}
+            <ul className={`${group.name ? 'mt-2' : 'mt-3'} flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface`}>
+              {group.lines.map((line) => {
+                const got = have.has(line.index);
+                return (
+                  <li key={line.index}>
+                    <button
+                      onClick={() => update({ have: toggled(progress.have, line.index) })}
+                      aria-pressed={got}
+                      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left"
+                    >
+                      <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-bg text-lg">
+                        {line.emoji}
+                      </span>
+                      <span className={`min-w-0 flex-1 ${got ? 'text-muted line-through' : ''}`}>
+                        {line.amount && <span className="font-semibold">{line.amount} </span>}
+                        {line.name}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
+                          got ? 'bg-success text-on-accent' : 'border-2 border-line'
+                        }`}
+                      >
+                        {got ? '✓' : ''}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        <button onClick={copyList} className="mt-3 w-full rounded-xl border border-line bg-surface py-2.5 text-sm font-medium">
+          {copied ? '✓ Copied. Paste it into your notes' : have.size > 0 ? '📋 Copy shopping list (what you still need)' : '📋 Copy shopping list'}
+        </button>
       </section>
 
       <section className="mt-7">

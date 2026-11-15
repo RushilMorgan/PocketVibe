@@ -18,6 +18,11 @@ export const recipe = z.object({
         quantity: z.string().describe('Plain text, e.g. "1/2", "a pinch". Empty if unknown'),
         unit: z.string().describe('e.g. "cup", "g". Empty if none'),
         emoji: z.string().max(8),
+        group: z
+          .string()
+          .max(40)
+          .optional()
+          .describe('The part of the dish it belongs to, e.g. "Sauce", "Dough". Empty if the recipe has only one part'),
       }),
     )
     .min(1),
@@ -27,6 +32,13 @@ export const recipe = z.object({
         text: z.string().min(1),
         time: z.string().describe('How long this step takes, e.g. "5 min". Empty if instant'),
         emoji: z.string().max(8),
+        at: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .optional()
+          .describe('For a video: seconds from the start where this step begins. null if not a video or unsure'),
       }),
     )
     .min(1),

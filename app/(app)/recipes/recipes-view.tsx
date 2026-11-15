@@ -6,6 +6,7 @@ import { api } from '@/components/api';
 import { shortAgo } from '@/components/feed/format';
 import { Thumb } from '@/components/feed/thumb';
 import { Stars } from '@/components/recipes/cooked-form';
+import { parseHave, whatCanIMake } from '@/lib/recipes/scale';
 import { formatMinutes, shownRecipes, topTags, type RecipeFilter, type RecipeSummary } from '@/lib/recipes/view';
 
 const FILTERS: { key: RecipeFilter; label: string }[] = [
@@ -18,6 +19,7 @@ const FILTERS: { key: RecipeFilter; label: string }[] = [
 /**
  * Every saved recipe in one place (docs/recipes.md): search by name, tag or
  * ingredient, filter by list, time and tag. The Want to cook list is on top.
+ * "What can I make?" ranks them by the things you say you have.
  */
 export function RecipesView() {
   const [recipes, setRecipes] = useState<RecipeSummary[] | null>(null);
@@ -25,6 +27,8 @@ export function RecipesView() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<RecipeFilter | null>(null);
   const [tag, setTag] = useState<string | null>(null);
+  /** null = normal browsing; a string = "What can I make?" with these things typed. */
+  const [haveText, setHaveText] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ recipes: RecipeSummary[] }>('/api/recipes').then(
@@ -34,7 +38,13 @@ export function RecipesView() {
   }, []);
 
   const tags = useMemo(() => topTags(recipes ?? []), [recipes]);
-  const shown = useMemo(() => shownRecipes(recipes ?? [], { query, filter, tag }), [recipes, query, filter, tag]);
+  const have = useMemo(() => parseHave(haveText ?? ''), [haveText]);
+  const matches = useMemo(() => new Map(whatCanIMake(recipes ?? [], have).map((m) => [m.recipe.id, m])), [recipes, have]);
+  const making = haveText !== null;
+  const shown = useMemo(
+    () => (making ? [...matches.values()].map((m) => m.recipe) : shownRecipes(recipes ?? [], { query, filter, tag })),
+    [making, matches, recipes, query, filter, tag],
+  );
   const count = (f: RecipeFilter) => shownRecipes(recipes ?? [], { filter: f }).length;
 
   async function toggleWant(recipe: RecipeSummary) {
@@ -73,35 +83,62 @@ export function RecipesView() {
 
       {recipes && recipes.length > 0 && (
         <>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search recipes or ingredients, e.g. chicken"
-            aria-label="Search recipes"
-            className="rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
-          />
-
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-            <Chip active={!filter && !tag} onClick={() => (setFilter(null), setTag(null))}>
-              All <Count n={recipes.length} />
-            </Chip>
-            {FILTERS.filter((f) => count(f.key) > 0).map((f) => (
-              <Chip key={f.key} active={filter === f.key} onClick={() => (setFilter(filter === f.key ? null : f.key), setTag(null))}>
-                {f.label} <Count n={count(f.key)} />
-              </Chip>
-            ))}
-            {tags.map((t) => (
-              <Chip key={t} active={tag === t} onClick={() => (setTag(tag === t ? null : t), setFilter(null))}>
-                #{t}
-              </Chip>
-            ))}
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-line/60 p-1 text-sm font-medium">
+            <button onClick={() => setHaveText(null)} aria-pressed={!making} className={`rounded-lg py-2 ${!making ? 'bg-surface shadow-sm' : 'text-muted'}`}>
+              Browse
+            </button>
+            <button onClick={() => setHaveText(haveText ?? '')} aria-pressed={making} className={`rounded-lg py-2 ${making ? 'bg-surface shadow-sm' : 'text-muted'}`}>
+              🧺 What can I make?
+            </button>
           </div>
 
-          {shown.length === 0 ? (
+          {making ? (
+            <div>
+              <input
+                value={haveText}
+                onChange={(e) => setHaveText(e.target.value)}
+                placeholder="What do you have? e.g. chicken, rice, garlic"
+                aria-label="What you have"
+                autoFocus
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
+              />
+              <p className="mt-1.5 text-xs text-muted">Separate things with commas. Recipes that use the most of them come first.</p>
+            </div>
+          ) : (
+            <>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search recipes or ingredients, e.g. chicken"
+                aria-label="Search recipes"
+                className="rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
+              />
+
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+                <Chip active={!filter && !tag} onClick={() => (setFilter(null), setTag(null))}>
+                  All <Count n={recipes.length} />
+                </Chip>
+                {FILTERS.filter((f) => count(f.key) > 0).map((f) => (
+                  <Chip key={f.key} active={filter === f.key} onClick={() => (setFilter(filter === f.key ? null : f.key), setTag(null))}>
+                    {f.label} <Count n={count(f.key)} />
+                  </Chip>
+                ))}
+                {tags.map((t) => (
+                  <Chip key={t} active={tag === t} onClick={() => (setTag(tag === t ? null : t), setFilter(null))}>
+                    #{t}
+                  </Chip>
+                ))}
+              </div>
+            </>
+          )}
+
+          {making && have.length === 0 ? (
+            <p className="rounded-3xl border border-dashed border-line p-8 text-center text-sm text-muted">Type a few things you have in the kitchen.</p>
+          ) : shown.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-line p-8 text-center">
-              <p className="font-semibold">Nothing matches.</p>
-              <button onClick={() => (setQuery(''), setFilter(null), setTag(null))} className="mt-2 text-sm font-medium text-accent">
+              <p className="font-semibold">{making ? 'None of your recipes use those.' : 'Nothing matches.'}</p>
+              <button onClick={() => (setQuery(''), setFilter(null), setTag(null), setHaveText(null))} className="mt-2 text-sm font-medium text-accent">
                 Show all recipes
               </button>
             </div>
@@ -121,6 +158,14 @@ export function RecipesView() {
                           .join(' · ')}
                       </span>
                     </Link>
+                    {making && matches.get(r.id) && (
+                      <p className="mt-0.5 text-xs font-medium text-accent">
+                        Uses {matches.get(r.id)!.matched.join(', ')}
+                        <span className="font-normal text-muted">
+                          {matches.get(r.id)!.missing === 0 ? ' · nothing else needed' : ` · ${matches.get(r.id)!.missing} more to get`}
+                        </span>
+                      </p>
+                    )}
                     <p className="mt-0.5 truncate text-xs">
                       {r.cookedCount > 0 ? (
                         <span className="font-medium text-success">

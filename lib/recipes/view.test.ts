@@ -114,6 +114,12 @@ describe('stepIngredients', () => {
     expect(stepIngredients('Drizzle with olive oil.', names)).toEqual([2]);
   });
 
+  it('matches singular against plural either way round', () => {
+    expect(stepIngredients('Slice the tomatoes and one onion.', ['Tomato', 'Red onions'])).toEqual([0, 1]);
+    // "clove" is too general to tie garlic to a step on its own.
+    expect(stepIngredients('Crush one clove.', ['Garlic cloves'])).toEqual([]);
+  });
+
   it("doesn't match on general words", () => {
     // "sauce" alone shouldn't pull in soy sauce; "fresh" shouldn't pull in coriander.
     expect(stepIngredients('Simmer the sauce until thick, then serve fresh.', names)).toEqual([]);

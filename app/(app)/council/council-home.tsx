@@ -10,7 +10,7 @@ import { VerdictBadge } from './verdict';
 
 const POLL_MS = 5000;
 
-/** The Council tab: put an idea to it, and the sessions so far. */
+/** The Council tab: run anything by it (an idea, a decision, a claim, a question), and the sessions so far. */
 export function CouncilHome() {
   const router = useRouter();
   const [sessions, setSessions] = useState<CouncilSummary[] | null>(null);
@@ -51,7 +51,8 @@ export function CouncilHome() {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Council</h1>
       <p className="mt-1 text-sm text-muted">
-        Five AI models from different labs research your idea, argue about it, and agree a verdict and next steps.
+        Run anything by five AI models from different labs: an idea, a decision, a claim you read, a question. They research it,
+        argue it out, and agree an answer.
       </p>
 
       <form onSubmit={submit} className="mt-5">
@@ -59,7 +60,7 @@ export function CouncilHome() {
           required
           minLength={10}
           rows={5}
-          placeholder="Describe the idea — what it is, who it's for, anything you already know."
+          placeholder="What do you want a second opinion on? e.g. Should I switch to a heat pump? · Is creatine worth taking? · My idea for a…"
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
           className="w-full resize-y rounded-xl border border-line bg-surface px-4 py-3 outline-none focus:border-accent"
@@ -85,7 +86,8 @@ export function CouncilHome() {
         ))}
         {sessions?.length === 0 && (
           <li className="rounded-xl border border-dashed border-line p-6 text-center text-muted">
-            No ideas yet. Try a business idea, an app feature, or a decision you&apos;re stuck on.
+            Nothing yet. Try an idea, a decision you&apos;re stuck on, or something you read and aren&apos;t sure is true. You can also
+            send any save here from its page.
           </li>
         )}
       </ul>
@@ -104,7 +106,7 @@ function SessionCard({ session: s }: { session: CouncilSummary }) {
       <p className="mt-1.5 font-medium leading-snug">{s.title ?? s.idea.slice(0, 90)}</p>
       {s.verdict && (
         <div className="mt-2 flex flex-col items-start gap-1.5">
-          <VerdictBadge verdict={s.verdict} />
+          <VerdictBadge verdict={s.verdict} mode={s.mode} />
           {s.headline && <p className="line-clamp-2 text-sm text-muted">{s.headline}</p>}
         </div>
       )}

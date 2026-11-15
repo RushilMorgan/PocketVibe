@@ -290,7 +290,10 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   edge functions are closed or deleted, and `/tools/recipe-extractor` (kept at its old URL) now
   requires sign-in.
 
-**Council (not in the spec)**
+**Council (not in the spec; [docs/council.md](docs/council.md))**
+- It takes anything, not only ideas: the chair frames it as a decision, a claim or a question, and
+  the verdict is worded to match (Go / Holds up / Clear answer …). Any save can be sent to it from
+  its page with an optional question; the session and the save link to each other.
 - A fifth tab, `/council`: put an idea to five models from different labs (via OpenRouter) that
   frame it, research it on the web, take independent views, cross-examine each other (anonymised),
   and vote on the chair's report — one revision if anyone objects, dissent kept verbatim. Then

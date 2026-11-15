@@ -9,18 +9,43 @@ import type { Seat } from './roster';
 export const VERDICTS = ['go', 'refine', 'park', 'drop'] as const;
 export type Verdict = (typeof VERDICTS)[number];
 
-export const VERDICT_LABEL: Record<Verdict, string> = {
-  go: 'Go',
-  refine: 'Refine first',
-  park: 'Park it',
-  drop: 'Drop it',
+/**
+ * What was brought to the council (the chair decides when framing). The four
+ * verdict values are the same scale in every mode, from "yes" to "no"; the
+ * mode sets what they mean and how they're worded.
+ */
+export const MODES = ['decision', 'claim', 'question'] as const;
+export type Mode = (typeof MODES)[number];
+
+export const VERDICT_LABELS: Record<Mode, Record<Verdict, string>> = {
+  /** An idea, plan or choice to act on. */
+  decision: { go: 'Go', refine: 'Refine first', park: 'Park it', drop: 'Drop it' },
+  /** Is this true? Does it hold up? */
+  claim: { go: 'Holds up', refine: 'Partly true', park: 'Unproven', drop: "Doesn't hold up" },
+  /** What's the answer? Which is better? What should I make of this? */
+  question: { go: 'Clear answer', refine: 'Likely, with caveats', park: 'It depends', drop: "Can't say yet" },
+};
+
+/** Sessions from before modes have none: they were all ideas. */
+export function verdictLabel(verdict: Verdict, mode?: Mode | null): string {
+  return VERDICT_LABELS[mode ?? 'decision'][verdict];
+}
+
+export const VERDICT_LABEL = VERDICT_LABELS.decision;
+
+/** How the report's steps are headed, and what each step's "kill signal" is called. */
+export const STEPS_LABEL: Record<Mode, { heading: string; signal: string }> = {
+  decision: { heading: 'Next steps', signal: 'Stop if: ' },
+  claim: { heading: 'How to check it', signal: 'It would be wrong if: ' },
+  question: { heading: 'What to do with this', signal: 'Think again if: ' },
 };
 
 const confidence = z.number().int().min(1).max(5);
 const line = z.string().trim().min(1).max(600);
 
-/** Chair, stage 1: what is this idea, and what does judging it need? */
+/** Chair, stage 1: what was brought, and what does weighing it up need? */
 export const frameSchema = z.object({
+  mode: z.enum(MODES),
   title: z.string().trim().min(1).max(80),
   kind: z.string().trim().min(1).max(40),
   restated: z.string().trim().min(1).max(1200),
@@ -133,6 +158,8 @@ export interface MemberVote extends Vote {
 export interface Report extends Draft {
   title: string;
   kind: string;
+  /** Missing on reports from before modes (all ideas). */
+  mode?: Mode;
   sources: Source[];
   votes: MemberVote[];
   /** True when the first draft was sent back and rewritten. */
@@ -145,7 +172,7 @@ export const STAGES = ['frame', 'research', 'takes', 'debate', 'synthesis', 'rat
 export type Stage = (typeof STAGES)[number];
 
 export const STAGE_LABEL: Record<Stage, string> = {
-  frame: 'Framing the idea',
+  frame: 'Framing it',
   research: 'Researching the web',
   takes: 'Members forming views',
   debate: 'Cross-examining each other',
@@ -155,7 +182,11 @@ export const STAGE_LABEL: Record<Stage, string> = {
   done: 'Done',
 };
 
-export const newSessionRequest = z.object({ idea: z.string().trim().min(10).max(6000) });
+/** Anything typed on the Council tab, or one of your saves with an optional question about it. */
+export const newSessionRequest = z.union([
+  z.object({ idea: z.string().trim().min(10).max(6000) }),
+  z.object({ itemId: z.uuid(), question: z.string().trim().max(600).optional() }),
+]);
 export const followupRequest = z.object({ question: z.string().trim().min(2).max(2000) });
 
 // ── API responses ───────────────────────────────────────────────────────────
@@ -167,6 +198,7 @@ export interface CouncilSummary {
   status: SessionStatus;
   stage: string;
   verdict: Verdict | null;
+  mode: Mode | null;
   headline: string | null;
   createdAt: string;
 }
@@ -188,6 +220,8 @@ export interface CouncilSessionView {
   stage: string;
   error: string | null;
   report: Report | null;
+  /** The save this session is about, if it was referred from one. */
+  item: { id: string; title: string | null } | null;
   createdAt: string;
   costUsd: number;
   seats: { seat: Seat; label: string; model: string }[];

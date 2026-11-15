@@ -8,7 +8,7 @@ import { tally } from '@/lib/council/format';
 import type { Seat } from '@/lib/council/roster';
 import {
   STAGE_LABEL,
-  VERDICT_LABEL,
+  STEPS_LABEL,
   type CouncilSessionView,
   type CouncilTurn,
   type FollowupAnswer,
@@ -21,7 +21,7 @@ import {
   type Take,
   type Vote,
 } from '@/lib/council/schemas';
-import { VerdictBadge } from '../verdict';
+import { useVerdictLabel, VerdictBadge, VerdictMode } from '../verdict';
 
 const POLL_MS = 3000;
 const PROGRESS: Stage[] = ['frame', 'research', 'takes', 'debate', 'synthesis', 'ratify'];
@@ -29,7 +29,7 @@ const VOTE_LABEL: Record<Vote['vote'], string> = { agree: 'Agrees', agree_with_c
 
 type Seats = CouncilSessionView['seats'];
 
-/** One idea before the Council: live progress, then the ratified report, the debate, and follow-ups. */
+/** One thing before the Council (an idea, a decision, a claim, a question): live progress, then the ratified report, the debate, and follow-ups. */
 export function SessionView({ id }: { id: string }) {
   const [session, setSession] = useState<CouncilSessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,13 +74,25 @@ export function SessionView({ id }: { id: string }) {
   const rounds = [...new Set(session.turns.filter((t) => t.round > 0).map((t) => t.round))];
 
   return (
-    <div>
+    <VerdictMode value={session.report?.mode ?? null}>
       <BackLink />
       <div className="mt-4 rounded-2xl border border-line bg-surface p-5">
         {session.report && <p className="text-xs text-muted">{session.report.kind}</p>}
-        <h1 className="mt-1 text-xl font-semibold leading-snug">{session.title ?? 'New idea'}</h1>
+        <h1 className="mt-1 text-xl font-semibold leading-snug">{session.title ?? 'With the council'}</h1>
+        {session.item && (
+          <Link href={`/items/${session.item.id}`} className="mt-2 flex items-center gap-2 rounded-xl bg-bg px-3 py-2 text-sm">
+            <span aria-hidden>📥</span>
+            <span className="min-w-0 flex-1 truncate">
+              <span className="text-muted">About your save </span>
+              <span className="font-medium">{session.item.title ?? 'Untitled'}</span>
+            </span>
+            <span aria-hidden className="text-muted">
+              →
+            </span>
+          </Link>
+        )}
         <details className="mt-2 text-sm text-muted">
-          <summary className="cursor-pointer">Your idea</summary>
+          <summary className="cursor-pointer">What you sent</summary>
           <p className="mt-2 whitespace-pre-wrap">{session.idea}</p>
         </details>
 
@@ -108,14 +120,14 @@ export function SessionView({ id }: { id: string }) {
       )}
 
       {session.costUsd > 0 && <p className="mt-6 text-center text-xs text-muted">Cost so far ${session.costUsd.toFixed(2)}</p>}
-    </div>
+    </VerdictMode>
   );
 }
 
 function BackLink() {
   return (
     <Link href="/council" className="text-sm text-muted">
-      ← All ideas
+      ← All sessions
     </Link>
   );
 }
@@ -244,7 +256,7 @@ function ReportView({ report, seats }: { report: Report; seats: Seats }) {
       )}
 
       <section className="mt-5">
-        <h2 className="font-semibold">Next steps</h2>
+        <h2 className="font-semibold">{STEPS_LABEL[report.mode ?? 'decision'].heading}</h2>
         <ol className="mt-2 flex flex-col divide-y divide-line rounded-xl border border-line">
           {report.next_steps.map((s, i) => (
             <li key={i} className="flex gap-3 px-3 py-3">
@@ -258,7 +270,7 @@ function ReportView({ report, seats }: { report: Report; seats: Seats }) {
                 </div>
                 <p className="mt-1 text-sm text-muted">{s.why}</p>
                 <p className="mt-1 text-sm">
-                  <span className="font-medium">Stop if: </span>
+                  <span className="font-medium">{STEPS_LABEL[report.mode ?? 'decision'].signal}</span>
                   {s.kill_signal}
                 </p>
               </div>
@@ -317,6 +329,7 @@ function SourceList({ sources }: { sources: Source[] }) {
 // ── How they got there ───────────────────────────────────────────────────────
 
 function Transcript({ turns, seats }: { turns: CouncilTurn[]; seats: Seats }) {
+  const label = useVerdictLabel();
   const of = (stage: string) => turns.filter((t) => t.stage === stage && t.member !== 'chair');
   const takes = of('take');
   const rebuttals = of('rebut');
@@ -366,7 +379,7 @@ function Transcript({ turns, seats }: { turns: CouncilTurn[]; seats: Seats }) {
             return (
               <Member key={t.member} turn={t} seats={seats}>
                 <p>
-                  Now: <span className="font-medium">{VERDICT_LABEL[r.stance]}</span>
+                  Now: <span className="font-medium">{label(r.stance)}</span>
                   {r.changed_mind && <span className="text-muted"> — {r.changed_mind}</span>}
                 </p>
                 {r.challenges.length > 0 && (
@@ -492,7 +505,7 @@ function FollowupForm({ id, busy, onSent }: { id: string; busy: boolean; onSent:
   }
 
   async function remove() {
-    if (!confirm('Delete this idea and everything the council said about it?')) return;
+    if (!confirm('Delete this session and everything the council said?')) return;
     await api(`/api/council/${id}`, { method: 'DELETE' });
     router.push('/council');
   }
@@ -515,7 +528,7 @@ function FollowupForm({ id, busy, onSent }: { id: string; busy: boolean; onSent:
       </form>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
       <button onClick={remove} className="mt-6 text-sm text-muted underline">
-        Delete this idea
+        Delete this session
       </button>
     </div>
   );

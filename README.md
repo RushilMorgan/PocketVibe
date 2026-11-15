@@ -26,8 +26,9 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
    (at the times you pick in Settings, in your phone's time zone) nudge you about an unopened what-if, a Wednesday check-in or a
    streak about to break, and **review cards** bring saves back after 3, 10 and 30 days (recall the
    key ideas, or "Then and now" for connected saves).
-7. **Council** tab: describe an idea and five models from different labs (through OpenRouter)
-   research it, argue it out and vote on a verdict with next steps; then ask follow-ups.
+7. **Council** tab: run anything by five models from different labs (through OpenRouter): an idea, a
+   decision, a claim, a question. They research it, argue it out and vote on an answer; then ask
+   follow-ups. Any save can be sent to the council from its page.
 8. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
    for each of your top 3 topics, and one what-if you haven't opened.
 

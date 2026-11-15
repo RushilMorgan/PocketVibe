@@ -8,6 +8,7 @@ import { Chat } from '@/components/chat';
 import { DiagramCard } from '@/components/diagram-card';
 import { ExplainerCard, SectionLabel } from '@/components/explainer-card';
 import { Thumb } from '@/components/feed/thumb';
+import { CouncilCard } from '@/components/item/council-card';
 import { ItemHero } from '@/components/item/item-hero';
 import { RecipeCard } from '@/components/recipe-card';
 import { WhatIfSection } from '@/components/whatif-card';
@@ -25,7 +26,7 @@ type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, file
 /**
  * One saved item: a full-bleed header with its picture, then — once read —
  * the what-if card, the explainer or recipe, tools (re-explain, diagram, a
- * lesson on request), similar saves and a chat.
+ * lesson on request), similar saves, the Council card and a chat.
  * While it's being read it shows progress; on failure, Retry.
  */
 export function ItemView({ id }: { id: string }) {
@@ -130,7 +131,6 @@ export function ItemView({ id }: { id: string }) {
           {explainer && (
             <WhatIfSection
               itemId={item.id}
-              itemTitle={item.title}
               outputs={whatIfs}
               onAdded={addOutput}
               onAsk={(text) => setChatDraft((d) => ({ text, n: (d?.n ?? 0) + 1 }))}
@@ -157,6 +157,7 @@ export function ItemView({ id }: { id: string }) {
           {explainer && <Tools item={item} onOutput={putOutput} hasDiagram={Boolean(diagram)} playLessonId={playLessonId} />}
           <Feedback itemId={item.id} thumbs={thumbs} setThumbs={setThumbs} />
           <Similar itemId={item.id} />
+          <CouncilCard itemId={item.id} />
 
           <section className="mt-8 rounded-3xl border border-line bg-surface p-4">
             <h2 className="mb-3 flex items-center gap-2 font-bold">

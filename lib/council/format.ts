@@ -9,7 +9,8 @@ import type { Draft, Frame, MemberVote, Rebuttal, Source, Take } from './schemas
 
 export function frameText(frame: Frame): string {
   return [
-    `Idea (${frame.kind}): ${frame.restated}`,
+    `Mode: ${frame.mode ?? 'decision'}`,
+    `What was brought (${frame.kind}): ${frame.restated}`,
     `Assumptions it rests on:\n${frame.assumptions.map((a) => `- ${a}`).join('\n')}`,
     `Sections to judge it on:\n${frame.sections.map((s) => `- ${s.key}: ${s.heading} — ${s.focus}`).join('\n')}`,
   ].join('\n\n');

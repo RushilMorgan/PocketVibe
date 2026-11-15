@@ -1,9 +1,13 @@
 import 'server-only';
 import { councilEnv } from '@/lib/env';
+import type { Explainer, Recipe } from '@/lib/handlers/schemas';
+import { recipeText } from '@/lib/handlers/schemas';
 import { HttpError } from '@/lib/http';
+import { getItem } from '@/lib/items/service';
 import { councilFollowupQueued, councilQueued, inngest } from '@/lib/jobs/client';
 import type { CouncilSessionRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
+import { saveBrief } from './refer';
 import { roster } from './run';
 import { SEATS } from './roster';
 import type { CouncilSessionView, CouncilSummary, CouncilTurn, Report } from './schemas';
@@ -13,13 +17,17 @@ import type { CouncilSessionView, CouncilSummary, CouncilTurn, Report } from './
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export async function listSessions(userId: string): Promise<CouncilSummary[]> {
-  const { data, error } = await adminClient()
+/** Every session, newest first; with `itemId`, only the ones about that save. */
+export async function listSessions(userId: string, itemId?: string): Promise<CouncilSummary[]> {
+  if (itemId !== undefined && !isUuid(itemId)) return [];
+  let query = adminClient()
     .from('council_sessions')
     .select('id, title, idea, status, stage, report, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(50);
+  if (itemId) query = query.eq('item_id', itemId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((s) => {
     const report = s.report as unknown as Report | null;
@@ -30,6 +38,7 @@ export async function listSessions(userId: string): Promise<CouncilSummary[]> {
       status: s.status,
       stage: s.stage,
       verdict: report?.verdict ?? null,
+      mode: report ? (report.mode ?? 'decision') : null,
       headline: report?.headline ?? null,
       createdAt: s.created_at,
     };
@@ -54,6 +63,12 @@ export async function getSession(userId: string, id: string): Promise<CouncilSes
     .order('round')
     .order('created_at');
   if (error) throw error;
+  let item: CouncilSessionView['item'] = null;
+  if (row.item_id) {
+    const { data: saved, error: itemError } = await adminClient().from('items').select('id, title').eq('id', row.item_id).eq('user_id', userId).maybeSingle();
+    if (itemError) throw itemError;
+    item = saved;
+  }
   const seats = roster();
   return {
     id: row.id,
@@ -63,6 +78,7 @@ export async function getSession(userId: string, id: string): Promise<CouncilSes
     stage: row.stage,
     error: row.error,
     report: row.report as unknown as Report | null,
+    item,
     createdAt: row.created_at,
     costUsd: (turns ?? []).reduce((sum, t) => sum + Number(t.cost_usd), 0),
     seats: SEATS.map((seat) => ({ seat, label: seats[seat].label, model: seats[seat].model })),
@@ -77,7 +93,28 @@ export async function getSession(userId: string, id: string): Promise<CouncilSes
   };
 }
 
-export async function createSession(userId: string, idea: string): Promise<{ id: string }> {
+/**
+ * Runs one of your saves by the council: the brief is your question (or a
+ * default one) plus what the save says. The session is linked to the save.
+ */
+export async function referSave(userId: string, itemId: string, question?: string): Promise<{ id: string }> {
+  const item = await getItem(userId, itemId);
+  if (item.status !== 'done') throw new HttpError(409, "This one hasn't been read yet.");
+  const explainer = item.outputs.find((o) => o.type === 'explainer')?.content as unknown as Explainer | undefined;
+  const recipe = item.outputs.find((o) => o.type === 'recipe')?.content as unknown as Recipe | undefined;
+  const brief = saveBrief(question, {
+    title: item.title,
+    url: item.url,
+    kind: item.kind,
+    gist: explainer?.lines ?? (recipe ? [recipe.description] : []),
+    whyItMatters: explainer?.why_it_matters,
+    // A recipe's clean card says more than its noisy page.
+    text: recipe ? recipeText(recipe) : item.raw_text,
+  });
+  return createSession(userId, brief, itemId);
+}
+
+export async function createSession(userId: string, idea: string, itemId: string | null = null): Promise<{ id: string }> {
   const db = adminClient();
   const { count, error: countError } = await db
     .from('council_sessions')
@@ -89,7 +126,7 @@ export async function createSession(userId: string, idea: string): Promise<{ id:
     throw new HttpError(429, "That's the council's limit for today — try again tomorrow.");
   }
 
-  const { data, error } = await db.from('council_sessions').insert({ user_id: userId, idea }).select('id').single();
+  const { data, error } = await db.from('council_sessions').insert({ user_id: userId, idea, item_id: itemId }).select('id').single();
   if (error) throw error;
   await enqueue(userId, data.id);
   return { id: data.id };

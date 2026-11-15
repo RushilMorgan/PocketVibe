@@ -48,7 +48,7 @@ changing code.
 | `lib/topic-view.ts`, `lib/time.ts` | Pure: Topics page shaping (trends, themes, mix, `displayTopic` for acronyms) and local dates/times in the user's time zone |
 | `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
 | `lib/digest` | Weekly digest: your week, Search-grounded finds, an unopened what-if, email, tracking links |
-| `lib/council` | Council: roster, stage schemas, prompt-text helpers + vote logic (`format.ts`), stages (`run.ts`), sessions |
+| `lib/council` | Council ([docs/council.md](docs/council.md)): roster, stage schemas and the per-mode verdict wording (`schemas.ts`), prompt-text helpers + vote logic (`format.ts`), the brief for a referred save (`refer.ts`), stages (`run.ts`), sessions |
 | `lib/jobs` | Inngest functions: `process-item`, `weekly-digest`, `council-run`, `council-followup`, `reminders` (cron, every 30 min round the clock; each user's slots are in their own time zone) — registered in `functions.ts` |
 | `components/` | Client UI; `components/lessons` has one player per template on a shared shell; `components/feed` is the saves feed (cards, Up next, streak, + sheet); `components/item` is the item page header (full-bleed image) and helpers |
 | `lib/nudges` | Pushes other than the digest: the "ready" message (thumbnail, Read / What if buttons), reminders (`reminders.ts` picks what-if / review / Wednesday / Saturday cook / streak for the user's `reminder_times` slots, with back-off; `send.ts` sends), and tap tracking via the `nudges` table (`?n=&a=` on the URL, reported by `components/nudge-tap.tsx`) |
@@ -77,6 +77,9 @@ changing code.
 - Chat threads are server-owned: the client sends only the new question; `lib/chat.ts` loads earlier
   turns from `chat_messages`, saves the question, and saves the answer when the stream ends (or
   whatever arrived, if it breaks). An item's thread has its `item_id`; the Ask tab's is `null`.
+- The Council's verdict is stored as one scale (`go` / `refine` / `park` / `drop`) whatever was
+  brought; the chair's `mode` (decision / claim / question) only changes how it's worded. Show it
+  with `verdictLabel`, never the raw value.
 - Council turns are the job's cache: `run.ts` returns an existing `council_turns` row instead of
   calling the model again, so Retry only pays for unfinished stages. A member whose step gives up
   is dropped (quorum 3); research is best-effort.

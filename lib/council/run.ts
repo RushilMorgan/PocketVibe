@@ -115,7 +115,7 @@ const section = (title: string, body: string) => `## ${title}\n${body}`;
 // ── Round 0 ──────────────────────────────────────────────────────────────────
 
 export function frame(ctx: RunCtx, idea: string): Promise<Frame> {
-  return ask(ctx, 'frame', 'chair', 'council-frame', frameSchema, section('The idea', idea), { effort: 'medium' });
+  return ask(ctx, 'frame', 'chair', 'council-frame', frameSchema, section('What was brought to the council', idea), { effort: 'medium' });
 }
 
 /** Web research on some of the questions. Null if the search fails: members then work without it. */
@@ -125,7 +125,7 @@ export async function research(ctx: RunCtx, seat: MemberSeat, idea: string, ques
       const out = await orText({
         model,
         system: await prompt('council-research', seatVars(seat)),
-        user: [section('The idea', idea), section('Research questions', questions.map((q) => `- ${q}`).join('\n'))].join('\n\n'),
+        user: [section('What the council is weighing up', idea), section('Research questions', questions.map((q) => `- ${q}`).join('\n'))].join('\n\n'),
         effort: 'low',
         web: true,
       });
@@ -138,7 +138,7 @@ export async function research(ctx: RunCtx, seat: MemberSeat, idea: string, ques
 }
 
 export function take(ctx: RunCtx, seat: MemberSeat, f: Frame, researchBody: string): Promise<Take> {
-  return ask(ctx, 'take', seat, 'council-take', takeSchema, [section('Framed idea', frameText(f)), section('Research', researchBody)].join('\n\n'));
+  return ask(ctx, 'take', seat, 'council-take', takeSchema, [section('The frame', frameText(f)), section('Research', researchBody)].join('\n\n'));
 }
 
 export function rebut(ctx: RunCtx, seat: MemberSeat, f: Frame, takes: Partial<Record<MemberSeat, Take>>): Promise<Rebuttal> {
@@ -148,7 +148,7 @@ export function rebut(ctx: RunCtx, seat: MemberSeat, f: Frame, takes: Partial<Re
     seat,
     'council-rebut',
     rebuttalSchema,
-    [section('Framed idea', frameText(f)), section('Your view', takeText(takes[seat]!)), section('The other members', othersText(takes, seat))].join('\n\n'),
+    [section('The frame', frameText(f)), section('Your view', takeText(takes[seat]!)), section('The other members', othersText(takes, seat))].join('\n\n'),
     { effort: 'low' },
   );
 }
@@ -167,7 +167,7 @@ export function synthesize(
     'chair',
     'council-synthesize',
     draftSchema,
-    [section('Framed idea', frameText(f)), section('Research', researchBody), section('The debate', debateText(takes, rebuttals))].join('\n\n'),
+    [section('The frame', frameText(f)), section('Research', researchBody), section('The debate', debateText(takes, rebuttals))].join('\n\n'),
     { vars: pc, effort: 'high' },
   );
 }
@@ -187,7 +187,7 @@ export async function ratify(
     seat,
     'council-ratify',
     voteSchema,
-    [section('Framed idea', frameText(f)), section('Your final view', ownView), section('The draft report', draftText(draft))].join('\n\n'),
+    [section('The frame', frameText(f)), section('Your final view', ownView), section('The draft report', draftText(draft))].join('\n\n'),
     { effort: 'low' },
   );
   return { ...vote, member: seat };
@@ -200,7 +200,7 @@ export function revise(ctx: RunCtx, pc: PromptContext, f: Frame, draft: Draft, v
     'chair',
     'council-revise',
     draftSchema,
-    [section('Framed idea', frameText(f)), section('Your draft', draftText(draft)), section('The votes', votesText(labelVotes(votes)))].join('\n\n'),
+    [section('The frame', frameText(f)), section('Your draft', draftText(draft)), section('The votes', votesText(labelVotes(votes)))].join('\n\n'),
     { vars: pc, effort: 'medium' },
   );
 }

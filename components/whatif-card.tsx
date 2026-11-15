@@ -22,13 +22,11 @@ const LIKELIHOOD_STYLE: Record<WhatIf['likelihood']['level'], string> = {
  */
 export function WhatIfSection({
   itemId,
-  itemTitle,
   outputs,
   onAdded,
   onAsk,
 }: {
   itemId: string;
-  itemTitle: string | null;
   /** The save's 'whatif' outputs. */
   outputs: ItemOutputRow[];
   onAdded: (output: ItemOutputRow) => void;
@@ -95,8 +93,8 @@ export function WhatIfSection({
     setBusy('debate');
     setError(null);
     try {
-      const idea = itemTitle ? `${scenario}\n\n(From something I saved: ${itemTitle})` : scenario;
-      const { id } = await api<{ id: string }>('/api/council', { body: { idea } });
+      // Sent as a referral of this save, so the council gets what it says and the session links back here.
+      const { id } = await api<{ id: string }>('/api/council', { body: { itemId, question: scenario } });
       router.push(`/council/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

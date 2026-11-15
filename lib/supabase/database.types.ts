@@ -168,6 +168,9 @@ export type ChatMessageRow = {
 export type CouncilSessionRow = {
   id: string;
   user_id: string;
+  /** The save this session is about, when it was referred from one (lib/council/refer.ts). */
+  item_id: string | null;
+  /** What was brought: typed on the Council tab, or the brief built from a save. */
   idea: string;
   title: string | null;
   status: 'queued' | 'running' | 'done' | 'failed';

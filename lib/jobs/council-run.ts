@@ -94,7 +94,7 @@ export const councilRun = inngest.createFunction(
       revised = true;
     }
 
-    const report: Report = { ...draft, title: frame.title, kind: frame.kind, sources, votes, revised };
+    const report: Report = { ...draft, title: frame.title, kind: frame.kind, mode: frame.mode ?? 'decision', sources, votes, revised };
     await step.run('finish', () =>
       setStatus(userId, sessionId, { status: 'done', stage: 'done', report: report as unknown as CouncilSessionRow['report'] }),
     );

@@ -1,8 +1,7 @@
 # Recipes you come back to — spec and plan
 
-Status (2026-11-15): **first set live** (migration `20261114202426_recipes_cooks`). **Second set built on a
-branch, not live**: its one migration, `20261115090000_cook_nudge`, widens a CHECK on `nudges.kind`
-and is written but not applied (it needs a yes).
+Status (2026-11-15): **both sets live** (migrations `20261114202426_recipes_cooks` and
+`20261115082158_cook_nudge`, both applied).
 
 ## Why
 
@@ -33,7 +32,7 @@ Limits:
   mentions in passing.
 - Progress is per device.
 
-## Second set (built, not live)
+## Second set (built)
 
 | What | How |
 |---|---|

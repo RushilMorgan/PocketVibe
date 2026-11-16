@@ -203,6 +203,36 @@ export type CookRow = {
   created_at: string;
 }
 
+/** A framework kept in the Playbook (lib/playbook). */
+export type FrameworkRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  /** The name normalised (lib/playbook/shape.ts nameKey); one per user, so re-met frameworks aren't added twice. */
+  name_key: string;
+  /** lib/playbook/schema.ts FrameworkContent. */
+  content: Json;
+  created_at: string;
+}
+
+/** Which saves a framework came from. Deleting the save drops the link, not the framework. */
+export type FrameworkItemRow = {
+  framework_id: string;
+  item_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+/** An idea worked through the playbook. */
+export type PlaybookRunRow = {
+  id: string;
+  user_id: string;
+  idea: string;
+  /** lib/playbook/schema.ts RunContent. */
+  content: Json;
+  created_at: string;
+}
+
 export type NudgeRow = {
   id: string;
   user_id: string;
@@ -283,6 +313,9 @@ export interface Database {
       nudges: Table<NudgeRow, 'user_id' | 'kind'>;
       reviews: Table<ReviewRow, 'user_id' | 'item_id' | 'format' | 'rating'>;
       cooks: Table<CookRow, 'user_id' | 'item_id'>;
+      frameworks: Table<FrameworkRow, 'user_id' | 'name' | 'name_key' | 'content'>;
+      framework_items: Table<FrameworkItemRow, 'framework_id' | 'item_id' | 'user_id'>;
+      playbook_runs: Table<PlaybookRunRow, 'user_id' | 'idea' | 'content'>;
       council_turns: Table<CouncilTurnRow, 'session_id' | 'user_id' | 'stage' | 'member' | 'model' | 'content'>;
       ai_usage: Table<AiUsageRow, 'user_id' | 'feature' | 'provider' | 'model'>;
     };

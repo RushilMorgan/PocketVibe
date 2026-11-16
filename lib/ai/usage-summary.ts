@@ -13,6 +13,8 @@ export const FEATURES = {
   diagram: 'Diagrams',
   whatif: 'What ifs',
   whatif_search: 'What-if research',
+  frameworks: 'Pulling out frameworks',
+  playbook: 'Playbook',
   lesson: 'Lessons',
   index: 'Indexing for Ask',
   chat: 'Ask and chat',

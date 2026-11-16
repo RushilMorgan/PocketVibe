@@ -21,6 +21,8 @@ const VARS: Record<string, string[]> = {
   'topic-themes': ['topics'],
   'whatif-facts': ['scenario', 'title'],
   whatif: [...CTX, 'scenario'],
+  frameworks: [...CTX, 'existing'],
+  'playbook-apply': CTX,
   'review-connect': [...CTX, 'then_age', 'then_title', 'then_text', 'now_age', 'now_title', 'now_text'],
   'council-frame': ['lens'],
   'council-research': ['lens'],

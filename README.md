@@ -29,6 +29,8 @@ everything you've saved. Every Sunday it sends a digest of your week plus new fi
 7. **Council** tab: run anything by five models from different labs (through OpenRouter): an idea, a
    decision, a claim, a question. They research it, argue it out and vote on an answer; then ask
    follow-ups. Any save can be sent to the council from its page.
+   **Playbook** tab: the frameworks and mental models your saves teach, kept in one place; type an
+   idea and it is worked through the ones that fit ([docs/playbook.md](docs/playbook.md)).
 8. **Sundays 18:00 SAST** a cron builds the **weekly digest**: what you saved, 3 Search-grounded finds
    for each of your top 3 topics, and one what-if you haven't opened.
 

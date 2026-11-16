@@ -323,6 +323,14 @@ Deliberate changes, each made for a measured or practical reason. How the code w
   (Read / What if), Up next (review due → newest unread with a what-if → oldest unread), the
   reminder slot, the streak (an opened what-if counts) and the digest's suggestion.
 
+**Playbook (not in the spec; [docs/playbook.md](docs/playbook.md))**
+- When a save teaches a framework, mental model, principle or method, it is pulled out and kept in a
+  sixth tab, `/playbook`: what it is, its parts, when to use it, where it breaks, the source's example
+  and the questions it makes you ask. Any other save can be searched for them from its page.
+- Type an idea there and it is worked through up to three frameworks that fit (or the ones you
+  choose): what each shows, what you'd need to find out, a bottom line and next steps. A finished
+  run can go to the Council. Tables `frameworks`, `framework_items` and `playbook_runs`.
+
 **Saves redesign (not in the spec; [docs/saves-redesign.md](docs/saves-redesign.md))**
 (Where this section mentions lessons in the feed, push, Up next and reminders, the what-if has since
 taken that place; see above.)

@@ -12,6 +12,7 @@ import { markFailed, saveOutput } from '@/lib/items/service';
 import { notifyUser } from '@/lib/notify';
 import { readyMessage } from '@/lib/nudges/ready';
 import { readyNudgeId } from '@/lib/nudges/service';
+import { ensureItemFrameworks } from '@/lib/playbook/service';
 import { getPromptContext, recordItemTopics } from '@/lib/profile';
 import type { ItemRow } from '@/lib/supabase/database.types';
 import { adminClient } from '@/lib/supabase/server';
@@ -21,7 +22,7 @@ import { inngest, itemQueued } from './client';
 
 /**
  * Shared link → useful version: fetch → classify → handle → (diagram) → index
- * → (what-if) → notify.
+ * → (frameworks) → (what-if) → notify.
  * Each step is retried on its own by Inngest, so a flaky Gemini call doesn't
  * redo the work before it, and every step is safe to re-run.
  */
@@ -132,6 +133,19 @@ export const processItem = inngest.createFunction(
       }
     });
     await step.run('topics', () => recordItemTopics(userId, itemId, meta.tags));
+
+    // Playbook (docs/playbook.md): keep the frameworks this save teaches.
+    // Best-effort — the item page offers "Pull out frameworks" if this gives up.
+    if (meta.kind !== 'recipe' && meta.has_frameworks) {
+      await step.run('frameworks', async () => {
+        try {
+          return await ensureItemFrameworks(userId, itemId, { title: meta.title, text: rawText });
+        } catch (err) {
+          console.error('frameworks failed, playbook unchanged', err);
+          return 0;
+        }
+      });
+    }
 
     // What if… (docs/what-if.md B2): written before the push so it's there on open.
     // Best-effort — the item page offers "Try again" if this gives up.

@@ -31,7 +31,7 @@ changing code.
 
 | Path | What |
 |---|---|
-| `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/recipes`, `/ask`, `/council`, `/council/[id]`, `/topics`, `/settings`, `/stats`, `/digest/[id]` |
+| `app/(app)/` | Signed-in pages with the tab bar: feed `/`, `/items/[id]`, `/recipes`, `/ask`, `/council`, `/council/[id]`, `/playbook`, `/playbook/runs/[id]`, `/topics`, `/settings`, `/stats`, `/digest/[id]` |
 | `app/play/[lessonId]`, `app/review/[itemId]`, `app/cook/[itemId]` | Full-screen lesson player, review card and cooking view (no tab bar) |
 | `app/share`, `app/auth/callback`, `app/d/[id]` | Share target (POST), magic-link landing, signed digest-link tracker |
 | `app/tools/recipe-extractor` | Standalone recipe tool at the old URL (sign-in required) |
@@ -44,6 +44,7 @@ changing code.
 | `lib/recipes` | Recipes you come back to ([docs/recipes.md](docs/recipes.md)): `view.ts` (pure: times, search, filters, which ingredients a step uses, countdowns), `scale.ts` (pure: scaling amounts, ingredient groups, the shopping list, "What can I make?") and `service.ts` (the Recipes page list, Want to cook, the `cooks` log) |
 | `lib/stats.ts`, `lib/stats-service.ts` | The Stats page: saves, opens, came-back, what-ifs, recipes and the last 8 weeks, worked out in a pure function from plain rows |
 | `lib/whatif` | What if… cards ([docs/what-if.md](docs/what-if.md)): schema (client-safe), pure shaping and citation helpers (`shape.ts`), the Search + write calls (`generate.ts`), and the service (the save's own card, extra scenarios, caps) |
+| `lib/playbook` | Playbook ([docs/playbook.md](docs/playbook.md)): schemas (client-safe), pure helpers (`shape.ts`: one key per framework name, the picker's list, finishing a run, search, the Council brief), the three AI calls (`generate.ts`), and the service (frameworks per save, the playbook, runs) |
 | `lib/index`, `lib/profile.ts`, `lib/topics.ts` | Chunk + embed; interest profile (topic weights); the Topics page data, Flash-made themes (cached on `users.topic_themes`) and merge |
 | `lib/topic-view.ts`, `lib/time.ts` | Pure: Topics page shaping (trends, themes, mix, `displayTopic` for acronyms) and local dates/times in the user's time zone |
 | `lib/chat.ts` | "Ask" retrieval, streaming answers with citations, saved threads (`chat_messages`) |
@@ -74,6 +75,9 @@ changing code.
   template at a time: Flash picks the template, Pro writes JSON for just that schema.
 - Nothing fails silently: a job that gives up sets `items.status = 'failed'` with a user-readable
   `error`. Best-effort extras (diagram, lesson pre-write, push) catch and log instead of failing the item.
+- A framework is in the playbook once (`frameworks.name_key`, from `nameKey`); meeting it in another
+  save adds a `framework_items` link, not a second copy. A playbook run only uses frameworks the
+  writer was given: it cites them by number and `finishRun` drops any lens whose number wasn't offered.
 - Chat threads are server-owned: the client sends only the new question; `lib/chat.ts` loads earlier
   turns from `chat_messages`, saves the question, and saves the answer when the stream ends (or
   whatever arrived, if it breaks). An item's thread has its `item_id`; the Ask tab's is `null`.

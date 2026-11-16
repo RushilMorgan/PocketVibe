@@ -9,6 +9,7 @@ import { DiagramCard } from '@/components/diagram-card';
 import { ExplainerCard, SectionLabel } from '@/components/explainer-card';
 import { Thumb } from '@/components/feed/thumb';
 import { CouncilCard } from '@/components/item/council-card';
+import { FrameworksSection } from '@/components/item/frameworks-section';
 import { ItemHero } from '@/components/item/item-hero';
 import { RecipeCard } from '@/components/recipe-card';
 import { WhatIfSection } from '@/components/whatif-card';
@@ -25,8 +26,8 @@ type OnOutput = (type: 'explainer' | 'diagram', value: Explainer | Diagram, file
 
 /**
  * One saved item: a full-bleed header with its picture, then — once read —
- * the what-if card, the explainer or recipe, tools (re-explain, diagram, a
- * lesson on request), similar saves, the Council card and a chat.
+ * the what-if card, the explainer or recipe, its frameworks for the playbook,
+ * tools (re-explain, diagram, a lesson on request), similar saves, the Council card and a chat.
  * While it's being read it shows progress; on failure, Retry.
  */
 export function ItemView({ id }: { id: string }) {
@@ -154,6 +155,7 @@ export function ItemView({ id }: { id: string }) {
             )}
           </div>
 
+          {explainer && <FrameworksSection itemId={item.id} />}
           {explainer && <Tools item={item} onOutput={putOutput} hasDiagram={Boolean(diagram)} playLessonId={playLessonId} />}
           <Feedback itemId={item.id} thumbs={thumbs} setThumbs={setThumbs} />
           <Similar itemId={item.id} />

@@ -11,6 +11,8 @@ export const classification = z.object({
   has_structure: z.boolean(),
   /** A what-if scenario question for this save (docs/what-if.md B1), or null when none makes sense. */
   what_if: z.string().min(1).max(200).nullable(),
+  /** Whether it teaches a framework worth keeping in the Playbook (docs/playbook.md). */
+  has_frameworks: z.boolean(),
 });
 
 export type Classification = z.infer<typeof classification>;
@@ -29,5 +31,6 @@ export async function classify(text: string, ctx: PromptContext): Promise<Classi
     tags: [...new Set(result.tags.map((t) => t.trim().toLowerCase()))],
     // Recipes never get one, whatever the model says.
     what_if: result.kind === 'recipe' ? null : result.what_if?.trim() || null,
+    has_frameworks: result.kind === 'recipe' ? false : result.has_frameworks,
   };
 }
